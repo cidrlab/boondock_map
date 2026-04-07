@@ -1,0 +1,43 @@
+{
+  "name": "boondock",
+  "version": "0.1.0",
+  "description": "Offline topo map for boondocking, hiking, and off-road exploration",
+  "main": "src/main/main.js",
+  "author": "tt",
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently -n vite,electron -c cyan,yellow \"vite\" \"node scripts/wait-and-launch.js\"",
+    "build": "vite build && electron-builder",
+    "preview": "vite preview",
+    "electron": "electron ."
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "electron": "^29.4.6",
+    "electron-builder": "^24.13.3",
+    "vite": "^5.4.14"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "maplibre-gl": "^4.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sql.js": "^1.12.0",
+    "uuid": "^9.0.1"
+  },
+  "build": {
+    "appId": "com.boondock.map",
+    "productName": "Boondock Map",
+    "mac": {
+      "category": "public.app-category.navigation",
+      "target": ["dmg", "zip"]
+    },
+    "files": [
+      "dist/**/*",
+      "src/main/**/*",
+      "src/shared/**/*",
+      "node_modules/**/*"
+    ]
+  }
+}

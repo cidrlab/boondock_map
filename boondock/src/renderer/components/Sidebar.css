@@ -1,0 +1,443 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Sidebar — Boondock Map
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Tabs ──────────────────────────────────────────────────────────────────── */
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+
+.tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: all 0.12s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-btn svg { opacity: 0.6; transition: opacity 0.12s; }
+.tab-btn:hover svg { opacity: 0.8; }
+.tab-btn.active svg { opacity: 1; }
+
+/* ── Search wrapper ───────────────────────────────────────────────────────── */
+.search-wrapper {
+  padding: 10px 12px 6px;
+  flex-shrink: 0;
+}
+
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  overflow: hidden;
+}
+.search-input-row:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+.search-input-row input {
+  border: none;
+  background: transparent;
+  padding: 7px 8px 7px 0;
+  flex: 1;
+  min-width: 0;
+}
+.search-input-row input:focus { box-shadow: none; }
+
+.search-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  border-radius: var(--radius-xs);
+  transition: all 0.1s;
+}
+.search-clear:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Search history dropdown ─────────────────────────────────────────────── */
+.search-history {
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.search-history-hdr {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 8px 10px 4px;
+}
+
+.search-history-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.08s;
+  color: var(--text-secondary);
+}
+.search-history-item:last-child { border-bottom: none; }
+.search-history-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.search-history-item svg { flex-shrink: 0; opacity: 0.4; }
+
+.search-history-info { flex: 1; min-width: 0; }
+.search-history-name {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.search-history-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.search-history-more {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  text-align: center;
+  border-top: 1px solid var(--border);
+  transition: background 0.08s;
+}
+.search-history-more:hover { background: var(--accent-dim); }
+
+/* ── POI quick-search chips ──────────────────────────────────────────────── */
+.poi-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 12px 4px;
+}
+
+.poi-chip {
+  padding: 3px 9px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.poi-chip:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+.poi-chip.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-muted); }
+
+/* POI results */
+.poi-results {
+  margin: 4px 12px 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* ── Coordinate card ──────────────────────────────────────────────────────── */
+.coord-card {
+  margin-top: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--accent-muted);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.coord-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.coord-dd {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 10px;
+}
+.coord-actions { display: flex; gap: 6px; }
+
+/* ── Geocoder results ─────────────────────────────────────────────────────── */
+.geo-results {
+  margin-top: 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  max-height: 300px;
+  overflow-y: auto;
+}
+.geo-loading {
+  padding: 14px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.geo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.08s;
+}
+.geo-item:last-child { border-bottom: none; }
+.geo-item:hover, .geo-item.focused { background: var(--bg-hover); }
+
+.geo-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: var(--radius-xs);
+  background: var(--accent-dim);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.geo-info { flex: 1; min-width: 0; }
+.geo-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.geo-sub { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+
+.geo-pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  opacity: 0;
+  transition: all 0.1s;
+  flex-shrink: 0;
+}
+.geo-item:hover .geo-pin-btn, .geo-item.focused .geo-pin-btn { opacity: 1; }
+.geo-pin-btn:hover { background: var(--accent-dim); color: var(--accent); }
+
+/* ── Content area ─────────────────────────────────────────────────────────── */
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.section-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+}
+.empty p { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+.dl-info { font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 14px; }
+
+/* ── Waypoint list ────────────────────────────────────────────────────────── */
+.wp-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+
+.wp-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.1s;
+}
+.wp-item:hover { background: var(--bg-hover); }
+.wp-item.selected { background: var(--bg-tertiary); border-color: var(--accent-muted); }
+
+.wp-dot {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+  margin-top: 1px;
+}
+
+.wp-info { flex: 1; min-width: 0; }
+.wp-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wp-meta { font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.wp-notes { font-size: 11px; color: var(--text-secondary); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.wp-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.wp-item:hover .wp-actions, .wp-item.selected .wp-actions { opacity: 1; }
+
+/* Edit form */
+.wp-edit { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.wp-edit input, .wp-edit textarea { width: 100%; }
+.wp-edit-actions { display: flex; gap: 6px; }
+
+.icon-picker { display: flex; gap: 4px; flex-wrap: wrap; }
+.icon-picker button {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all 0.1s;
+}
+.icon-picker button:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.icon-picker button.active { border-color: var(--accent); background: var(--accent-dim); }
+
+/* ── Track list ───────────────────────────────────────────────────────────── */
+.track-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.track-info { flex: 1; }
+.track-name { font-size: 13px; font-weight: 500; }
+.track-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ── Layer picker ─────────────────────────────────────────────────────────── */
+.layer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 5px;
+}
+
+.layer-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: center;
+  transition: all 0.12s;
+  cursor: pointer;
+}
+.layer-card:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+.layer-card.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.layer-card-label { line-height: 1.3; }
+
+/* ── Overlay buttons ──────────────────────────────────────────────────────── */
+.overlay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.overlay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: center;
+  transition: all 0.12s;
+  cursor: pointer;
+}
+.overlay-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-strong); }
+.overlay-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.overlay-btn-label { line-height: 1.3; }
+
+/* ── Pack list ────────────────────────────────────────────────────────────── */
+.pack-list { list-style: none; margin-top: 16px; display: flex; flex-direction: column; gap: 4px; }
+.pack-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: var(--bg-tertiary); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); font-size: 12px;
+}

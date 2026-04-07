@@ -1,0 +1,109 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* ── Base palette — CiDR Lab-inspired dark navy ────────────────────── */
+  --bg-primary:     #10151c;
+  --bg-secondary:   #19222C;          /* CiDR dark navy */
+  --bg-tertiary:    #1e2a38;
+  --bg-elevated:    #223754;          /* CiDR blue navy */
+  --bg-hover:       #2a4060;
+  --bg-active:      #324a6a;
+
+  /* Glass / transparency */
+  --glass:          rgba(25, 34, 44, 0.90);
+  --glass-border:   rgba(255, 255, 255, 0.06);
+  --glass-hover:    rgba(255, 255, 255, 0.05);
+
+  /* Borders */
+  --border:         rgba(255, 255, 255, 0.08);
+  --border-strong:  rgba(255, 255, 255, 0.14);
+
+  /* Accent — CiDR red */
+  --accent:         #F9322B;
+  --accent-hover:   #ff4f48;
+  --accent-dim:     rgba(249, 50, 43, 0.12);
+  --accent-muted:   rgba(249, 50, 43, 0.25);
+
+  /* Secondary accent — CiDR blue navy */
+  --accent-blue:    #223754;
+  --accent-blue-light: #e8eef4;       /* CiDR cool blue tint */
+
+  /* Semantic */
+  --success:        #34d399;
+  --danger:         #f87171;
+  --warning:        #fbbf24;
+
+  /* Text */
+  --text-primary:   #e8eef4;          /* CiDR cool blue tint */
+  --text-secondary: rgba(232, 238, 244, 0.58);
+  --text-muted:     rgba(232, 238, 244, 0.34);
+
+  /* Sizing */
+  --sidebar-w:      300px;
+  --toolbar-h:      42px;
+  --statusbar-h:    30px;
+  --radius:         10px;
+  --radius-sm:      6px;
+  --radius-xs:      4px;
+
+  /* Shadows */
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md:      0 4px 16px rgba(0,0,0,0.4);
+  --shadow-lg:      0 8px 40px rgba(0,0,0,0.5);
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+  color: inherit;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: 13px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 7px 11px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+
+textarea { resize: vertical; }
+select { cursor: pointer; }
+
+/* ── Scrollbars ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+/* ── Transition utility ────────────────────────────────────────────────── */
+.transition { transition: all 0.15s ease; }

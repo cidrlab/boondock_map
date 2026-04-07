@@ -1,0 +1,88 @@
+.dl-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 400px;
+  box-shadow: var(--shadow-lg);
+}
+
+.dl-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.dl-modal-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dl-bbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 7px 10px;
+  margin-bottom: 16px;
+}
+
+.dl-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  margin-top: 12px;
+}
+.dl-label:first-of-type { margin-top: 0; }
+
+.dl-modal input, .dl-modal select { margin-bottom: 0; }
+
+.dl-zoom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.dl-estimate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 16px 0;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+}
+.dl-warn { color: var(--warning); font-weight: 500; }
+
+.dl-progress { margin-bottom: 16px; }
+.dl-progress-bar {
+  height: 4px;
+  background: var(--bg-primary);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.dl-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.dl-progress-text { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.dl-actions { display: flex; gap: 8px; align-items: center; }
+.dl-downloading { font-size: 12px; color: var(--text-secondary); }

@@ -1,0 +1,150 @@
+.toolbar {
+  height: var(--toolbar-h);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 6px;
+  -webkit-app-region: drag;
+  user-select: none;
+  position: relative;
+  z-index: 100;
+  flex-shrink: 0;
+}
+
+.toolbar-left {
+  width: 170px;
+  padding-left: 72px; /* macOS traffic lights */
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  transition: background 0.1s;
+}
+.toolbar-brand:hover { background: var(--bg-hover); }
+.brand-text {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.toolbar-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* ── Toolbar buttons ─────────────────────────────────────────────────────── */
+.tb-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.12s;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+.tb-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.tb-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: all 0.1s;
+}
+.tb-icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.tb-icon-btn.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* ── Record / Stop — CiDR brand red ─────────────────────────────────────── */
+.record-btn {
+  border-color: var(--accent-muted);
+  color: var(--accent);
+}
+.record-btn:hover { background: var(--accent-dim); }
+.record-btn svg circle { fill: var(--accent); stroke: var(--accent); }
+
+.recording-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 500;
+  padding: 4px 12px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(249,50,43,0.2);
+  border-radius: 100px;
+}
+
+.rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.85); }
+}
+
+.stop-btn {
+  border-color: var(--accent-muted);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.stop-btn:hover { background: rgba(249,50,43,0.18); }
+
+/* ── Stop modal ──────────────────────────────────────────────────────────── */
+.stop-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 340px;
+  box-shadow: var(--shadow-lg);
+}
+.stop-modal h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+}
+.stop-modal input { margin-bottom: 16px; }
+.stop-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }

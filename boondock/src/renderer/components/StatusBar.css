@@ -1,0 +1,61 @@
+.statusbar {
+  height: var(--statusbar-h);
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.sb-left { display: flex; align-items: center; gap: 8px; }
+
+.sb-rec {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--danger);
+  font-weight: 500;
+  font-size: 11px;
+}
+.sb-rec-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.85); }
+}
+
+.sb-right { display: flex; align-items: center; }
+
+.sb-coord {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 3px;
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  transition: all 0.12s;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+}
+.sb-coord:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.sb-coord-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
