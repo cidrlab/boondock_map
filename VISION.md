@@ -44,6 +44,10 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 22 | Design-forward basemap with elevation markers (custom style: hillshade + labeled contours) | ✅ v1 shipped 2026-07-11 — the Boondock base: OpenFreeMap vector + Mapzen hillshade, CiDR palette, peak elevations in feet; plus Topo Overlay (USGS contours + figures) for any base. Native vector contour lines still a future refinement |
 | 23 | Clean water fill stations (free + pay) and dump stations | 🟡 Dump/RV + Water POI chips shipped 2026-07-11 (OSM `sanitary_dump_station` / `water_point`); free-vs-pay detail needs a richer data layer |
 | 24 | Baseline list of places to start from | 🟡 WA baseline shipped 2026-07-11 (OSM extract, committed to repo); next: remaining states (scripted Overpass sweep), Recreation.gov RIDB for fed/state paid campgrounds (Tim needs to register a free API key), BLM/USFS facilities. FreeRoam's own data unrecoverable (verified) |
+| 25 | Everything interactive — hover/click details on roads, places, features | 🟡 v1 2026-07-11: tap MVUM roads for name/details (identify), tap basemap roads for names, site popups, hover elevation in the status bar. More feature kinds + hover states next |
+| 26 | Light daylight basemap | ✅ Boondock Day shipped 2026-07-11 |
+| 27 | Numbered search/POI results — numbered pins on the map matching a numbered, pickable list (both directions) | ⬜ |
+| 28 | Complete WA RV park coverage (e.g. Cedars RV Resort, Ferndale missing from OSM) — merge a redistributable state dataset | ⬜ agent hunting sources 2026-07-11; redistributable-only policy (no Google/Yelp/commercial directory scraping) |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,
@@ -199,7 +203,10 @@ config generation).
   download an area (box or current view) into device storage, served to the
   map pack-first/network-fallback on desktop and web, with a pack manager
   (list/size/delete). Remaining: prebuilt PMTiles region packs, more offline
-  layers after tile-service terms verification.
+  layers after tile-service terms verification. Speed note: MVUM/trails are
+  drawn on demand by USFS servers (inherently slow); pre-rendering them into
+  self-hosted PMTiles is the performance + offline fix in one, and matters
+  more than native apps for perceived speed.
 - **Phase 3 — The boondocking layer:** *first slice shipped 2026-07-11* —
   Sites database (WA baseline) + true MVUM + the Boondock basemap + Topo
   Overlay. Remaining: national spot coverage, RIDB paid campgrounds,
