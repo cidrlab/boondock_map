@@ -36,12 +36,18 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 14 | Navigate to a spot via Google Maps / Apple Maps handoff | ⬜ (easy: deep links) |
 | 15 | In-app navigation independent of Google/Apple (forest roads aren't in those) | ⬜ (hard: routing engine; FreeRoam used Valhalla) |
 | 16 | Area updates: search local social media + state/federal announcements (closures, access) | ⬜ |
+| 17 | Paid spots too: RV parks, paid state & federal campgrounds | ⬜ |
+| 18 | Amenities on spots (hookups, dump, water, showers…) | ⬜ |
+| 19 | Cell phone coverage map (per carrier) | ⬜ |
+| 20 | Solar coverage / sun exposure at a spot | ⬜ |
+| 21 | Rank spots (ratings + reviews) | ⬜ |
+
+Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
+iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,
+offline) — as one free app.
 
 ### Claude's suggested additions
 
-- **Cell-coverage overlay per carrier** — FreeRoam shipped this (verified:
-  AT&T/Sprint/T-Mobile/Verizon MBTiles in their tile server); boondockers pick
-  spots by signal. FCC broadband data is the usual source.
 - **Public-land legality helper** — tap a spot → "this is BLM / USFS / private"
   from the land-status layer, plus agency office contact (FreeRoam modeled
   `agency`/`office`/`region` for exactly this).
@@ -52,7 +58,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 - **GPX/data portability first** — import from Gaia/iOverlander exports so
   nobody starts from zero; user data always exportable. (Fear of data lock-in
   is a top reason people hesitate to leave Gaia — research, unverified.)
-- **Elevation profile + sun exposure for a spot** (free DEM data).
+- **Elevation profile along tracks/roads** (free DEM data).
 - **Fix now:** waypoint deletion bug, track recording, offline serving — see
   "Current state" below.
 
@@ -207,6 +213,17 @@ caching is likely restricted — may need to swap satellite sources for offline
 packs); OSM ODbL attribution/share-alike duties for derived spot data;
 iOverlander data availability post-paywall; Open-Meteo/NWS API terms; FCC
 cell-coverage data terms; OpenTopoMap CC-BY-SA.
+
+## Credits & attribution policy
+
+Tim's standing rule (2026-07-11): credit where credit is due, always. Anything
+we learn from, adapt, or reuse gets cited — in code comments at the reuse
+site, in the README acknowledgments, and in the app's about/credits screen
+when one exists. That starts with **FreeRoam** (Austin & Rachel — feature set,
+data model, and architecture reference; any reused code from their Unlicense
+client gets a source link), and applies equally to data providers (USGS, USFS,
+BLM, ESRI, OpenStreetMap contributors, Nominatim, Overpass), libraries
+(MapLibre GL, React, Vite, sql.js), and community sources we build on.
 
 ## Open questions for Tim
 

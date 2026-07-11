@@ -230,6 +230,10 @@ The full product vision and phased build plan live in [VISION.md](VISION.md).
 
 ## Acknowledgments
 
+Inspired by [FreeRoam](https://github.com/FreeRoamApp) by Austin & Rachel — an
+open-source boondocking app whose feature set and architecture inform this
+project's roadmap.
+
 Built with free and open data:
 - [OpenStreetMap](https://www.openstreetmap.org/) contributors
 - [USGS National Map](https://www.usgs.gov/tools/national-map)
