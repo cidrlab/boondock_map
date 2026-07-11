@@ -9,6 +9,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   plugins: [react()],
   root: resolve(__dirname, 'src/renderer'),
+  // Shared static assets (Sites data, icons) live in web/public — one copy
+  publicDir: resolve(__dirname, '../web/public'),
   base: './',
   build: {
     outDir: resolve(__dirname, 'dist'),

@@ -9,7 +9,7 @@
  * a later phase (VISION.md).
  */
 
-import { BASE_LAYERS, OVERLAY_LAYERS } from './layers'
+import { BASE_LAYERS, OVERLAY_LAYERS, PACK_LAYERS } from './layers'
 
 const DB_NAME = 'boondock-tiles'
 const PACKS = 'packs'
@@ -66,10 +66,13 @@ export function tilesInBbox(bbox, minZoom, maxZoom) {
 }
 
 // ── Layer registry: id → remote URL template ────────────────────────────────
+// direct-render layers (bbox templates) can't go through the tile protocol
 const TEMPLATES = {}
-for (const [id, l] of Object.entries({ ...BASE_LAYERS, ...OVERLAY_LAYERS })) {
-  if (l.tileUrl) TEMPLATES[id] = { template: l.tileUrl, subdomains: l.subdomains }
+for (const [id, l] of Object.entries({ ...BASE_LAYERS, ...OVERLAY_LAYERS, ...PACK_LAYERS })) {
+  if (l.tileUrl && !l.direct) TEMPLATES[id] = { template: l.tileUrl, subdomains: l.subdomains }
 }
+// Legacy pack layerIds from the pre-v3 layer model keep rendering
+TEMPLATES['esri-satellite'] = TEMPLATES['satellite']
 
 function remoteUrl(layerId, z, x, y) {
   const t = TEMPLATES[layerId]

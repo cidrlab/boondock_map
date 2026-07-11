@@ -1,0 +1,259 @@
+/**
+ * The Boondock basemap — our own terrain style.
+ *
+ * CiDR navy terrain: client-rendered hillshade under a minimalist vector
+ * map. Water and forest carry the brand navies, roads are cool-blue
+ * hairlines, and mountain peaks label their elevation in feet. Sources are
+ * keyless and free: OpenFreeMap vector tiles (OpenMapTiles schema) and the
+ * public terrain-tiles DEM on AWS (Mapzen terrarium encoding).
+ */
+
+const GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf'
+
+// Palette — derived from BRAND.md tokens
+const C = {
+  land:       '#16202b',
+  landDark:   '#121a23',
+  forest:     '#1b2b34',   // wooded ground sits slightly lighter than clearings
+  scrub:      '#182631',
+  park:       '#1a2c40',
+  water:      '#223754',
+  waterway:   '#35506e',
+  building:   '#222f3d',
+  roadMajor:  '#587a9e',
+  roadMid:    '#47617e',
+  roadMinor:  '#3a536e',
+  path:       '#6b87a6',
+  rail:       '#31414f',
+  boundary:   'rgba(232, 238, 244, 0.28)',
+  textBright: '#e8eef4',
+  text:       '#c6d4e2',
+  textDim:    '#9fb4c8',
+  textFaint:  '#6d8098',
+  halo:       '#0e141b',
+}
+
+export const BOONDOCK_GLYPHS = GLYPHS
+
+export function buildBoondockStyle() {
+  return {
+    version: 8,
+    glyphs: GLYPHS,
+    sources: {
+      omt: {
+        type: 'vector',
+        url: 'https://tiles.openfreemap.org/planet',
+        attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors',
+      },
+      dem: {
+        type: 'raster-dem',
+        tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+        encoding: 'terrarium',
+        tileSize: 256,
+        maxzoom: 14,
+        attribution: 'Terrain: Mapzen terrain tiles (USGS 3DEP, SRTM) via AWS',
+      },
+    },
+    layers: [
+      { id: 'bg', type: 'background', paint: { 'background-color': C.land } },
+
+      // Terrain first: everything else reads on top of the relief
+      {
+        id: 'hillshade', type: 'hillshade', source: 'dem',
+        paint: {
+          'hillshade-exaggeration': 0.32,
+          'hillshade-shadow-color': '#070b10',
+          'hillshade-highlight-color': '#52719b',
+          'hillshade-accent-color': '#0d131b',
+        },
+      },
+
+      // ── Landcover ──────────────────────────────────────────────────────
+      {
+        id: 'landcover-wood', type: 'fill', source: 'omt', 'source-layer': 'landcover',
+        filter: ['any', ['==', ['get', 'class'], 'wood'], ['==', ['get', 'class'], 'forest']],
+        paint: { 'fill-color': C.forest, 'fill-opacity': 0.5 },
+      },
+      {
+        id: 'landcover-scrub', type: 'fill', source: 'omt', 'source-layer': 'landcover',
+        filter: ['any', ['==', ['get', 'class'], 'grass'], ['==', ['get', 'class'], 'scrub'], ['==', ['get', 'class'], 'wetland']],
+        paint: { 'fill-color': C.scrub, 'fill-opacity': 0.4 },
+      },
+      {
+        id: 'landcover-ice', type: 'fill', source: 'omt', 'source-layer': 'landcover',
+        filter: ['==', ['get', 'class'], 'ice'],
+        paint: { 'fill-color': '#28394c', 'fill-opacity': 0.5 },
+      },
+      {
+        id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
+        paint: { 'fill-color': C.park, 'fill-opacity': 0.3 },
+      },
+      {
+        id: 'landuse-residential', type: 'fill', source: 'omt', 'source-layer': 'landuse',
+        filter: ['any', ['==', ['get', 'class'], 'residential'], ['==', ['get', 'class'], 'commercial'], ['==', ['get', 'class'], 'industrial']],
+        paint: { 'fill-color': C.landDark, 'fill-opacity': 0.6 },
+      },
+
+      // ── Water ──────────────────────────────────────────────────────────
+      {
+        id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water',
+        paint: { 'fill-color': C.water },
+      },
+      {
+        id: 'waterway', type: 'line', source: 'omt', 'source-layer': 'waterway',
+        paint: {
+          'line-color': C.waterway,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 8, 0.5, 14, 2.2],
+        },
+      },
+
+      // ── Buildings (close zooms only) ───────────────────────────────────
+      {
+        id: 'building', type: 'fill', source: 'omt', 'source-layer': 'building', minzoom: 14,
+        paint: { 'fill-color': C.building, 'fill-opacity': 0.7 },
+      },
+
+      // ── Aeroway / rail ─────────────────────────────────────────────────
+      {
+        id: 'aeroway', type: 'line', source: 'omt', 'source-layer': 'aeroway', minzoom: 10,
+        paint: { 'line-color': C.roadMinor, 'line-width': 1.5 },
+      },
+      {
+        id: 'rail', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['==', ['get', 'class'], 'rail'],
+        paint: { 'line-color': C.rail, 'line-width': 1, 'line-dasharray': [4, 3] },
+      },
+
+      // ── Roads — cool-blue hairlines, thinner than anyone else's ───────
+      {
+        id: 'road-path', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 12,
+        filter: ['==', ['get', 'class'], 'path'],
+        paint: {
+          'line-color': C.path,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 12, 0.6, 16, 1.6],
+          'line-dasharray': [2.5, 1.6],
+        },
+      },
+      {
+        id: 'road-track', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 10,
+        filter: ['==', ['get', 'class'], 'track'],
+        paint: {
+          'line-color': C.path,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.5, 16, 2],
+          'line-dasharray': [4, 2],
+        },
+      },
+      {
+        id: 'road-minor', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['in', ['get', 'class'], ['literal', ['minor', 'service']]],
+        minzoom: 11,
+        paint: {
+          'line-color': C.roadMinor,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 11, 0.5, 18, 5],
+        },
+      },
+      {
+        id: 'road-secondary', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['in', ['get', 'class'], ['literal', ['secondary', 'tertiary']]],
+        paint: {
+          'line-color': C.roadMid,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 8, 0.6, 18, 7],
+        },
+      },
+      {
+        id: 'road-primary', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['in', ['get', 'class'], ['literal', ['primary', 'trunk']]],
+        paint: {
+          'line-color': C.roadMajor,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 6, 0.8, 18, 9],
+        },
+      },
+      {
+        id: 'road-motorway', type: 'line', source: 'omt', 'source-layer': 'transportation',
+        filter: ['==', ['get', 'class'], 'motorway'],
+        paint: {
+          'line-color': C.roadMajor,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 5, 1, 18, 11],
+        },
+      },
+
+      // ── Boundaries ─────────────────────────────────────────────────────
+      {
+        id: 'boundary-state', type: 'line', source: 'omt', 'source-layer': 'boundary',
+        filter: ['==', ['get', 'admin_level'], 4],
+        paint: { 'line-color': C.boundary, 'line-width': 1, 'line-dasharray': [3, 2] },
+      },
+      {
+        id: 'boundary-country', type: 'line', source: 'omt', 'source-layer': 'boundary',
+        filter: ['==', ['get', 'admin_level'], 2],
+        paint: { 'line-color': C.boundary, 'line-width': 1.5 },
+      },
+
+      // ── Labels ─────────────────────────────────────────────────────────
+      {
+        id: 'water-name', type: 'symbol', source: 'omt', 'source-layer': 'water_name',
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Noto Sans Italic'],
+          'text-size': 11,
+        },
+        paint: { 'text-color': '#7d9bbf', 'text-halo-color': C.halo, 'text-halo-width': 1 },
+      },
+      {
+        id: 'road-name', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 12,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 10.5,
+          'symbol-placement': 'line',
+        },
+        paint: { 'text-color': C.textDim, 'text-halo-color': C.halo, 'text-halo-width': 1 },
+      },
+      {
+        // Peaks label their elevation in feet — the map carries its own numbers
+        id: 'peak', type: 'symbol', source: 'omt', 'source-layer': 'mountain_peak', minzoom: 9,
+        filter: ['has', 'ele'],
+        layout: {
+          'text-field': ['concat',
+            ['coalesce', ['get', 'name'], 'Peak'], '\n',
+            ['to-string', ['round', ['*', ['get', 'ele'], 3.28084]]], ' ft'],
+          'text-font': ['Noto Sans Italic'],
+          'text-size': 10,
+          'text-line-height': 1.25,
+        },
+        paint: { 'text-color': '#b9c9d9', 'text-halo-color': C.halo, 'text-halo-width': 1.1 },
+      },
+      {
+        id: 'place-village', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['in', ['get', 'class'], ['literal', ['village', 'hamlet', 'suburb']]],
+        minzoom: 10,
+        layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 11 },
+        paint: { 'text-color': C.textDim, 'text-halo-color': C.halo, 'text-halo-width': 1.2 },
+      },
+      {
+        id: 'place-town', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['==', ['get', 'class'], 'town'],
+        layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Regular'], 'text-size': 12.5 },
+        paint: { 'text-color': C.text, 'text-halo-color': C.halo, 'text-halo-width': 1.3 },
+      },
+      {
+        id: 'place-city', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['==', ['get', 'class'], 'city'],
+        layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 14 },
+        paint: { 'text-color': C.textBright, 'text-halo-color': C.halo, 'text-halo-width': 1.4 },
+      },
+      {
+        id: 'place-state', type: 'symbol', source: 'omt', 'source-layer': 'place',
+        filter: ['==', ['get', 'class'], 'state'],
+        maxzoom: 8,
+        layout: {
+          'text-field': ['upcase', ['get', 'name']],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 11,
+          'text-letter-spacing': 0.25,
+        },
+        paint: { 'text-color': C.textFaint, 'text-halo-color': C.halo, 'text-halo-width': 1 },
+      },
+    ],
+  }
+}

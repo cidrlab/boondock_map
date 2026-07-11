@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../../shared/layers'
+import { buildBoondockStyle, BOONDOCK_GLYPHS } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
 import { WAYPOINT_COLORS } from './Icons'
 
@@ -25,7 +26,7 @@ const Map = forwardRef(function Map(
     baseLayer, overlays, waypoints, tracks, currentTrackPoints,
     selectedWaypoint, onMapClick, onMouseMove, onTrackPoint,
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
-    initialViewport, onViewportChange, showPackAreas,
+    initialViewport, onViewportChange, showPackAreas, onSaveSpot,
   },
   ref
 ) {
@@ -48,41 +49,21 @@ const Map = forwardRef(function Map(
 
   // ── Build MapLibre style from current base layer ─────────────────────────
   function buildStyle(baseId) {
-    const base = BASE_LAYERS[baseId]
-    const sources = {}
-    const layers = []
-
-    if (baseId === 'topo-imagery') {
-      // High-res composite: ESRI satellite + USGS topo overlay at reduced opacity
-      sources['esri-sat'] = { type: 'raster', tiles: [toProtocolUrl('esri-satellite')], tileSize: 256, maxzoom: 19, attribution: base.attribution }
-      sources['usgs-topo-overlay'] = { type: 'raster', tiles: [toProtocolUrl('usgs-topo')], tileSize: 256, maxzoom: 16 }
-      layers.push({ id: 'esri-sat-layer', type: 'raster', source: 'esri-sat' })
-      layers.push({
-        id: 'usgs-topo-overlay-layer', type: 'raster', source: 'usgs-topo-overlay',
-        paint: {
-          // Topo overlay: semi-transparent so satellite shows through
-          'raster-opacity': ['interpolate', ['linear'], ['zoom'], 0, 0.55, 14, 0.45, 16, 0.35, 17, 0],
+    if (BASE_LAYERS[baseId]?.custom) return buildBoondockStyle()
+    const base = BASE_LAYERS[baseId] || BASE_LAYERS['satellite']
+    return {
+      version: 8,
+      glyphs: BOONDOCK_GLYPHS,   // site labels need fonts over raster bases too
+      sources: {
+        base: {
+          type: 'raster',
+          tiles: [toProtocolUrl(base.id)],
+          tileSize: 256,
+          attribution: base.attribution || '',
         },
-      })
-    } else if (baseId === 'esri-hybrid') {
-      // Satellite base + road lines + place/road name labels
-      sources['esri-sat'] = { type: 'raster', tiles: [toProtocolUrl('esri-satellite')], tileSize: 256, attribution: base.attribution }
-      sources['esri-ref'] = { type: 'raster', tiles: [toProtocolUrl('roads')], tileSize: 256 }
-      sources['esri-labels'] = { type: 'raster', tiles: [toProtocolUrl('road-labels')], tileSize: 256 }
-      layers.push({ id: 'esri-sat-layer', type: 'raster', source: 'esri-sat' })
-      layers.push({ id: 'esri-ref-layer', type: 'raster', source: 'esri-ref', paint: { 'raster-opacity': 0.9 } })
-      layers.push({ id: 'esri-labels-layer', type: 'raster', source: 'esri-labels', paint: { 'raster-opacity': 0.85 } })
-    } else if (base?.tileUrl) {
-      sources['base'] = {
-        type: 'raster',
-        tiles: [toProtocolUrl(baseId)],
-        tileSize: 256,
-        attribution: base.attribution || '',
-      }
-      layers.push({ id: 'base-layer', type: 'raster', source: 'base' })
+      },
+      layers: [{ id: 'base-layer', type: 'raster', source: 'base' }],
     }
-
-    return { version: 8, sources, layers }
   }
 
   // ── Init map ─────────────────────────────────────────────────────────────
@@ -114,11 +95,13 @@ const Map = forwardRef(function Map(
     })
 
     map.current.on('load', () => {
+      addOfflineFallbackLayer()
       addOverlaySources()
       addTracksLayer()
       addCurrentTrackLayer()
       addPackAreasLayer()
       refreshPackAreas()
+      addSitesLayers()
       setMapReady(true)
     })
 
@@ -128,8 +111,30 @@ const Map = forwardRef(function Map(
     map.current.on('click', (e) => {
       // Check if click is on a waypoint marker — handled by marker popups
       if (e.originalEvent.target?.classList?.contains('bdk-marker')) return
+      const m = map.current
+      // Sites take precedence over waypoint-drop
+      const siteLayers = ['sites-clusters', 'sites-points'].filter(id => m.getLayer(id))
+      if (siteLayers.length) {
+        const hits = m.queryRenderedFeatures(e.point, { layers: siteLayers })
+        if (hits.length) {
+          const f = hits[0]
+          if (f.properties.cluster) {
+            m.getSource('sites').getClusterExpansionZoom(f.properties.cluster_id).then(z => {
+              m.easeTo({ center: f.geometry.coordinates, zoom: z + 0.3, duration: 500 })
+            })
+          } else {
+            openSitePopup(m, f, onSaveSpot)
+          }
+          return
+        }
+      }
       onMapClick?.(e.lngLat)
     })
+
+    map.current.on('mouseenter', 'sites-points', () => { map.current.getCanvas().style.cursor = 'pointer' })
+    map.current.on('mouseleave', 'sites-points', () => { map.current.getCanvas().style.cursor = '' })
+    map.current.on('mouseenter', 'sites-clusters', () => { map.current.getCanvas().style.cursor = 'pointer' })
+    map.current.on('mouseleave', 'sites-clusters', () => { map.current.getCanvas().style.cursor = '' })
 
     map.current.on('mousemove', (e) => {
       onMouseMove?.({ lng: e.lngLat.lng, lat: e.lngLat.lat })
@@ -149,11 +154,13 @@ const Map = forwardRef(function Map(
     if (!mapReady) return
     m.setStyle(buildStyle(baseLayer))
     m.once('style.load', () => {
+      addOfflineFallbackLayer()
       addOverlaySources()
       addTracksLayer()
       addCurrentTrackLayer()
       addPackAreasLayer()
       refreshPackAreas()
+      addSitesLayers()
       applyOverlayVisibility()
       applyPackAreasVisibility()
     })
@@ -171,12 +178,13 @@ const Map = forwardRef(function Map(
     if (!m) return
     const ov = overlaysRef.current
     Object.entries(OVERLAY_LAYERS).forEach(([id, layer]) => {
-      if (!layer.tileUrl) return
+      if (layer.sites || !layer.tileUrl) return
       if (!m.getSource(id)) {
         m.addSource(id, {
           type: 'raster',
-          tiles: [toProtocolUrl(id)],
-          tileSize: 256,
+          // direct: bbox-template services render straight, no pack protocol
+          tiles: [layer.direct ? layer.tileUrl : toProtocolUrl(id)],
+          tileSize: layer.direct ? 512 : 256,
           attribution: layer.attribution || '',
         })
       }
@@ -197,12 +205,125 @@ const Map = forwardRef(function Map(
     if (!m) return
     const ov = overlaysRef.current
     Object.entries(ov).forEach(([id, visible]) => {
-      const layerId = `${id}-layer`
-      if (m.getLayer(layerId)) {
-        m.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none')
-      }
+      const ids = id === 'sites' ? SITES_LAYER_IDS : [`${id}-layer`]
+      ids.forEach(layerId => {
+        if (m.getLayer(layerId)) {
+          m.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none')
+        }
+      })
     })
   }
+
+  // ── Sites — the spots database layer ──────────────────────────────────────
+  async function addSitesLayers() {
+    const m = map.current
+    if (!m) return
+    if (!m.getSource('sites')) {
+      let data
+      try {
+        data = await fetchSitesData()
+      } catch {
+        return  // data file unreachable; overlay simply stays empty
+      }
+      if (map.current !== m || m.getSource('sites')) return
+      m.addSource('sites', { type: 'geojson', data, cluster: true, clusterRadius: 46, clusterMaxZoom: 11 })
+    }
+    const vis = overlaysRef.current.sites ? 'visible' : 'none'
+    if (!m.getLayer('sites-clusters')) {
+      m.addLayer({
+        id: 'sites-clusters', type: 'circle', source: 'sites',
+        filter: ['has', 'point_count'],
+        layout: { visibility: vis },
+        paint: {
+          'circle-color': 'rgba(25, 34, 44, 0.88)',
+          'circle-stroke-color': '#e8eef4',
+          'circle-stroke-width': 1.2,
+          'circle-radius': ['step', ['get', 'point_count'], 13, 25, 17, 100, 22],
+        },
+      })
+    }
+    if (!m.getLayer('sites-cluster-count')) {
+      m.addLayer({
+        id: 'sites-cluster-count', type: 'symbol', source: 'sites',
+        filter: ['has', 'point_count'],
+        layout: {
+          visibility: vis,
+          'text-field': ['get', 'point_count_abbreviated'],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 11,
+        },
+        paint: { 'text-color': '#e8eef4' },
+      })
+    }
+    if (!m.getLayer('sites-points')) {
+      m.addLayer({
+        id: 'sites-points', type: 'circle', source: 'sites',
+        filter: ['!', ['has', 'point_count']],
+        layout: { visibility: vis },
+        paint: {
+          'circle-color': ['match', ['get', 'kind'],
+            'campsite', '#22c55e',
+            'rv_park', '#a78bfa',
+            'dump', '#fb923c',
+            'water', '#38bdf8',
+            '#e8eef4'],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 13, 6],
+          'circle-stroke-color': '#10151c',
+          'circle-stroke-width': 1.4,
+        },
+      })
+    }
+    if (!m.getLayer('sites-labels')) {
+      m.addLayer({
+        id: 'sites-labels', type: 'symbol', source: 'sites', minzoom: 12,
+        filter: ['!', ['has', 'point_count']],
+        layout: {
+          visibility: vis,
+          'text-field': ['coalesce', ['get', 'name'], ''],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 10,
+          'text-offset': [0, 1.1],
+          'text-anchor': 'top',
+          'text-optional': true,
+        },
+        paint: { 'text-color': '#c6d4e2', 'text-halo-color': '#0e141b', 'text-halo-width': 1.1 },
+      })
+    }
+  }
+
+  // ── Offline fallback: saved USGS packs appear when the network is gone ────
+  function addOfflineFallbackLayer() {
+    const m = map.current
+    if (!m) return
+    if (!m.getSource('usgs-offline')) {
+      m.addSource('usgs-offline', { type: 'raster', tiles: [toProtocolUrl('usgs-topo')], tileSize: 256, attribution: 'USGS National Map' })
+    }
+    if (!m.getLayer('usgs-offline-layer')) {
+      m.addLayer({
+        id: 'usgs-offline-layer', type: 'raster', source: 'usgs-offline',
+        layout: { visibility: navigator.onLine ? 'none' : 'visible' },
+      })
+    }
+  }
+
+  useEffect(() => {
+    const apply = () => {
+      const m = map.current
+      if (m?.getLayer('usgs-offline-layer')) {
+        m.setLayoutProperty('usgs-offline-layer', 'visibility', navigator.onLine ? 'none' : 'visible')
+      }
+    }
+    const onOffline = () => {
+      apply()
+      showToast(mapContainer.current, 'Offline — showing saved map packs where available')
+    }
+    window.addEventListener('online', apply)
+    window.addEventListener('offline', onOffline)
+    return () => {
+      window.removeEventListener('online', apply)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
 
   // ── Overlay toggle effect ───────────────────────────────────────────────
   useEffect(() => {
@@ -487,6 +608,56 @@ const Map = forwardRef(function Map(
 export default Map
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+const SITES_LAYER_IDS = ['sites-clusters', 'sites-cluster-count', 'sites-points', 'sites-labels']
+
+let sitesDataPromise = null
+function fetchSitesData() {
+  if (!sitesDataPromise) {
+    sitesDataPromise = fetch(import.meta.env.BASE_URL + 'data/spots-wa.geojson')
+      .then(r => {
+        if (!r.ok) throw new Error(`spots data HTTP ${r.status}`)
+        return r.json()
+      })
+      .catch(e => { sitesDataPromise = null; throw e })
+  }
+  return sitesDataPromise
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+const SITE_KIND_LABELS = { campsite: 'Campsite', rv_park: 'RV park', dump: 'Dump station', water: 'Water fill' }
+
+function openSitePopup(m, f, onSaveSpot) {
+  const p = f.properties
+  const [lng, lat] = f.geometry.coordinates
+  const kindLabel = SITE_KIND_LABELS[p.kind] || 'Site'
+  const rows = []
+  if (p.fee) rows.push(`Fee: ${esc(p.fee)}`)
+  if (p.access) rows.push(`Access: ${esc(p.access)}`)
+  if (p.drinking_water) rows.push(`Drinking water: ${esc(p.drinking_water)}`)
+  if (p.toilets) rows.push(`Toilets: ${esc(p.toilets)}`)
+  if (p.operator) rows.push(`Operator: ${esc(p.operator)}`)
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px">
+      <div style="font-size:13.5px;font-weight:600">${esc(p.name || kindLabel)}</div>
+      <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 6px">${kindLabel}</div>
+      ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      ${p.website ? `<div style="margin-top:5px"><a href="${esc(p.website)}" target="_blank" rel="noreferrer" style="font-size:11.5px;color:#38bdf8">Website</a></div>` : ''}
+      <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
+      <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">© OpenStreetMap contributors</div>
+    </div>`
+  const popup = new maplibregl.Popup({ offset: 10, maxWidth: '270px' })
+    .setLngLat([lng, lat])
+    .setHTML(html)
+    .addTo(m)
+  popup.getElement().querySelector('button')?.addEventListener('click', () => {
+    onSaveSpot?.({ ...p, lat, lng })
+    popup.remove()
+  })
+}
+
 let toastTimer = null
 function showToast(container, text) {
   if (!container) return

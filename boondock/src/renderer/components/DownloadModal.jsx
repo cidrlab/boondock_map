@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react'
-import { BASE_LAYERS } from '../../shared/layers'
+import { PACK_LAYERS } from '../../shared/layers'
 import { downloadPack, tilesInBbox } from '../../shared/offlineTiles'
 import { Download, Box, Crosshair } from './Icons'
 import './DownloadModal.css'
 
-const OFFLINE_LAYERS = Object.values(BASE_LAYERS).filter(l => l.offlineOk)
+const OFFLINE_LAYERS = Object.values(PACK_LAYERS).filter(l => l.offlineOk)
 
 export default function DownloadModal({ bbox: bboxProp, getViewBbox, onClose, onStartDownload }) {
   const [bbox, setBbox] = useState(bboxProp)

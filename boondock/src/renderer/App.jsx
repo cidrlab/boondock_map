@@ -5,7 +5,7 @@ import Toolbar from './components/Toolbar'
 import WaypointModal from './components/WaypointModal'
 import DownloadModal from './components/DownloadModal'
 import StatusBar from './components/StatusBar'
-import { DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM } from '../shared/layers'
+import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
 import './styles/app.css'
 
 export default function App() {
@@ -14,7 +14,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState('waypoints')
   const [baseLayer, setBaseLayer] = useState(DEFAULT_BASE)
-  const [overlays, setOverlays] = useState({ roads: true, 'road-labels': true, contours: false, 'usfs-roads': false, 'usfs-trails': true })
+  const [overlays, setOverlays] = useState(DEFAULT_OVERLAYS)
   const [pendingWaypoint, setPendingWaypoint] = useState(null)
   const [selectedWaypoint, setSelectedWaypoint] = useState(null)
   const [isRecordingTrack, setIsRecordingTrack] = useState(false)
@@ -55,8 +55,14 @@ export default function App() {
         setInitialViewport({ center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM })
         return
       }
-      if (prefs.baseLayer) setBaseLayer(prefs.baseLayer)
-      if (prefs.overlays) setOverlays(prefs.overlays)
+      // Migrate prefs from older layer models: unknown ids fall back
+      if (prefs.baseLayer && BASE_LAYERS[prefs.baseLayer]) setBaseLayer(prefs.baseLayer)
+      if (prefs.overlays) {
+        const known = Object.fromEntries(
+          Object.entries(prefs.overlays).filter(([k]) => k in DEFAULT_OVERLAYS)
+        )
+        setOverlays({ ...DEFAULT_OVERLAYS, ...known })
+      }
       setInitialViewport({
         center: prefs.center || DEFAULT_CENTER,
         zoom: prefs.zoom ?? DEFAULT_ZOOM,
@@ -189,6 +195,21 @@ export default function App() {
     setActiveTab('tracks')
   }, [currentTrackPoints])
 
+  // ── Save a Sites-layer spot as a waypoint (from map popup) ───────────────
+  const saveSpotAsWaypoint = useCallback((s) => {
+    if (!s) return
+    const iconMap = { campsite: 'camp', rv_park: 'parking', dump: 'generic', water: 'water' }
+    setWaypoints(prev => [...prev, {
+      id: crypto.randomUUID(),
+      name: s.name || 'Site',
+      notes: s.desc || '',
+      icon: iconMap[s.kind] || 'generic',
+      lat: s.lat,
+      lng: s.lng,
+      createdAt: new Date().toISOString(),
+    }])
+  }, [])
+
   // ── Fly to waypoint ──────────────────────────────────────────────────────
   const flyToWaypoint = useCallback((wp) => {
     mapRef.current?.flyTo({ center: [wp.lng, wp.lat], zoom: 14, duration: 800 })
@@ -284,6 +305,7 @@ export default function App() {
           initialViewport={initialViewport}
           onViewportChange={handleViewportChange}
           showPackAreas={activeTab === 'download'}
+          onSaveSpot={saveSpotAsWaypoint}
         />
       </div>
 
