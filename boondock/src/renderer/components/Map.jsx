@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl'
 import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../../shared/layers'
 import { buildBoondockStyle, BOONDOCK_GLYPHS } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
+import { elevationAt } from '../../shared/elevation'
 import { WAYPOINT_COLORS } from './Icons'
 
 // All tile requests go through boondock:// so downloaded offline packs are
@@ -27,6 +28,7 @@ const Map = forwardRef(function Map(
     selectedWaypoint, onMapClick, onMouseMove, onTrackPoint,
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
     initialViewport, onViewportChange, showPackAreas, onSaveSpot,
+    searchPins, onZoomChange, onCenterChange,
   },
   ref
 ) {
@@ -38,8 +40,10 @@ const Map = forwardRef(function Map(
   const bboxStart = useRef(null)
   const bboxRect = useRef(null)
 
-  // Keep ref in sync so callbacks always see current overlay state
+  // Keep refs in sync so callbacks always see current state
   useEffect(() => { overlaysRef.current = overlays }, [overlays])
+  const downloadModeRef = useRef(downloadMode)
+  useEffect(() => { downloadModeRef.current = downloadMode }, [downloadMode])
 
   useImperativeHandle(ref, () => ({
     flyTo: (opts) => map.current?.flyTo(opts),
@@ -102,16 +106,39 @@ const Map = forwardRef(function Map(
       addPackAreasLayer()
       refreshPackAreas()
       addSitesLayers()
+      addSearchPinsLayers()
       setMapReady(true)
     })
 
     // Save viewport on pan/zoom
     map.current.on('moveend', () => { onViewportChange?.() })
 
+    const emitZoom = () => onZoomChange?.(Math.round(map.current.getZoom() * 10) / 10)
+    map.current.on('move', emitZoom)
+    emitZoom()
+
+    const emitCenter = () => {
+      const c = map.current.getCenter()
+      onCenterChange?.({ lng: c.lng, lat: c.lat })
+    }
+    map.current.on('moveend', emitCenter)
+    emitCenter()
+
     map.current.on('click', async (e) => {
       // Check if click is on a waypoint marker — handled by marker popups
       if (e.originalEvent.target?.classList?.contains('bdk-marker')) return
+      if (downloadModeRef.current) return   // bbox drawing owns the pointer
       const m = map.current
+      // Numbered search pins first — they're what the user just asked for
+      if (m.getLayer('search-pins-circle')) {
+        const pinHits = m.queryRenderedFeatures(e.point, { layers: ['search-pins-circle'] })
+        if (pinHits.length) {
+          const p = pinHits[0].properties
+          const [lng, lat] = pinHits[0].geometry.coordinates
+          openSearchPinPopup(m, { lng, lat }, p, onSaveSpot)
+          return
+        }
+      }
       // Sites take precedence over waypoint-drop
       const siteLayers = ['sites-clusters', 'sites-points'].filter(id => m.getLayer(id))
       if (siteLayers.length) {
@@ -145,9 +172,12 @@ const Map = forwardRef(function Map(
           return
         }
       }
-      onMapClick?.(e.lngLat)
+      // Empty ground: show the spot's numbers first; saving is one tap more
+      openPointInfoPopup(m, e.lngLat, onMapClick)
     })
 
+    map.current.on('mouseenter', 'search-pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer' })
+    map.current.on('mouseleave', 'search-pins-circle', () => { map.current.getCanvas().style.cursor = '' })
     map.current.on('mouseenter', 'sites-points', () => { map.current.getCanvas().style.cursor = 'pointer' })
     map.current.on('mouseleave', 'sites-points', () => { map.current.getCanvas().style.cursor = '' })
     map.current.on('mouseenter', 'sites-clusters', () => { map.current.getCanvas().style.cursor = 'pointer' })
@@ -178,6 +208,8 @@ const Map = forwardRef(function Map(
       addPackAreasLayer()
       refreshPackAreas()
       addSitesLayers()
+      addSearchPinsLayers()
+      applySearchPins()
       applyOverlayVisibility()
       applyPackAreasVisibility()
     })
@@ -195,30 +227,35 @@ const Map = forwardRef(function Map(
     if (!m) return
     const ov = overlaysRef.current
     Object.entries(OVERLAY_LAYERS).forEach(([id, layer]) => {
-      if (layer.sites || !layer.tileUrl) return
-      if (!m.getSource(id)) {
-        m.addSource(id, {
-          type: 'raster',
-          // direct: bbox-template services render straight, no pack protocol
-          tiles: [layer.direct ? layer.tileUrl : toProtocolUrl(id)],
-          tileSize: layer.direct ? 512 : 256,
-          attribution: layer.attribution || '',
-          ...(layer.sourceMinzoom != null && { minzoom: layer.sourceMinzoom }),
-          ...(layer.sourceMaxzoom != null && { maxzoom: layer.sourceMaxzoom }),
-        })
-      }
-      if (!m.getLayer(`${id}-layer`)) {
-        m.addLayer({
-          id: `${id}-layer`,
-          type: 'raster',
-          source: id,
-          layout: { visibility: ov[id] ? 'visible' : 'none' },
-          paint: {
-            'raster-opacity': buildZoomOpacityExpr(layer.zoomOpacity),
-            'raster-fade-duration': 0,   // toggles respond instantly
-          },
-        })
-      }
+      if (layer.sites) return
+      const parts = layer.parts || [{ key: null, tileUrl: layer.tileUrl, sourceMinzoom: layer.sourceMinzoom, sourceMaxzoom: layer.sourceMaxzoom, zoomOpacity: layer.zoomOpacity }]
+      parts.forEach(p => {
+        if (!p.tileUrl) return
+        const srcId = p.key ? `${id}-${p.key}` : id
+        if (!m.getSource(srcId)) {
+          m.addSource(srcId, {
+            type: 'raster',
+            // direct: bbox-template services render straight, no pack protocol
+            tiles: [layer.direct ? p.tileUrl : toProtocolUrl(id)],
+            tileSize: layer.direct ? 512 : 256,
+            attribution: layer.attribution || '',
+            ...(p.sourceMinzoom != null && { minzoom: p.sourceMinzoom }),
+            ...(p.sourceMaxzoom != null && { maxzoom: p.sourceMaxzoom }),
+          })
+        }
+        if (!m.getLayer(`${srcId}-layer`)) {
+          m.addLayer({
+            id: `${srcId}-layer`,
+            type: 'raster',
+            source: srcId,
+            layout: { visibility: ov[id] ? 'visible' : 'none' },
+            paint: {
+              'raster-opacity': buildZoomOpacityExpr(p.zoomOpacity),
+              'raster-fade-duration': 0,   // toggles respond instantly
+            },
+          })
+        }
+      })
     })
   }
 
@@ -227,7 +264,12 @@ const Map = forwardRef(function Map(
     if (!m) return
     const ov = overlaysRef.current
     Object.entries(ov).forEach(([id, visible]) => {
-      const ids = id === 'sites' ? SITES_LAYER_IDS : [`${id}-layer`]
+      const def = OVERLAY_LAYERS[id]
+      const ids = id === 'sites'
+        ? SITES_LAYER_IDS
+        : def?.parts
+          ? def.parts.map(p => `${id}-${p.key}-layer`)
+          : [`${id}-layer`]
       ids.forEach(layerId => {
         if (m.getLayer(layerId)) {
           m.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none')
@@ -288,6 +330,7 @@ const Map = forwardRef(function Map(
             'rv_park', '#a78bfa',
             'dump', '#fb923c',
             'water', '#38bdf8',
+            'trailhead', '#f59e0b',
             '#e8eef4'],
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 13, 6],
           'circle-stroke-color': '#10151c',
@@ -312,6 +355,66 @@ const Map = forwardRef(function Map(
       })
     }
   }
+
+  // ── Numbered search/POI result pins ───────────────────────────────────────
+  function addSearchPinsLayers() {
+    const m = map.current
+    if (!m) return
+    if (!m.getSource('search-pins')) {
+      m.addSource('search-pins', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+    }
+    if (!m.getLayer('search-pins-circle')) {
+      m.addLayer({
+        id: 'search-pins-circle', type: 'circle', source: 'search-pins',
+        paint: {
+          'circle-color': '#F9322B',
+          'circle-radius': 11,
+          'circle-stroke-color': '#10151c',
+          'circle-stroke-width': 1.5,
+        },
+      })
+    }
+    if (!m.getLayer('search-pins-num')) {
+      m.addLayer({
+        id: 'search-pins-num', type: 'symbol', source: 'search-pins',
+        layout: { 'text-field': ['to-string', ['get', 'n']], 'text-font': ['Noto Sans Bold'], 'text-size': 11, 'text-allow-overlap': true },
+        paint: { 'text-color': '#ffffff' },
+      })
+    }
+    if (!m.getLayer('search-pins-name')) {
+      m.addLayer({
+        id: 'search-pins-name', type: 'symbol', source: 'search-pins',
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 10.5,
+          'text-offset': [0, 1.4],
+          'text-anchor': 'top',
+          'text-optional': true,
+        },
+        paint: { 'text-color': '#e8eef4', 'text-halo-color': '#0e141b', 'text-halo-width': 1.2 },
+      })
+    }
+  }
+
+  function applySearchPins() {
+    const m = map.current
+    if (!m?.getSource('search-pins')) return
+    m.getSource('search-pins').setData({
+      type: 'FeatureCollection',
+      features: (searchPinsRef.current || []).map((p, i) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: { n: i + 1, name: p.name || '' },
+      })),
+    })
+  }
+
+  const searchPinsRef = useRef(searchPins)
+  useEffect(() => {
+    searchPinsRef.current = searchPins
+    if (mapReady) applySearchPins()
+  }, [searchPins, mapReady])
 
   // ── Offline fallback: saved USGS packs appear when the network is gone ────
   function addOfflineFallbackLayer() {
@@ -649,7 +752,7 @@ function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const SITE_KIND_LABELS = { campsite: 'Campsite', rv_park: 'RV park', dump: 'Dump station', water: 'Water fill' }
+const SITE_KIND_LABELS = { campsite: 'Campsite', rv_park: 'RV park', dump: 'Dump station', water: 'Water fill', trailhead: 'Trailhead' }
 
 const ROAD_LAYER_IDS = ['road-motorway', 'road-primary', 'road-secondary', 'road-minor', 'road-track', 'road-path']
 const ROAD_CLASS_LABELS = {
@@ -706,6 +809,46 @@ function openMvumPopup(m, lngLat, result) {
   new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
 }
 
+function openPointInfoPopup(m, lngLat, onSave) {
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:190px">
+      <div style="font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums">${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}</div>
+      <div style="font-size:11.5px;color:rgba(232,238,244,.65);margin-top:3px" data-elev>Elevation: …</div>
+      <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Save waypoint
+      </button>
+    </div>`
+  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '250px' })
+    .setLngLat(lngLat)
+    .setHTML(html)
+    .addTo(m)
+  const root = popup.getElement()
+  elevationAt(lngLat.lng, lngLat.lat)
+    .then(meters => {
+      const el = root.querySelector('[data-elev]')
+      if (el && meters != null) el.textContent = `Elevation: ${Math.round(meters * 3.28084).toLocaleString()} ft`
+    })
+    .catch(() => {})
+  root.querySelector('button')?.addEventListener('click', () => {
+    popup.remove()
+    onSave?.(lngLat)
+  })
+}
+
+function openSearchPinPopup(m, lngLat, props, onSaveSpot) {
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px">
+      <div style="font-size:13px;font-weight:600">${props.n}. ${esc(props.name || 'Result')}</div>
+      <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
+    </div>`
+  const popup = new maplibregl.Popup({ offset: 12, maxWidth: '250px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  popup.getElement().querySelector('button')?.addEventListener('click', () => {
+    onSaveSpot?.({ name: props.name, lat: lngLat.lat, lng: lngLat.lng })
+    popup.remove()
+  })
+}
+
 function openRoadPopup(m, lngLat, feature) {
   const p = feature.properties
   const cls = ROAD_CLASS_LABELS[p.class] || 'Road'
@@ -722,6 +865,7 @@ function openSitePopup(m, f, onSaveSpot) {
   const [lng, lat] = f.geometry.coordinates
   const kindLabel = SITE_KIND_LABELS[p.kind] || 'Site'
   const rows = []
+  if (p.addr) rows.push(`Address: ${esc(p.addr)}`)
   if (p.fee) rows.push(`Fee: ${esc(p.fee)}`)
   if (p.access) rows.push(`Access: ${esc(p.access)}`)
   if (p.drinking_water) rows.push(`Drinking water: ${esc(p.drinking_water)}`)
@@ -734,7 +878,7 @@ function openSitePopup(m, f, onSaveSpot) {
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${p.website ? `<div style="margin-top:5px"><a href="${esc(p.website)}" target="_blank" rel="noreferrer" style="font-size:11.5px;color:#38bdf8">Website</a></div>` : ''}
       <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
-      <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">© OpenStreetMap contributors</div>
+      <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">${String(p.src || '').startsWith('overture') ? '© Overture Maps Foundation' : '© OpenStreetMap contributors'}</div>
     </div>`
   const popup = new maplibregl.Popup({ offset: 10, maxWidth: '270px' })
     .setLngLat([lng, lat])

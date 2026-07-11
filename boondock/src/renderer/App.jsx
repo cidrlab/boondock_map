@@ -12,7 +12,7 @@ export default function App() {
   const [waypoints, setWaypoints] = useState([])
   const [tracks, setTracks] = useState([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [activeTab, setActiveTab] = useState('waypoints')
+  const [activeTab, setActiveTab] = useState('layers')
   const [baseLayer, setBaseLayer] = useState(DEFAULT_BASE)
   const [overlays, setOverlays] = useState(DEFAULT_OVERLAYS)
   const [pendingWaypoint, setPendingWaypoint] = useState(null)
@@ -20,6 +20,9 @@ export default function App() {
   const [isRecordingTrack, setIsRecordingTrack] = useState(false)
   const [currentTrackPoints, setCurrentTrackPoints] = useState([])
   const [mapCursor, setMapCursor] = useState({ lng: 0, lat: 0 })
+  const [mapCenterPt, setMapCenterPt] = useState({ lng: DEFAULT_CENTER[0], lat: DEFAULT_CENTER[1] })
+  const [zoomLevel, setZoomLevel] = useState(null)
+  const [searchPins, setSearchPins] = useState([])   // numbered POI/search results shown on the map
   const [downloadMode, setDownloadMode] = useState(false)
   const [downloadBbox, setDownloadBbox] = useState(null)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
@@ -198,7 +201,7 @@ export default function App() {
   // ── Save a Sites-layer spot as a waypoint (from map popup) ───────────────
   const saveSpotAsWaypoint = useCallback((s) => {
     if (!s) return
-    const iconMap = { campsite: 'camp', rv_park: 'parking', dump: 'generic', water: 'water' }
+    const iconMap = { campsite: 'camp', rv_park: 'parking', dump: 'generic', water: 'water', trailhead: 'trailhead' }
     setWaypoints(prev => [...prev, {
       id: crypto.randomUUID(),
       name: s.name || 'Site',
@@ -280,7 +283,8 @@ export default function App() {
             downloadBbox={downloadBbox}
             searchHistory={searchHistory}
             onAddSearchHistory={addSearchHistory}
-            mapCenter={mapCursor}
+            mapCenter={mapCenterPt}
+            onSearchPins={setSearchPins}
           />
         )}
 
@@ -306,10 +310,13 @@ export default function App() {
           onViewportChange={handleViewportChange}
           showPackAreas={activeTab === 'download'}
           onSaveSpot={saveSpotAsWaypoint}
+          searchPins={searchPins}
+          onZoomChange={setZoomLevel}
+          onCenterChange={setMapCenterPt}
         />
       </div>
 
-      <StatusBar cursor={mapCursor} isRecording={isRecordingTrack} trackPoints={currentTrackPoints.length} />
+      <StatusBar cursor={mapCursor} zoom={zoomLevel} isRecording={isRecordingTrack} trackPoints={currentTrackPoints.length} />
 
       {pendingWaypoint && (
         <WaypointModal

@@ -21,7 +21,7 @@ export default function Sidebar({
   onWaypointClick, onWaypointDelete, onWaypointUpdate,
   selectedWaypoint, onShowDownloadModal, downloadBbox,
   onFlyTo, searchHistory, onAddSearchHistory, mapCenter,
-  isMobile,
+  isMobile, onSearchPins,
 }) {
   const [query, setQuery] = useState('')
   const [sheet, setSheet] = useState('peek')
@@ -87,6 +87,12 @@ export default function Sidebar({
     if (isGeoSearch) { geoSearch(query, mapCenter); setSelectedGeoIdx(0); setShowHistory(false) }
     else { geoClear() }
   }, [query, isGeoSearch])
+
+  // Mirror whichever result list is active onto the map as numbered pins
+  useEffect(() => {
+    const active = poiResults.length ? poiResults : geoResults
+    onSearchPins?.(active.map(r => ({ lat: r.lat, lng: r.lng, name: r.name })))
+  }, [poiResults, geoResults])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') { setQuery(''); geoClear(); setShowHistory(false); return }
@@ -248,7 +254,7 @@ export default function Sidebar({
                 onClick={() => flyToGeoResult(r)}
                 onMouseEnter={() => setSelectedGeoIdx(i)}
               >
-                <div className="geo-icon-wrap"><MapPin size={14} /></div>
+                <div className="geo-icon-wrap geo-num">{i + 1}</div>
                 <div className="geo-info">
                   <div className="geo-name">{r.name}</div>
                   <div className="geo-sub">{r.displayName}</div>
@@ -279,13 +285,13 @@ export default function Sidebar({
         {(poiResults.length > 0 || poiLoading) && (
           <div className="poi-results">
             {poiLoading && <div className="geo-loading">Finding nearby…</div>}
-            {poiResults.map(r => (
+            {poiResults.map((r, i) => (
               <div
                 key={r.id}
                 className="geo-item"
                 onClick={() => onFlyTo({ lat: r.lat, lng: r.lng })}
               >
-                <div className="geo-icon-wrap"><MapPin size={14} /></div>
+                <div className="geo-icon-wrap geo-num">{i + 1}</div>
                 <div className="geo-info">
                   <div className="geo-name">{r.name}</div>
                   <div className="geo-sub">{r.distanceLabel}{r.tags?.cuisine ? ` · ${r.tags.cuisine}` : ''}{r.tags?.brand ? ` · ${r.tags.brand}` : ''}</div>

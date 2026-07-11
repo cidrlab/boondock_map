@@ -31,6 +31,10 @@ const NIGHT = {
   textDim:    '#9fb4c8',
   textFaint:  '#6d8098',
   halo:       '#0e141b',
+  ice:        '#28394c',
+  waterName:  '#7d9bbf',
+  peakText:   '#b9c9d9',
+  cityText:   '#e8eef4',
   hsExaggeration: 0.32,
   hsShadow:    '#070b10',
   hsHighlight: '#52719b',
@@ -58,6 +62,11 @@ const DAY = {
   textDim:    '#55708e',
   textFaint:  '#7e91a6',
   halo:       '#f2f5f8',
+  ice:        '#e6edf5',
+  waterName:  '#5b7ea3',
+  peakText:   '#3d5270',
+  cityText:   '#26364a',
+  roadSoften: true,   // dense urban grids read calmer with opacity ramps
   hsExaggeration: 0.25,
   hsShadow:    '#93a6bc',
   hsHighlight: '#ffffff',
@@ -115,7 +124,7 @@ export function buildBoondockStyle(mode = 'night') {
       {
         id: 'landcover-ice', type: 'fill', source: 'omt', 'source-layer': 'landcover',
         filter: ['==', ['get', 'class'], 'ice'],
-        paint: { 'fill-color': '#28394c', 'fill-opacity': 0.5 },
+        paint: { 'fill-color': C.ice, 'fill-opacity': 0.55 },
       },
       {
         id: 'park', type: 'fill', source: 'omt', 'source-layer': 'park',
@@ -183,6 +192,7 @@ export function buildBoondockStyle(mode = 'night') {
         paint: {
           'line-color': C.roadMinor,
           'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 11, 0.5, 18, 5],
+          ...(C.roadSoften && { 'line-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.45, 14, 0.9] }),
         },
       },
       {
@@ -191,6 +201,7 @@ export function buildBoondockStyle(mode = 'night') {
         paint: {
           'line-color': C.roadMid,
           'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 8, 0.6, 18, 7],
+          ...(C.roadSoften && { 'line-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0.55, 13, 0.9] }),
         },
       },
       {
@@ -199,6 +210,7 @@ export function buildBoondockStyle(mode = 'night') {
         paint: {
           'line-color': C.roadMajor,
           'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 6, 0.8, 18, 9],
+          ...(C.roadSoften && { 'line-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.65, 12, 0.95] }),
         },
       },
       {
@@ -207,6 +219,7 @@ export function buildBoondockStyle(mode = 'night') {
         paint: {
           'line-color': C.roadMajor,
           'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 5, 1, 18, 11],
+          ...(C.roadSoften && { 'line-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.7, 12, 0.95] }),
         },
       },
 
@@ -230,7 +243,7 @@ export function buildBoondockStyle(mode = 'night') {
           'text-font': ['Noto Sans Italic'],
           'text-size': 11,
         },
-        paint: { 'text-color': '#7d9bbf', 'text-halo-color': C.halo, 'text-halo-width': 1 },
+        paint: { 'text-color': C.waterName, 'text-halo-color': C.halo, 'text-halo-width': 1 },
       },
       {
         id: 'road-name', type: 'symbol', source: 'omt', 'source-layer': 'transportation_name', minzoom: 12,
@@ -254,7 +267,7 @@ export function buildBoondockStyle(mode = 'night') {
           'text-size': 10,
           'text-line-height': 1.25,
         },
-        paint: { 'text-color': '#b9c9d9', 'text-halo-color': C.halo, 'text-halo-width': 1.1 },
+        paint: { 'text-color': C.peakText, 'text-halo-color': C.halo, 'text-halo-width': 1.1 },
       },
       {
         id: 'place-village', type: 'symbol', source: 'omt', 'source-layer': 'place',
@@ -272,8 +285,8 @@ export function buildBoondockStyle(mode = 'night') {
       {
         id: 'place-city', type: 'symbol', source: 'omt', 'source-layer': 'place',
         filter: ['==', ['get', 'class'], 'city'],
-        layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 14 },
-        paint: { 'text-color': C.textBright, 'text-halo-color': C.halo, 'text-halo-width': 1.4 },
+        layout: { 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 14, 'text-letter-spacing': 0.02 },
+        paint: { 'text-color': C.cityText, 'text-halo-color': C.halo, 'text-halo-width': 1.4 },
       },
       {
         id: 'place-state', type: 'symbol', source: 'omt', 'source-layer': 'place',

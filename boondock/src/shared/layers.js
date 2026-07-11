@@ -80,16 +80,22 @@ export const OVERLAY_LAYERS = {
     id: 'usfs-trails',
     label: 'Hiking Trails',
     description: 'National Forest trail system',
-    // The old EDW_Trail_01 tile cache 404s; the publish service renders via export
+    // The old EDW_Trail_01 tile cache 404s; the publish service renders via
+    // export, restyled through dynamicLayers so trails read on the dark base
     direct: true,
-    tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image',
+    tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&dynamicLayers='
+      + encodeURIComponent(JSON.stringify([{
+          id: 101,
+          source: { type: 'mapLayer', mapLayerId: 0 },
+          drawingInfo: { renderer: { type: 'simple', symbol: { type: 'esriSLS', style: 'esriSLSShortDash', color: [139, 171, 208, 255], width: 1.8 } }, showLabels: false },
+        }])),
     attribution: 'USFS',
     sourceMinzoom: 8,
     sourceMaxzoom: 15,
     zoomOpacity: [
       [6,  0.0],
-      [8,  0.55],
-      [11, 0.85],
+      [8,  0.6],
+      [11, 0.95],
     ],
   },
   'sites': {
@@ -127,17 +133,27 @@ export const OVERLAY_LAYERS = {
   'contours': {
     id: 'contours',
     label: 'Topo Lines',
-    description: 'Just the contour lines with elevation figures — transparent over any base',
-    // The contours tile cache is dead at every zoom; export rendering works
+    description: 'Contour lines with elevation figures — sparse index lines from afar, tighter intervals as you zoom',
+    // The contours tile cache is dead at every zoom; export rendering works.
+    // Two windows so lines never bunch: index-only lines first, the 50-foot
+    // and large-scale sets once you're close enough for them to breathe.
     direct: true,
-    tileUrl: 'https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image',
     attribution: 'USGS National Map',
-    sourceMinzoom: 10,
-    sourceMaxzoom: 16,
-    zoomOpacity: [
-      [9,    0.0],
-      [10.5, 0.6],
-      [13,   0.75],
+    parts: [
+      {
+        key: 'coarse',
+        tileUrl: 'https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&layers=show:10,11',
+        sourceMinzoom: 10,
+        sourceMaxzoom: 14,
+        zoomOpacity: [[9.5, 0.0], [10.5, 0.65], [12.4, 0.65], [12.9, 0.0]],
+      },
+      {
+        key: 'fine',
+        tileUrl: 'https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&layers=show:14,19',
+        sourceMinzoom: 12,
+        sourceMaxzoom: 16,
+        zoomOpacity: [[12.4, 0.0], [12.9, 0.7]],
+      },
     ],
   },
 }

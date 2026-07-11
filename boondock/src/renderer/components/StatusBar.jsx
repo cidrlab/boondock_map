@@ -16,7 +16,7 @@ function formatDMS(lat, lng) {
   return `${toDMS(lat, 'N', 'S')}  ${toDMS(lng, 'E', 'W')}`
 }
 
-export default function StatusBar({ cursor, isRecording, trackPoints }) {
+export default function StatusBar({ cursor, zoom, isRecording, trackPoints }) {
   const [showDMS, setShowDMS] = useState(false)
   const [elevFt, setElevFt] = useState(null)
   const coordStr = showDMS ? formatDMS(cursor.lat, cursor.lng) : formatDD(cursor.lat, cursor.lng)
@@ -45,6 +45,7 @@ export default function StatusBar({ cursor, isRecording, trackPoints }) {
         )}
       </div>
       <div className="sb-right">
+        {zoom != null && <span className="sb-elev">z{zoom.toFixed(1)}</span>}
         {elevFt != null && <span className="sb-elev">{elevFt.toLocaleString()} ft</span>}
         <button className="sb-coord" onClick={() => setShowDMS(v => !v)}
           title={showDMS ? 'Switch to DD' : 'Switch to DMS'}>
