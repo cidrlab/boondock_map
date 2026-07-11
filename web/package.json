@@ -1,0 +1,22 @@
+{
+  "name": "boondock-web",
+  "version": "0.1.0",
+  "description": "Boondock Map web version — PWA served from GitHub Pages",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "maplibre-gl": "^4.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.14"
+  }
+}

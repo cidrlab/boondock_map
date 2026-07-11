@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="100" fill="#19222C"/>
+  <!-- back ridge -->
+  <polygon points="230,392 356,206 462,392" fill="#2a4060"/>
+  <!-- front mountain -->
+  <polygon points="50,392 210,150 348,392" fill="#e8eef4"/>
+  <!-- waypoint dot above the ridge -->
+  <circle cx="388" cy="140" r="42" fill="#F9322B"/>
+</svg>

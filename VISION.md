@@ -25,7 +25,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 3 | Hiking + 4x4 trails and forest roads on the map | 🟡 USFS roads/trails overlays exist; no MVUM detail (road type/vehicle class) |
 | 4 | Downloadable offline basemaps | 🟡 download works; **map cannot read the packs back yet** |
 | 5 | Super lean, low-resource app | 🟡 app is small, but Electron shell is heavy; PWA direction below |
-| 6 | Desktop + iPhone + web (GitHub Pages) versions | 🟡 desktop only |
+| 6 | Desktop + iPhone + web (GitHub Pages) versions | 🟡 desktop + web live (2026-07-11); iPhone = install the web app from Safari (needs on-device testing) |
 | 7 | Looks amazing, CiDR/ERN palette | 🟡 palette baked in (verified in global.css); full design pass pending |
 | 8 | Free for everyone + public | ✅ GPL-3.0 added 2026-07-11 |
 | 9 | Safety: weather forecasting at a spot | ⬜ |
@@ -148,7 +148,11 @@ config generation).
 **One web codebase, installed everywhere (PWA-first).**
 
 - Build the map app as a modern web app sharing `boondock/src/shared/` code.
-- **Web:** deployed free on GitHub Pages (repo must be public — it is).
+- **Web:** deployed on GitHub Pages at cidrlab.org/boondock_map/. The repo is
+  private; the org's GitHub plan allows Pages from private repos, and the
+  *site* is public while the *code* stays private (Tim's choice, 2026-07-11).
+  Note: GPL source-sharing obligations only bind distributed copies — worth
+  revisiting repo visibility before inviting outside contributors.
 - **iPhone:** the same app installed via Safari → "Add to Home Screen" (a PWA
   — works offline via service worker + on-device storage). If/when we outgrow
   PWA limits (large offline packs, background GPS), wrap the same code in
@@ -206,7 +210,8 @@ cell-coverage data terms; OpenTopoMap CC-BY-SA.
 
 ## Open questions for Tim
 
-1. Public repo stays public (required for free GitHub Pages) — OK?
+1. ~~Repo visibility~~ Resolved 2026-07-11: repo stays private; the org plan
+   allows Pages from private repos, so the site is public and the code is not.
 2. For offline satellite: if ESRI's terms block offline caching, acceptable to
    offer USGS imagery (public domain) for offline packs instead?
 3. Community layer moderation: who besides you approves submissions long-term?

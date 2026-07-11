@@ -121,9 +121,26 @@ Output: `dist/` — `.dmg` and `.zip` for macOS distribution.
 
 ---
 
-## Web Version (planned)
+## Web Version (PWA)
 
-A browser version deployable to GitHub Pages — sharing this codebase — is planned but **not yet built**. See [VISION.md](VISION.md).
+The web version lives in `web/` and reuses the desktop's React components and
+shared code, swapping Electron's iCloud storage for in-browser IndexedDB. It
+deploys to GitHub Pages automatically on push to `main` (see
+`.github/workflows/deploy-pages.yml`) and is installable on iPhone via
+Safari → Share → **Add to Home Screen**.
+
+Live at: **https://cidrlab.org/boondock_map/**
+
+```bash
+cd web
+npm install
+npm run dev          # local development
+npm run build        # production build to web/dist/
+npm run preview      # serve the production build locally
+```
+
+Not yet in the web version: offline tile packs and GPX file dialogs use
+browser equivalents (download/upload). See [VISION.md](VISION.md) Phase 2.
 
 ---
 

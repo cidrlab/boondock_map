@@ -28,13 +28,17 @@ export default function App() {
 
   const mapRef = useRef(null)
   const prefsTimerRef = useRef(null)
+  // Block auto-save until the initial load lands, so an empty first render
+  // can't overwrite stored data and deleting the last item still persists
+  const wpLoadedRef = useRef(false)
+  const trLoadedRef = useRef(false)
   const api = window.boondock
 
   // ── Load persisted data ──────────────────────────────────────────────────
   useEffect(() => {
     if (!api) return
-    api.loadWaypoints().then(setWaypoints)
-    api.loadTracks().then(setTracks)
+    api.loadWaypoints().then(w => { setWaypoints(w || []); wpLoadedRef.current = true })
+    api.loadTracks().then(t => { setTracks(t || []); trLoadedRef.current = true })
     api.loadSearchHistory().then(h => setSearchHistory(h || []))
 
     // Restore viewport, base layer, overlays from prefs
@@ -59,12 +63,12 @@ export default function App() {
 
   // ── Auto-save waypoints whenever they change ─────────────────────────────
   useEffect(() => {
-    if (!api || waypoints.length === 0) return
+    if (!api || !wpLoadedRef.current) return
     api.saveWaypoints(waypoints)
   }, [waypoints])
 
   useEffect(() => {
-    if (!api) return
+    if (!api || !trLoadedRef.current) return
     api.saveTracks(tracks)
   }, [tracks])
 
