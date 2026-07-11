@@ -4,7 +4,7 @@
   "description": "Offline topo map for boondocking, hiking, and off-road exploration",
   "main": "src/main/main.js",
   "author": "tt",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "dev": "concurrently -n vite,electron -c cyan,yellow \"vite\" \"node scripts/wait-and-launch.js\"",
     "build": "vite build && electron-builder",
