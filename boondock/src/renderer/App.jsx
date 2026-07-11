@@ -290,8 +290,12 @@ export default function App() {
       {showDownloadModal && (
         <DownloadModal
           bbox={downloadBbox}
+          getViewBbox={() => {
+            const b = mapRef.current?.getMap?.()?.getBounds()
+            return b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : null
+          }}
           onClose={() => { setShowDownloadModal(false); setDownloadMode(false); setDownloadBbox(null) }}
-          onStartDownload={() => { setShowDownloadModal(false); setDownloadMode(false); setDownloadBbox(null) }}
+          onStartDownload={() => { setDownloadMode(false); setDownloadBbox(null) }}
         />
       )}
     </div>

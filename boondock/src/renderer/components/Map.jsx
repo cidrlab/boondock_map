@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
-import { BASE_LAYERS, OVERLAY_LAYERS, ESRI_REFERENCE_URL, ESRI_LABELS_URL, USGS_TOPO_URL, DEFAULT_CENTER, DEFAULT_ZOOM } from '../../shared/layers'
+import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../../shared/layers'
+import { installProtocol, toProtocolUrl } from '../../shared/offlineTiles'
 import { WAYPOINT_COLORS } from './Icons'
+
+// All tile requests go through boondock:// so downloaded offline packs are
+// used first and the network is the fallback (see shared/offlineTiles.js)
+installProtocol(maplibregl)
 
 // SVG path data for each waypoint icon (used in DOM markers)
 const MARKER_SVG = {
@@ -49,8 +54,8 @@ const Map = forwardRef(function Map(
 
     if (baseId === 'topo-imagery') {
       // High-res composite: ESRI satellite + USGS topo overlay at reduced opacity
-      sources['esri-sat'] = { type: 'raster', tiles: [BASE_LAYERS['esri-satellite'].tileUrl], tileSize: 256, maxzoom: 19 }
-      sources['usgs-topo-overlay'] = { type: 'raster', tiles: [USGS_TOPO_URL], tileSize: 256, maxzoom: 16 }
+      sources['esri-sat'] = { type: 'raster', tiles: [toProtocolUrl('esri-satellite')], tileSize: 256, maxzoom: 19, attribution: base.attribution }
+      sources['usgs-topo-overlay'] = { type: 'raster', tiles: [toProtocolUrl('usgs-topo')], tileSize: 256, maxzoom: 16 }
       layers.push({ id: 'esri-sat-layer', type: 'raster', source: 'esri-sat' })
       layers.push({
         id: 'usgs-topo-overlay-layer', type: 'raster', source: 'usgs-topo-overlay',
@@ -61,21 +66,16 @@ const Map = forwardRef(function Map(
       })
     } else if (baseId === 'esri-hybrid') {
       // Satellite base + road lines + place/road name labels
-      sources['esri-sat'] = { type: 'raster', tiles: [BASE_LAYERS['esri-satellite'].tileUrl], tileSize: 256 }
-      sources['esri-ref'] = { type: 'raster', tiles: [ESRI_REFERENCE_URL], tileSize: 256 }
-      sources['esri-labels'] = { type: 'raster', tiles: [ESRI_LABELS_URL], tileSize: 256 }
+      sources['esri-sat'] = { type: 'raster', tiles: [toProtocolUrl('esri-satellite')], tileSize: 256, attribution: base.attribution }
+      sources['esri-ref'] = { type: 'raster', tiles: [toProtocolUrl('roads')], tileSize: 256 }
+      sources['esri-labels'] = { type: 'raster', tiles: [toProtocolUrl('road-labels')], tileSize: 256 }
       layers.push({ id: 'esri-sat-layer', type: 'raster', source: 'esri-sat' })
       layers.push({ id: 'esri-ref-layer', type: 'raster', source: 'esri-ref', paint: { 'raster-opacity': 0.9 } })
       layers.push({ id: 'esri-labels-layer', type: 'raster', source: 'esri-labels', paint: { 'raster-opacity': 0.85 } })
-    } else if (base?.subdomains) {
-      // Subdomain tile (OpenTopoMap style)
-      const urls = base.subdomains.map(s => base.tileUrl.replace('{s}', s))
-      sources['base'] = { type: 'raster', tiles: urls, tileSize: 256, attribution: base.attribution }
-      layers.push({ id: 'base-layer', type: 'raster', source: 'base' })
     } else if (base?.tileUrl) {
       sources['base'] = {
         type: 'raster',
-        tiles: [base.tileUrl],
+        tiles: [toProtocolUrl(baseId)],
         tileSize: 256,
         attribution: base.attribution || '',
       }
@@ -162,12 +162,11 @@ const Map = forwardRef(function Map(
     if (!m) return
     const ov = overlaysRef.current
     Object.entries(OVERLAY_LAYERS).forEach(([id, layer]) => {
-      const url = layer.tileUrl || layer.url
-      if (!url) return
+      if (!layer.tileUrl) return
       if (!m.getSource(id)) {
         m.addSource(id, {
           type: 'raster',
-          tiles: [url],
+          tiles: [toProtocolUrl(id)],
           tileSize: 256,
           attribution: layer.attribution || '',
         })

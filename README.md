@@ -19,7 +19,7 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 - **Topo+Imagery composite:** High-resolution ESRI satellite at zoom 17+ fades the topo overlay for maximum detail when it matters
 - **Waypoints:** Save, edit, categorize, and color-code locations with icons (camp, trailhead, viewpoint, fuel, water, hazard, etc.)
 - **GPX import:** Load existing GPX files for tracks and waypoints
-- **Offline tile download:** Download map tiles for a selected area and zoom range into local MBTiles packs. *Known gap: the map does not yet read these packs back when offline — see VISION.md.*
+- **Offline maps:** Download any area (drawn box or current view) at your chosen zoom range into a local pack — the map serves pack tiles automatically when you're offline. Works on desktop and web/iPhone. USGS Topo only for now; other layers await tile-service terms verification (VISION.md).
 - **Track recording (UI only):** Record/stop controls and track display exist, but no GPS points are captured yet — recording is not functional. See VISION.md.
 - **Search:** Nominatim geocoder (place names, addresses, coordinates), biased to your current map view
 - **POI search:** Nearby points of interest via Overpass/OpenStreetMap — gas, food, groceries, campgrounds, water, restrooms, trailheads, picnic sites, viewpoints, lodging

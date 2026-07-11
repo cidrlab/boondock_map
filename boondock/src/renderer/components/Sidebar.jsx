@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { BASE_LAYERS, OVERLAY_LAYERS } from '../../shared/layers'
+import { listPacks, deletePack, storageEstimate } from '../../shared/offlineTiles'
 import { parseCoords, formatCoords } from '../../shared/parseCoords'
 import { useGeocoder } from '../../shared/useGeocoder'
 import { usePoiSearch, POI_CATEGORIES } from '../../shared/usePoiSearch'
@@ -411,7 +412,7 @@ export default function Sidebar({
         {activeTab === 'download' && (
           <div>
             <div className="section-hdr">Offline Maps</div>
-            <p className="dl-info">Draw a bounding box on the map to download tiles for offline use. Stored locally as MBTiles.</p>
+            <p className="dl-info">Save map areas to this device — they render automatically when you have no signal.</p>
             <button className="btn-primary full-width" onClick={onShowDownloadModal}>
               <Download size={15} /> Download area
             </button>
@@ -425,10 +426,22 @@ export default function Sidebar({
 
 function OfflinePacks() {
   const [packs, setPacks] = useState([])
+  const [storage, setStorage] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    window.boondock?.listTilePacks().then(p => { setPacks(p || []); setLoading(false) })
+    const refresh = () => {
+      listPacks().then(p => { setPacks(p); setLoading(false) })
+      storageEstimate().then(setStorage)
+    }
+    refresh()
+    window.addEventListener('boondock-packs-changed', refresh)
+    const ch = 'BroadcastChannel' in window ? new BroadcastChannel('boondock-packs') : null
+    ch?.addEventListener('message', refresh)
+    return () => {
+      window.removeEventListener('boondock-packs-changed', refresh)
+      ch?.close()
+    }
   }, [])
 
   if (loading) return null
@@ -439,13 +452,28 @@ function OfflinePacks() {
     </div>
   )
   return (
-    <ul className="pack-list">
-      {packs.map(p => (
-        <li key={p} className="pack-item">
-          <Download size={14} color="var(--accent)" />
-          <span>{p.replace('.mbtiles', '')}</span>
-        </li>
-      ))}
-    </ul>
+    <div>
+      <ul className="pack-list">
+        {packs.map(p => (
+          <li key={p.id} className="pack-item">
+            <Download size={14} color="var(--accent)" />
+            <div className="wp-info">
+              <div className="wp-name">{p.name}</div>
+              <div className="wp-meta">
+                {BASE_LAYERS[p.layerId]?.label || p.layerId} · z{p.minZoom}–{p.maxZoom} · {p.count.toLocaleString()} tiles · {(p.bytes / 1048576).toFixed(1)} MB
+              </div>
+            </div>
+            <button className="btn-ghost" title="Delete pack" onClick={() => deletePack(p.id)}>
+              <Trash2 size={14} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {storage?.usage > 0 && (
+        <p className="dl-info" style={{ marginTop: 10 }}>
+          Device storage used: {(storage.usage / 1048576).toFixed(0)} MB of {(storage.quota / 1073741824).toFixed(1)} GB available
+        </p>
+      )}
+    </div>
   )
 }

@@ -23,7 +23,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 1 | Find free/dispersed camping (Campendium/iOverlander-style database + workflow) | ⬜ |
 | 2 | Scout areas with satellite imagery around a candidate spot | ✅ ESRI satellite + hybrid layers |
 | 3 | Hiking + 4x4 trails and forest roads on the map | 🟡 USFS roads/trails overlays exist; no MVUM detail (road type/vehicle class) |
-| 4 | Downloadable offline basemaps | 🟡 download works; **map cannot read the packs back yet** |
+| 4 | Downloadable offline basemaps | ✅ user-drawn packs render offline on desktop + web (2026-07-11); USGS Topo layer — others + prebuilt region packs pending terms checks |
 | 5 | Super lean, low-resource app | 🟡 app is small, but Electron shell is heavy; PWA direction below |
 | 6 | Desktop + iPhone + web (GitHub Pages) versions | 🟡 desktop + web live (2026-07-11); iPhone = install the web app from Safari (needs on-device testing) |
 | 7 | Looks amazing, CiDR/ERN palette | 🟡 palette baked in (verified in global.css); full design pass pending |
@@ -78,13 +78,17 @@ Broken or missing (all verified by reading the code):
 1. **Offline packs are write-only.** Tiles download into `.mbtiles` files, but
    no code path serves them back to the map. Offline in the field = blank map.
    This is the #1 gap vs. the app's stated purpose.
+   **FIXED 2026-07-11** — Phase 2 shipped a shared offline engine
+   (`shared/offlineTiles.js`): packs in IndexedDB, served via a `boondock://`
+   MapLibre protocol, verified end-to-end with network emulation.
 2. **Track recording records nothing.** The Record button works, but no GPS
    points are ever captured (`onTrackPoint` is wired in but never called), so
    every recording is silently discarded. Note: desktop Electron geolocation
    is unreliable anyway — tracks really belong on the phone version.
 3. **Deleting the last waypoint doesn't stick** (a save-guard skips empty
    lists), so it resurrects on restart. Same guard pattern risks a
-   load/save race on tracks.
+   load/save race on tracks. **FIXED 2026-07-11** — saves now gate on load
+   completion.
 4. **Minor:** waypoint names/notes are injected into popup HTML unescaped (a
    malicious GPX import could inject markup); `webSecurity: false` is enabled
    for local tiles that are never actually loaded; Nominatim/Overpass usage
@@ -188,8 +192,11 @@ config generation).
 - **Phase 1 — Web app on GitHub Pages:** shared-code web build, IndexedDB
   storage, PWA manifest + service worker, deployed and installable on iPhone.
   *This is the next build step.*
-- **Phase 2 — Real offline:** region pack download (PMTiles), offline serving
-  in MapLibre on all platforms, pack manager UI.
+- **Phase 2 — Real offline:** *shipped 2026-07-11* for user-drawn packs —
+  download an area (box or current view) into device storage, served to the
+  map pack-first/network-fallback on desktop and web, with a pack manager
+  (list/size/delete). Remaining: prebuilt PMTiles region packs, more offline
+  layers after tile-service terms verification.
 - **Phase 3 — The boondocking layer:** public-land tap-to-identify, MVUM road
   types, stay-limit info, spot database seeded from open data, GPX import from
   Gaia/iOverlander exports.

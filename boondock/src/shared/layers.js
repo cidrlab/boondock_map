@@ -20,6 +20,9 @@ export const BASE_LAYERS = {
     maxZoom: 16,
     minZoom: 0,
     tmsYFlip: false,
+    // Public-domain USGS service — only layer cleared for offline pack
+    // downloads until ESRI/OpenTopoMap terms are verified (VISION.md)
+    offlineOk: true,
   },
   'topo-imagery': {
     id: 'topo-imagery',

@@ -25,7 +25,7 @@ npm run dev       # launch app in dev mode
 ## Features
 
 - **Click map → drop waypoint** with name, icon (camp, water, hazard, etc.), notes
-- **Offline download** — draw a bounding box → select zoom levels → downloads to MBTiles. *Known gap: the map does not yet read the packs back when offline.*
+- **Offline maps** — draw a box (or use the current view) → select zoom levels → tiles download into a local pack that the map renders from automatically when offline
 - **Track recording (UI only)** — start/stop controls exist but no GPS points are captured yet; recording is not functional
 - **GPX import/export** — compatible with Gaia GPS, Garmin, CalTopo
 - **iCloud sync** — waypoints saved to `~/Library/Mobile Documents/com~apple~CloudDocs/BoondockMap/waypoints.json`; iPhone companion app (coming) reads the same file
@@ -42,12 +42,14 @@ When you save a waypoint on your phone, the Mac app receives a live file-watch e
 
 ## Offline Tiles
 
-Downloaded tile packs are stored as `.mbtiles` SQLite files in:
-```
-~/Library/Application Support/BoondockMap/tiles/
-```
+Packs are stored in the app's local browser storage (IndexedDB) and served to
+the map through a custom `boondock://` tile protocol — pack first, network
+fallback (`src/shared/offlineTiles.js`). Any `.mbtiles` files left in
+`~/Library/Application Support/BoondockMap/tiles/` are from the pre-Phase-2
+downloader and are no longer read.
 
-To download: click **⬇️ Offline** in toolbar → draw box on map → set zoom range → Download.
+To download: **Offline** tab → Download area → use current view (or draw a box
+with the toolbar download tool) → set zoom range → Download.
 
 Rule of thumb for zoom levels:
 - Z8–12 = regional overview (~50MB for a county)
