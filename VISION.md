@@ -26,7 +26,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 4 | Downloadable offline basemaps | ✅ user-drawn packs render offline on desktop + web (2026-07-11); USGS Topo layer — others + prebuilt region packs pending terms checks |
 | 5 | Super lean, low-resource app | 🟡 app is small, but Electron shell is heavy; PWA direction below |
 | 6 | Desktop + iPhone + web (GitHub Pages) versions | 🟡 desktop + web live (2026-07-11); iPhone = install the web app from Safari (needs on-device testing) |
-| 7 | Looks amazing, CiDR/ERN palette | 🟡 palette baked in (verified in global.css); full design pass pending |
+| 7 | Looks amazing, CiDR/ERN palette | 🟡 mobile redesign shipped 2026-07-11 (map-first bottom sheet, glass chrome, visible controls, pack footprints); desktop polish + custom basemap next |
 | 8 | Free for everyone + public | ✅ GPL-3.0 added 2026-07-11 |
 | 9 | Safety: weather forecasting at a spot | ⬜ |
 | 10 | Safety: road conditions / road types (washboard, clearance, mud) | ⬜ |
@@ -41,6 +41,9 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 19 | Cell phone coverage map (per carrier) | ⬜ |
 | 20 | Solar coverage / sun exposure at a spot | ⬜ |
 | 21 | Rank spots (ratings + reviews) | ⬜ |
+| 22 | Design-forward basemap with elevation markers (custom style: hillshade + labeled contours) | ⬜ exploration next; USGSImageryTopo tile service verified live 2026-07-11, a USGSShadedReliefOnly URL guess 404'd — needs source scouting |
+| 23 | Clean water fill stations (free + pay) and dump stations | 🟡 Dump/RV + Water POI chips shipped 2026-07-11 (OSM `sanitary_dump_station` / `water_point`); free-vs-pay detail needs a richer data layer |
+| 24 | Baseline list of places to start from | ⬜ FreeRoam's spot data is unrecoverable (lived in their production DB, not GitHub — verified); seed from OSM camp_site/caravan_site + Recreation.gov RIDB (verify API terms) + BLM/USFS facility data |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,
