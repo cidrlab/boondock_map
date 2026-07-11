@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh; /* iOS: 100vh overshoots past the Safari toolbars */
   width: 100vw;
   overflow: hidden;
 }
@@ -10,8 +11,10 @@
   display: flex;
   flex: 1;
   overflow: hidden;
-  height: calc(100vh - var(--toolbar-h) - var(--statusbar-h));
+  min-height: 0;
 }
+
+button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 
 /* ── Map ──────────────────────────────────────────────────────────────────── */
 .map-container {
@@ -39,12 +42,47 @@
   color: var(--text-primary) !important;
   border-bottom: 1px solid var(--glass-border) !important;
   transition: background 0.1s !important;
+  cursor: pointer;
+}
+/* MapLibre's default icons are dark — invert them so they read as live
+   controls on the glass background */
+.maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: brightness(0) invert(0.92);
 }
 .maplibregl-ctrl-group button:hover {
   background: var(--glass-hover) !important;
 }
+.maplibregl-ctrl-group button:active {
+  background: var(--bg-active) !important;
+}
 .maplibregl-ctrl-group button:last-child {
   border-bottom: none !important;
+}
+/* Geolocate state: red tint while locating / tracking */
+.maplibregl-ctrl button.maplibregl-ctrl-geolocate-active,
+.maplibregl-ctrl button.maplibregl-ctrl-geolocate-waiting {
+  background: var(--accent-dim) !important;
+}
+
+/* Transient map message (e.g. location errors) */
+.map-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 90px;
+  transform: translateX(-50%);
+  max-width: min(86%, 420px);
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  line-height: 1.45;
+  padding: 10px 14px;
+  z-index: 50;
+  pointer-events: none;
 }
 
 .maplibregl-popup-content {
@@ -157,3 +195,62 @@
 }
 .chip-accent { background: var(--accent-dim); color: var(--accent); }
 .chip-muted { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+
+/* ═══ Mobile — map-first layout, floating chrome ═══════════════════════════ */
+@media (max-width: 768px) {
+  .app { position: relative; }
+
+  /* Toolbar floats over the map as a glass bar under the iOS status bar */
+  .toolbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 60;
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+    padding-top: env(safe-area-inset-top);
+    height: calc(var(--toolbar-h) + env(safe-area-inset-top));
+  }
+
+  .app-body { height: 100%; }
+  .map-container { position: absolute; inset: 0; }
+
+  .statusbar { display: none; }
+
+  /* Pinch zooms; buttons don't earn their pixels on a phone */
+  .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-in,
+  .maplibregl-ctrl-top-right .maplibregl-ctrl-zoom-out,
+  .maplibregl-ctrl-top-right .maplibregl-ctrl-compass { display: none; }
+  .maplibregl-ctrl-top-right { margin-top: calc(var(--toolbar-h) + env(safe-area-inset-top) + 10px); }
+
+  /* Locate button: thumb reach, above the collapsed sheet */
+  .maplibregl-ctrl-bottom-right {
+    margin-bottom: calc(84px + env(safe-area-inset-bottom));
+    margin-right: 12px;
+  }
+  .maplibregl-ctrl-bottom-left {
+    margin-bottom: calc(84px + env(safe-area-inset-bottom));
+    margin-left: 12px;
+  }
+  .maplibregl-ctrl-group button {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .map-toast { bottom: calc(140px + env(safe-area-inset-bottom)); }
+
+  /* Modals become bottom sheets */
+  .modal-overlay {
+    align-items: flex-end;
+    padding-bottom: 0;
+  }
+  .dl-modal, .wp-modal, .stop-modal {
+    width: 100vw !important;
+    max-width: none !important;
+    max-height: 85dvh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0 !important;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+  }
+}

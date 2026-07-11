@@ -441,3 +441,58 @@
   padding: 8px 10px; background: var(--bg-tertiary); border-radius: var(--radius-sm);
   border: 1px solid var(--border); font-size: 12px;
 }
+
+/* ── Sheet header (grip is mobile-only) ──────────────────────────────────── */
+.sheet-grip { display: none; }
+
+/* ═══ Mobile — the sidebar becomes a bottom sheet ══════════════════════════ */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    width: 100%;
+    min-width: 0;
+    z-index: 70;
+    height: calc(70px + env(safe-area-inset-bottom));
+    background: var(--glass);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-right: none;
+    border-top: 1px solid var(--glass-border);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.55);
+    padding-bottom: env(safe-area-inset-bottom);
+    transition: height 0.24s ease-out;
+  }
+  .sidebar.sheet-half { height: 47dvh; }
+  .sidebar.sheet-full { height: 88dvh; }
+
+  .sheet-header { touch-action: none; }
+  .sheet-grip {
+    display: block;
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-strong);
+    margin: 7px auto 2px;
+  }
+
+  .sidebar-tabs { border-bottom-color: transparent; }
+  .sidebar.sheet-half .sidebar-tabs,
+  .sidebar.sheet-full .sidebar-tabs { border-bottom-color: var(--border); }
+
+  .tab-btn { padding: 8px 4px 10px; font-size: 11px; letter-spacing: 0.04em; }
+
+  /* iOS zooms any focused input under 16px — don't let it */
+  .search-input-row input { font-size: 16px; padding-top: 9px; padding-bottom: 9px; }
+
+  .poi-chip { padding: 6px 12px; font-size: 12px; }
+  .tab-btn, .poi-chip, .wp-item, .geo-item { -webkit-tap-highlight-color: transparent; }
+
+  /* Touch has no hover — keep row actions visible */
+  .wp-actions, .geo-pin-btn { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}

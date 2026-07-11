@@ -46,7 +46,7 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-right">
-        <button className={`tb-icon-btn ${downloadMode ? 'active' : ''}`} onClick={onToggleDownloadMode} title="Download offline tiles">
+        <button className={`tb-icon-btn tb-draw-download ${downloadMode ? 'active' : ''}`} onClick={onToggleDownloadMode} title="Download offline tiles">
           <Download size={16} />
         </button>
         <button className="tb-icon-btn" onClick={onImportGPX} title="Import GPX">
@@ -55,8 +55,8 @@ export default function Toolbar({
         <button className="tb-icon-btn" onClick={onExportGPX} title="Export GPX">
           <Share size={16} />
         </button>
-        <div className="toolbar-divider" />
-        <button className="tb-icon-btn" onClick={onOpenSyncFolder} title="Open iCloud sync folder">
+        <div className="toolbar-divider tb-sync" />
+        <button className="tb-icon-btn tb-sync" onClick={onOpenSyncFolder} title="Open iCloud sync folder">
           <Cloud size={16} />
         </button>
       </div>

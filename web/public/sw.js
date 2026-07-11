@@ -1,13 +1,14 @@
 /**
  * Boondock Map service worker — offline app shell.
  *
- * Same-origin GET requests are cached stale-while-revalidate so the app
- * opens with no signal after the first visit. Cross-origin requests (map
- * tiles, Nominatim, Overpass) pass straight through — offline map packs
- * are Phase 2 (VISION.md).
+ * Navigations are network-first so new deploys land on the next load,
+ * falling back to cache when offline. Hashed assets are cached
+ * stale-while-revalidate. Cross-origin requests (map tiles, Nominatim,
+ * Overpass) pass straight through — offline map packs are handled by the
+ * app's own tile store, not this worker.
  */
 
-const CACHE = 'boondock-shell-v1'
+const CACHE = 'boondock-shell-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 
@@ -22,6 +23,19 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url)
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return
+
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const copy = res.clone()
+          caches.open(CACHE).then(c => c.put(e.request, copy))
+          return res
+        })
+        .catch(() => caches.match(e.request))
+    )
+    return
+  }
 
   e.respondWith(
     caches.match(e.request).then(cached => {

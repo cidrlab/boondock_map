@@ -131,6 +131,15 @@
 }
 .stop-btn:hover { background: rgba(249,50,43,0.18); }
 
+/* ═══ Mobile ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .toolbar-left { width: auto; padding-left: 4px; }
+  /* Box-drawing needs a mouse; iCloud folder is a desktop concept */
+  .tb-draw-download, .tb-sync { display: none; }
+  .tb-icon-btn { width: 40px; height: 40px; }
+  .tb-btn { padding: 7px 16px; }
+}
+
 /* ── Stop modal ──────────────────────────────────────────────────────────── */
 .stop-modal {
   background: var(--bg-secondary);

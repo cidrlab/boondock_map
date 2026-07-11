@@ -13,14 +13,34 @@ import './Sidebar.css'
 
 const WAYPOINT_ICONS = ['generic','camp','water','hazard','trailhead','viewpoint','fuel','parking']
 
+const SHEET_STATES = ['peek', 'half', 'full']
+
 export default function Sidebar({
   activeTab, setActiveTab, waypoints, tracks,
   overlays, setOverlays, baseLayer, setBaseLayer,
   onWaypointClick, onWaypointDelete, onWaypointUpdate,
   selectedWaypoint, onShowDownloadModal, downloadBbox,
   onFlyTo, searchHistory, onAddSearchHistory, mapCenter,
+  isMobile,
 }) {
   const [query, setQuery] = useState('')
+  const [sheet, setSheet] = useState('peek')
+  const sheetDragY = useRef(null)
+
+  const sheetStep = (dir) => setSheet(s => {
+    const i = SHEET_STATES.indexOf(s) + dir
+    return SHEET_STATES[Math.max(0, Math.min(SHEET_STATES.length - 1, i))]
+  })
+
+  const handleTabClick = (id) => {
+    if (isMobile) {
+      if (id === activeTab && sheet !== 'peek') { setSheet('peek'); return }
+      setActiveTab(id)
+      if (sheet === 'peek') setSheet('half')
+    } else {
+      setActiveTab(id)
+    }
+  }
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
   const [editNotes, setEditNotes] = useState('')
@@ -114,20 +134,33 @@ export default function Sidebar({
   ]
 
   return (
-    <aside className="sidebar">
-      {/* ── Tabs ──────────────────────────────────────────────────────── */}
-      <nav className="sidebar-tabs">
-        {tabs.map(t => (
-          <button
-            key={t.id}
-            className={`tab-btn ${activeTab === t.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(t.id)}
-          >
-            <t.Icon size={16} />
-            <span>{t.label}</span>
-          </button>
-        ))}
-      </nav>
+    <aside className={`sidebar ${isMobile ? `sheet-${sheet}` : ''}`}>
+      {/* ── Sheet header: grip + tabs (tabs double as the drag handle) ── */}
+      <div
+        className="sheet-header"
+        onPointerDown={e => { sheetDragY.current = e.clientY }}
+        onPointerUp={e => {
+          if (sheetDragY.current == null) return
+          const d = e.clientY - sheetDragY.current
+          sheetDragY.current = null
+          if (d < -40) sheetStep(1)
+          else if (d > 40) sheetStep(-1)
+        }}
+      >
+        <div className="sheet-grip" />
+        <nav className="sidebar-tabs">
+          {tabs.map(t => (
+            <button
+              key={t.id}
+              className={`tab-btn ${activeTab === t.id ? 'active' : ''}`}
+              onClick={() => handleTabClick(t.id)}
+            >
+              <t.Icon size={16} />
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
 
       {/* ── Search ────────────────────────────────────────────────────── */}
       <div className="search-wrapper">

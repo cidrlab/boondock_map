@@ -18,7 +18,8 @@ export const POI_CATEGORIES = [
   { id: 'restaurant',  label: 'Food',         tags: '"amenity"~"restaurant|fast_food|cafe"', radius: 10000 },
   { id: 'grocery',     label: 'Grocery',      tags: '"shop"~"supermarket|convenience|general"', radius: 15000 },
   { id: 'campground',  label: 'Camp',         tags: '"tourism"~"camp_site|caravan_site"',   radius: 30000 },
-  { id: 'water',       label: 'Water',        tags: '"amenity"="drinking_water"',           radius: 15000 },
+  { id: 'water',       label: 'Water',        tags: '"amenity"~"drinking_water|water_point"', radius: 15000 },
+  { id: 'dump',        label: 'Dump/RV',      tags: '"amenity"~"sanitary_dump_station|water_point"', radius: 40000 },
   { id: 'toilet',      label: 'Restroom',     tags: '"amenity"="toilets"',                  radius: 10000 },
   { id: 'trailhead',   label: 'Trailhead',    tags: '"highway"="trailhead"',                radius: 20000 },
   { id: 'picnic',      label: 'Picnic',       tags: '"tourism"="picnic_site"',              radius: 15000 },
@@ -32,7 +33,8 @@ function categorize(tags) {
   if (tags.amenity === 'restaurant' || tags.amenity === 'fast_food' || tags.amenity === 'cafe') return { category: 'restaurant', icon: 'generic' }
   if (tags.shop) return { category: 'grocery', icon: 'generic' }
   if (tags.tourism === 'camp_site' || tags.tourism === 'caravan_site') return { category: 'campground', icon: 'camp' }
-  if (tags.amenity === 'drinking_water') return { category: 'water', icon: 'water' }
+  if (tags.amenity === 'drinking_water' || tags.amenity === 'water_point') return { category: 'water', icon: 'water' }
+  if (tags.amenity === 'sanitary_dump_station') return { category: 'dump', icon: 'generic' }
   if (tags.amenity === 'toilets') return { category: 'water', icon: 'generic' }
   if (tags.highway === 'trailhead') return { category: 'trailhead', icon: 'trailhead' }
   if (tags.tourism === 'picnic_site') return { category: 'picnic', icon: 'viewpoint' }

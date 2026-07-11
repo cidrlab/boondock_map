@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../../shared/layers'
-import { installProtocol, toProtocolUrl } from '../../shared/offlineTiles'
+import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
 import { WAYPOINT_COLORS } from './Icons'
 
 // All tile requests go through boondock:// so downloaded offline packs are
@@ -25,7 +25,7 @@ const Map = forwardRef(function Map(
     baseLayer, overlays, waypoints, tracks, currentTrackPoints,
     selectedWaypoint, onMapClick, onMouseMove, onTrackPoint,
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
-    initialViewport, onViewportChange,
+    initialViewport, onViewportChange, showPackAreas,
   },
   ref
 ) {
@@ -96,23 +96,29 @@ const Map = forwardRef(function Map(
       center: initialViewport.center || DEFAULT_CENTER,
       zoom: initialViewport.zoom ?? DEFAULT_ZOOM,
       maxZoom: 19,
+      attributionControl: { compact: window.matchMedia('(max-width: 768px)').matches },
     })
 
     map.current.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
     map.current.addControl(new maplibregl.ScaleControl({ maxWidth: 200, unit: 'imperial' }), 'bottom-right')
-    map.current.addControl(
-      new maplibregl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserHeading: true,
-      }),
-      'top-right'
-    )
+    const geolocate = new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: true,
+      showUserHeading: true,
+    })
+    map.current.addControl(geolocate, 'bottom-right')
+    geolocate.on('error', (err) => {
+      showToast(mapContainer.current, err?.message
+        ? `Location error: ${err.message}`
+        : 'Location unavailable — allow location access for this site in your browser settings')
+    })
 
     map.current.on('load', () => {
       addOverlaySources()
       addTracksLayer()
       addCurrentTrackLayer()
+      addPackAreasLayer()
+      refreshPackAreas()
       setMapReady(true)
     })
 
@@ -146,7 +152,10 @@ const Map = forwardRef(function Map(
       addOverlaySources()
       addTracksLayer()
       addCurrentTrackLayer()
+      addPackAreasLayer()
+      refreshPackAreas()
       applyOverlayVisibility()
+      applyPackAreasVisibility()
     })
   }, [baseLayer])
 
@@ -200,6 +209,80 @@ const Map = forwardRef(function Map(
     if (!mapReady) return
     applyOverlayVisibility()
   }, [overlays, mapReady])
+
+  // ── Downloaded-pack footprints ────────────────────────────────────────────
+  function addPackAreasLayer() {
+    const m = map.current
+    if (!m) return
+    if (!m.getSource('pack-areas')) {
+      m.addSource('pack-areas', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+    }
+    if (!m.getLayer('pack-areas-fill')) {
+      m.addLayer({
+        id: 'pack-areas-fill', type: 'fill', source: 'pack-areas',
+        layout: { visibility: 'none' },
+        paint: { 'fill-color': '#fbbf24', 'fill-opacity': 0.07 },
+      })
+    }
+    if (!m.getLayer('pack-areas-line')) {
+      m.addLayer({
+        id: 'pack-areas-line', type: 'line', source: 'pack-areas',
+        layout: { visibility: 'none' },
+        // Amber: readable over both pale topo and dark satellite
+        paint: { 'line-color': '#fbbf24', 'line-opacity': 0.9, 'line-width': 2, 'line-dasharray': [3, 2] },
+      })
+    }
+  }
+
+  async function refreshPackAreas() {
+    const m = map.current
+    if (!m?.getSource('pack-areas')) return
+    const packs = await listPacks()
+    m.getSource('pack-areas').setData({
+      type: 'FeatureCollection',
+      features: packs.map(p => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [p.bbox[0], p.bbox[1]], [p.bbox[2], p.bbox[1]],
+            [p.bbox[2], p.bbox[3]], [p.bbox[0], p.bbox[3]],
+            [p.bbox[0], p.bbox[1]],
+          ]],
+        },
+        properties: { name: p.name },
+      })),
+    })
+  }
+
+  function applyPackAreasVisibility() {
+    const m = map.current
+    if (!m) return
+    const vis = showPackAreasRef.current ? 'visible' : 'none'
+    ;['pack-areas-fill', 'pack-areas-line'].forEach(id => {
+      if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', vis)
+    })
+  }
+
+  const showPackAreasRef = useRef(showPackAreas)
+  useEffect(() => { showPackAreasRef.current = showPackAreas }, [showPackAreas])
+
+  useEffect(() => {
+    if (!mapReady) return
+    applyPackAreasVisibility()
+    if (showPackAreas) refreshPackAreas()
+  }, [showPackAreas, mapReady])
+
+  useEffect(() => {
+    const refresh = () => refreshPackAreas()
+    window.addEventListener('boondock-packs-changed', refresh)
+    const ch = 'BroadcastChannel' in window ? new BroadcastChannel('boondock-packs') : null
+    ch?.addEventListener('message', refresh)
+    return () => {
+      window.removeEventListener('boondock-packs-changed', refresh)
+      ch?.close()
+    }
+  }, [])
 
   // ── Tracks layer ─────────────────────────────────────────────────────────
   function addTracksLayer() {
@@ -404,6 +487,20 @@ const Map = forwardRef(function Map(
 export default Map
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+let toastTimer = null
+function showToast(container, text) {
+  if (!container) return
+  let el = container.querySelector('.map-toast')
+  if (!el) {
+    el = document.createElement('div')
+    el.className = 'map-toast'
+    container.appendChild(el)
+  }
+  el.textContent = text
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => el.remove(), 6000)
+}
+
 const TRACK_COLORS = ['#F9322B','#22c55e','#f59e0b','#a78bfa','#38bdf8','#fb923c']
 
 function tracksToGeoJSON(tracks) {

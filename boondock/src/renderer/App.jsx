@@ -25,6 +25,14 @@ export default function App() {
   const [showDownloadModal, setShowDownloadModal] = useState(false)
   const [searchHistory, setSearchHistory] = useState([])
   const [initialViewport, setInitialViewport] = useState(null)  // {center, zoom} from prefs, or defaults
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const onChange = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   const mapRef = useRef(null)
   const prefsTimerRef = useRef(null)
@@ -227,8 +235,9 @@ export default function App() {
       />
 
       <div className="app-body">
-        {sidebarOpen && (
+        {(sidebarOpen || isMobile) && (
           <Sidebar
+            isMobile={isMobile}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             waypoints={waypoints}
@@ -274,6 +283,7 @@ export default function App() {
           onWaypointClick={setSelectedWaypoint}
           initialViewport={initialViewport}
           onViewportChange={handleViewportChange}
+          showPackAreas={activeTab === 'download'}
         />
       </div>
 
