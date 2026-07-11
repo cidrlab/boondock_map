@@ -36,7 +36,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 14 | Navigate to a spot via Google Maps / Apple Maps handoff | ⬜ (easy: deep links) |
 | 15 | In-app navigation independent of Google/Apple (forest roads aren't in those) | ⬜ (hard: routing engine; FreeRoam used Valhalla) |
 | 16 | Area updates: search local social media + state/federal announcements (closures, access) | ⬜ |
-| 17 | Paid spots too: RV parks, paid state & federal campgrounds | ⬜ |
+| 17 | Paid spots too: RV parks, paid state & federal campgrounds | 🟡 2026-07-11: 66 Recreation.gov federal campgrounds + 27 WA DNR campgrounds merged (CC-BY/as-is, reservable flag, websites); private RV parks via Overture. State Parks camping still a gap (no bulk dataset found) |
 | 18 | Amenities on spots (hookups, dump, water, showers…) | ⬜ |
 | 19 | Cell phone coverage map (per carrier) | ⬜ |
 | 20 | Solar coverage / sun exposure at a spot | ⬜ |
@@ -49,7 +49,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 27 | Numbered search/POI results — numbered pins on the map matching a numbered, pickable list (both directions) | ✅ shipped 2026-07-11; nearby search now anchors to map center |
 | 28 | Complete WA RV park + campground coverage | 🟡 Overture Maps merged 2026-07-11 (+756 places incl. The Cedars; Sites now 4,490 w/ 849 trailheads; per-source attribution in data/ATTRIBUTION.md). Next: RIDB bulk (CC-BY, verified no-key download) + WA DNR campgrounds, then other states |
 | 29 | Boondocking-likelihood polygons — highlight "this might be a boondocking area" (public land ∩ near MVUM roads, slope/water heuristics) | ⬜ flagship analysis feature; precompute to PMTiles |
-| 30 | FreeRoam-style site filters — by elevation, weather, nearby features (water, views) | ⬜ elevation is cheap (DEM in hand); weather needs forecast integration (#9) |
+| 30 | FreeRoam-style site filters — by elevation, weather, nearby features (water, views) | 🟡 elevation filter shipped 2026-07-11 (every site carries elev_ft sampled from the DEM; max-elevation slider in Layers, persisted); weather + feature filters next (#9) |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,

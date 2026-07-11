@@ -28,7 +28,7 @@ const Map = forwardRef(function Map(
     selectedWaypoint, onMapClick, onMouseMove, onTrackPoint,
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
     initialViewport, onViewportChange, showPackAreas, onSaveSpot,
-    searchPins, onZoomChange, onCenterChange,
+    searchPins, onZoomChange, onCenterChange, siteMaxElev,
   },
   ref
 ) {
@@ -106,6 +106,7 @@ const Map = forwardRef(function Map(
       addPackAreasLayer()
       refreshPackAreas()
       addSitesLayers()
+      addZonesLayers()
       addSearchPinsLayers()
       setMapReady(true)
     })
@@ -172,8 +173,13 @@ const Map = forwardRef(function Map(
           return
         }
       }
-      // Empty ground: show the spot's numbers first; saving is one tap more
-      openPointInfoPopup(m, e.lngLat, onMapClick)
+      // Empty ground: show the spot's numbers first; saving is one tap more.
+      // Inside a Boondock Zone the card carries the heuristic's disclaimer.
+      let inZone = false
+      if (overlaysRef.current.zones && m.getLayer('zones-fill')) {
+        inZone = m.queryRenderedFeatures(e.point, { layers: ['zones-fill'] }).length > 0
+      }
+      openPointInfoPopup(m, e.lngLat, onMapClick, inZone)
     })
 
     map.current.on('mouseenter', 'search-pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer' })
@@ -208,6 +214,7 @@ const Map = forwardRef(function Map(
       addPackAreasLayer()
       refreshPackAreas()
       addSitesLayers()
+      addZonesLayers()
       addSearchPinsLayers()
       applySearchPins()
       applyOverlayVisibility()
@@ -227,7 +234,7 @@ const Map = forwardRef(function Map(
     if (!m) return
     const ov = overlaysRef.current
     Object.entries(OVERLAY_LAYERS).forEach(([id, layer]) => {
-      if (layer.sites) return
+      if (layer.sites || layer.zones) return
       const parts = layer.parts || [{ key: null, tileUrl: layer.tileUrl, sourceMinzoom: layer.sourceMinzoom, sourceMaxzoom: layer.sourceMaxzoom, zoomOpacity: layer.zoomOpacity }]
       parts.forEach(p => {
         if (!p.tileUrl) return
@@ -267,9 +274,11 @@ const Map = forwardRef(function Map(
       const def = OVERLAY_LAYERS[id]
       const ids = id === 'sites'
         ? SITES_LAYER_IDS
-        : def?.parts
-          ? def.parts.map(p => `${id}-${p.key}-layer`)
-          : [`${id}-layer`]
+        : id === 'zones'
+          ? ['zones-fill', 'zones-line']
+          : def?.parts
+            ? def.parts.map(p => `${id}-${p.key}-layer`)
+            : [`${id}-layer`]
       ids.forEach(layerId => {
         if (m.getLayer(layerId)) {
           m.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none')
@@ -415,6 +424,57 @@ const Map = forwardRef(function Map(
     searchPinsRef.current = searchPins
     if (mapReady) applySearchPins()
   }, [searchPins, mapReady])
+
+  // ── Boondock Zones β polygons ──────────────────────────────────────────────
+  async function addZonesLayers() {
+    const m = map.current
+    if (!m) return
+    if (!m.getSource('zones')) {
+      let data
+      try {
+        data = await fetchZonesData()
+      } catch {
+        return
+      }
+      if (map.current !== m || m.getSource('zones')) return
+      m.addSource('zones', { type: 'geojson', data })
+    }
+    const vis = overlaysRef.current.zones ? 'visible' : 'none'
+    if (!m.getLayer('zones-fill')) {
+      m.addLayer({
+        id: 'zones-fill', type: 'fill', source: 'zones',
+        layout: { visibility: vis },
+        paint: { 'fill-color': '#34d399', 'fill-opacity': 0.12 },
+      })
+    }
+    if (!m.getLayer('zones-line')) {
+      m.addLayer({
+        id: 'zones-line', type: 'line', source: 'zones',
+        layout: { visibility: vis },
+        paint: { 'line-color': '#34d399', 'line-opacity': 0.5, 'line-width': 1, 'line-dasharray': [4, 3] },
+      })
+    }
+  }
+
+  // ── Site elevation filter — refilter source data so clusters stay honest ──
+  useEffect(() => {
+    if (!mapReady) return
+    const m = map.current
+    if (!m?.getSource('sites')) return
+    fetchSitesData().then(full => {
+      const src = m.getSource('sites')
+      if (!src) return
+      if (siteMaxElev == null) {
+        src.setData(full)
+      } else {
+        src.setData({
+          ...full,
+          features: full.features.filter(f =>
+            f.properties.elev_ft == null || f.properties.elev_ft <= siteMaxElev),
+        })
+      }
+    }).catch(() => {})
+  }, [siteMaxElev, mapReady])
 
   // ── Offline fallback: saved USGS packs appear when the network is gone ────
   function addOfflineFallbackLayer() {
@@ -748,6 +808,27 @@ function fetchSitesData() {
   return sitesDataPromise
 }
 
+let zonesDataPromise = null
+function fetchZonesData() {
+  if (!zonesDataPromise) {
+    zonesDataPromise = fetch(import.meta.env.BASE_URL + 'data/boondock-zones-wa.geojson')
+      .then(r => {
+        if (!r.ok) throw new Error(`zones data HTTP ${r.status}`)
+        return r.json()
+      })
+      .catch(e => { zonesDataPromise = null; throw e })
+  }
+  return zonesDataPromise
+}
+
+const SITE_SRC_CREDIT = (src) => {
+  const s = String(src || '')
+  if (s.startsWith('overture')) return '© Overture Maps Foundation'
+  if (s === 'ridb') return 'Recreation.gov RIDB (CC-BY 4.0)'
+  if (s === 'wadnr') return 'Washington DNR'
+  return '© OpenStreetMap contributors'
+}
+
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
@@ -809,11 +890,13 @@ function openMvumPopup(m, lngLat, result) {
   new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
 }
 
-function openPointInfoPopup(m, lngLat, onSave) {
+function openPointInfoPopup(m, lngLat, onSave, inZone = false) {
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:190px">
+      ${inZone ? `<div style="font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:#34d399;margin-bottom:5px">Possible boondocking zone · beta</div>` : ''}
       <div style="font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums">${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}</div>
       <div style="font-size:11.5px;color:rgba(232,238,244,.65);margin-top:3px" data-elev>Elevation: …</div>
+      ${inZone ? `<div style="font-size:10.5px;color:rgba(232,238,244,.5);margin-top:5px;line-height:1.45">USFS land near a legal MVUM road. Heuristic only — verify rules, closures, and conditions locally.</div>` : ''}
       <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         Save waypoint
@@ -878,7 +961,7 @@ function openSitePopup(m, f, onSaveSpot) {
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${p.website ? `<div style="margin-top:5px"><a href="${esc(p.website)}" target="_blank" rel="noreferrer" style="font-size:11.5px;color:#38bdf8">Website</a></div>` : ''}
       <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
-      <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">${String(p.src || '').startsWith('overture') ? '© Overture Maps Foundation' : '© OpenStreetMap contributors'}</div>
+      <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">${p.elev_ft != null ? `${Number(p.elev_ft).toLocaleString()} ft · ` : ''}${SITE_SRC_CREDIT(p.src)}</div>
     </div>`
   const popup = new maplibregl.Popup({ offset: 10, maxWidth: '270px' })
     .setLngLat([lng, lat])

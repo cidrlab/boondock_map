@@ -21,7 +21,7 @@ export default function Sidebar({
   onWaypointClick, onWaypointDelete, onWaypointUpdate,
   selectedWaypoint, onShowDownloadModal, downloadBbox,
   onFlyTo, searchHistory, onAddSearchHistory, mapCenter,
-  isMobile, onSearchPins,
+  isMobile, onSearchPins, siteMaxElev, setSiteMaxElev,
 }) {
   const [query, setQuery] = useState('')
   const [sheet, setSheet] = useState('peek')
@@ -443,6 +443,22 @@ export default function Sidebar({
                   <span className="overlay-btn-label">{layer.label}</span>
                 </button>
               ))}
+            </div>
+
+            <div className="section-hdr" style={{ marginTop: 20 }}>Site Filter</div>
+            <div className="elev-filter">
+              <label>
+                Max elevation
+                <span>{siteMaxElev == null ? 'Any' : `${siteMaxElev.toLocaleString()} ft`}</span>
+              </label>
+              <input
+                type="range" min={1000} max={8500} step={250}
+                value={siteMaxElev ?? 8500}
+                onChange={e => {
+                  const v = +e.target.value
+                  setSiteMaxElev(v >= 8500 ? null : v)
+                }}
+              />
             </div>
           </div>
         )}

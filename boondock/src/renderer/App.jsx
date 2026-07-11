@@ -23,6 +23,7 @@ export default function App() {
   const [mapCenterPt, setMapCenterPt] = useState({ lng: DEFAULT_CENTER[0], lat: DEFAULT_CENTER[1] })
   const [zoomLevel, setZoomLevel] = useState(null)
   const [searchPins, setSearchPins] = useState([])   // numbered POI/search results shown on the map
+  const [siteMaxElev, setSiteMaxElev] = useState(null)   // null = show all elevations
   const [downloadMode, setDownloadMode] = useState(false)
   const [downloadBbox, setDownloadBbox] = useState(null)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
@@ -66,6 +67,7 @@ export default function App() {
         )
         setOverlays({ ...DEFAULT_OVERLAYS, ...known })
       }
+      if (typeof prefs.siteMaxElev === 'number') setSiteMaxElev(prefs.siteMaxElev)
       setInitialViewport({
         center: prefs.center || DEFAULT_CENTER,
         zoom: prefs.zoom ?? DEFAULT_ZOOM,
@@ -100,11 +102,12 @@ export default function App() {
       zoom: m.getZoom(),
       baseLayer,
       overlays,
+      siteMaxElev,
     })
-  }, [baseLayer, overlays])
+  }, [baseLayer, overlays, siteMaxElev])
 
-  // Save prefs when base layer or overlays change
-  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays])
+  // Save prefs when base layer, overlays, or filters change
+  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMaxElev])
 
   // Expose a handler for Map to call on moveend (debounced)
   const handleViewportChange = useCallback(() => {
@@ -285,6 +288,8 @@ export default function App() {
             onAddSearchHistory={addSearchHistory}
             mapCenter={mapCenterPt}
             onSearchPins={setSearchPins}
+            siteMaxElev={siteMaxElev}
+            setSiteMaxElev={setSiteMaxElev}
           />
         )}
 
@@ -313,6 +318,7 @@ export default function App() {
           searchPins={searchPins}
           onZoomChange={setZoomLevel}
           onCenterChange={setMapCenterPt}
+          siteMaxElev={siteMaxElev}
         />
       </div>
 

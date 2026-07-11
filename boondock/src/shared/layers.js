@@ -65,7 +65,13 @@ export const OVERLAY_LAYERS = {
     // layers=show:1,2 = just roads+trails, skipping the low-zoom
     // "Data Available" status watermark sublayers
     direct: true,
-    tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&layers=show:1,2&f=image',
+    // dynamicLayers keeps the service's legal-class symbology but drops the
+    // raw route-ID labels that cluttered the map
+    tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&dynamicLayers='
+      + encodeURIComponent(JSON.stringify([
+          { id: 101, source: { type: 'mapLayer', mapLayerId: 1 }, drawingInfo: { showLabels: false } },
+          { id: 102, source: { type: 'mapLayer', mapLayerId: 2 }, drawingInfo: { showLabels: false } },
+        ])),
     identifyUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/identify',
     attribution: 'USFS MVUM',
     sourceMinzoom: 7,   // don't request exports while the layer is invisible
@@ -101,8 +107,14 @@ export const OVERLAY_LAYERS = {
   'sites': {
     id: 'sites',
     label: 'Sites',
-    description: 'Campsites, RV parks, dump stations, water fills — baseline database (Washington to start; OpenStreetMap)',
+    description: 'Campsites, RV parks, dump stations, water fills, trailheads — 4,500+ Washington places from OSM, Overture, Recreation.gov, and WA DNR',
     sites: true,    // GeoJSON spots layer, handled in Map.jsx
+  },
+  'zones': {
+    id: 'zones',
+    label: 'Boondock Zones β',
+    description: 'Beta heuristic: USFS-owned land within ~300 m of a legal MVUM road. Not a statement of legality — always verify rules and closures locally.',
+    zones: true,    // GeoJSON polygon layer, handled in Map.jsx
   },
   'names': {
     id: 'names',
@@ -162,6 +174,7 @@ export const DEFAULT_OVERLAYS = {
   'mvum': true,
   'usfs-trails': true,
   'sites': true,
+  'zones': false,
   'names': false,
   'blm-land': false,
   'contours': false,

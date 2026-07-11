@@ -20,8 +20,18 @@ https://docs.overturemaps.org/attribution/ :
   Labs, Inc., licensed under the Apache License, Version 2.0).
 - `overture:alltheplaces`: **CC0 1.0**.
 
-## Not yet merged (planned; see VISION.md)
-- Recreation.gov RIDB bulk export (CC-BY 4.0 per its data.gov catalog
-  entry) — federal campgrounds.
-- Washington DNR Campgrounds (geo.wa.gov, provided "as is") — state trust
-  land campgrounds.
+## Recreation.gov RIDB (`src: ridb`)
+Federal campgrounds from the Recreation Information Database bulk export
+(RIDBFullExport_V1_CSV.zip). License **CC-BY 4.0** per its data.gov catalog
+entry; publisher U.S. Forest Service. Credit: Recreation Information
+Database (RIDB), Recreation.gov.
+
+## Washington DNR (`src: wadnr`)
+DNR Campgrounds dataset from geo.wa.gov, provided "as is" by the Washington
+State Department of Natural Resources.
+
+## Boondock Zones β (`boondock-zones-wa.geojson`)
+Derived layer: USFS-owned land (EDW Basic Ownership) within ~300 m of a
+legal MVUM road (EDW_MVUM_01), both US Government / USFS public-domain
+services. Heuristic only — not a statement of legality. Build script:
+`data-pipeline/build_zones.py`.
