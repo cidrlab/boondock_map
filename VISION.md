@@ -44,10 +44,12 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 22 | Design-forward basemap with elevation markers (custom style: hillshade + labeled contours) | ✅ v1 shipped 2026-07-11 — the Boondock base: OpenFreeMap vector + Mapzen hillshade, CiDR palette, peak elevations in feet; plus Topo Overlay (USGS contours + figures) for any base. Native vector contour lines still a future refinement |
 | 23 | Clean water fill stations (free + pay) and dump stations | 🟡 Dump/RV + Water POI chips shipped 2026-07-11 (OSM `sanitary_dump_station` / `water_point`); free-vs-pay detail needs a richer data layer |
 | 24 | Baseline list of places to start from | 🟡 WA baseline shipped 2026-07-11 (OSM extract, committed to repo); next: remaining states (scripted Overpass sweep), Recreation.gov RIDB for fed/state paid campgrounds (Tim needs to register a free API key), BLM/USFS facilities. FreeRoam's own data unrecoverable (verified) |
-| 25 | Everything interactive — hover/click details on roads, places, features | 🟡 v1 2026-07-11: tap MVUM roads for name/details (identify), tap basemap roads for names, site popups, hover elevation in the status bar. More feature kinds + hover states next |
-| 26 | Light daylight basemap | ✅ Boondock Day shipped 2026-07-11 |
-| 27 | Numbered search/POI results — numbered pins on the map matching a numbered, pickable list (both directions) | ⬜ |
-| 28 | Complete WA RV park coverage (e.g. Cedars RV Resort, Ferndale missing from OSM) — merge a redistributable state dataset | ⬜ agent hunting sources 2026-07-11; redistributable-only policy (no Google/Yelp/commercial directory scraping) |
+| 25 | Everything interactive — hover/click details on roads, places, features | 🟡 v1 2026-07-11: tap MVUM roads for details, basemap roads for names, site cards; empty-ground clicks show coords + elevation with a Save button (info-first); hover elevation + zoom in the status bar |
+| 26 | Light daylight basemap | ✅ Boondock Day shipped 2026-07-11 (readability pass same day: peaks/ice/city labels, road opacity ramps) |
+| 27 | Numbered search/POI results — numbered pins on the map matching a numbered, pickable list (both directions) | ✅ shipped 2026-07-11; nearby search now anchors to map center |
+| 28 | Complete WA RV park + campground coverage | 🟡 Overture Maps merged 2026-07-11 (+756 places incl. The Cedars; Sites now 4,490 w/ 849 trailheads; per-source attribution in data/ATTRIBUTION.md). Next: RIDB bulk (CC-BY, verified no-key download) + WA DNR campgrounds, then other states |
+| 29 | Boondocking-likelihood polygons — highlight "this might be a boondocking area" (public land ∩ near MVUM roads, slope/water heuristics) | ⬜ flagship analysis feature; precompute to PMTiles |
+| 30 | FreeRoam-style site filters — by elevation, weather, nearby features (water, views) | ⬜ elevation is cheap (DEM in hand); weather needs forecast integration (#9) |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,
