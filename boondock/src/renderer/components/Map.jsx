@@ -49,7 +49,7 @@ const Map = forwardRef(function Map(
 
   // ── Build MapLibre style from current base layer ─────────────────────────
   function buildStyle(baseId) {
-    if (BASE_LAYERS[baseId]?.custom) return buildBoondockStyle()
+    if (BASE_LAYERS[baseId]?.custom) return buildBoondockStyle(BASE_LAYERS[baseId].styleMode)
     const base = BASE_LAYERS[baseId] || BASE_LAYERS['satellite']
     return {
       version: 8,
@@ -108,7 +108,7 @@ const Map = forwardRef(function Map(
     // Save viewport on pan/zoom
     map.current.on('moveend', () => { onViewportChange?.() })
 
-    map.current.on('click', (e) => {
+    map.current.on('click', async (e) => {
       // Check if click is on a waypoint marker — handled by marker popups
       if (e.originalEvent.target?.classList?.contains('bdk-marker')) return
       const m = map.current
@@ -125,6 +125,23 @@ const Map = forwardRef(function Map(
           } else {
             openSitePopup(m, f, onSaveSpot)
           }
+          return
+        }
+      }
+      // Tap a forest road for its MVUM details (quick identify, then move on)
+      if (overlaysRef.current.mvum && m.getZoom() >= 9) {
+        const road = await identifyMvum(m, e.lngLat)
+        if (road && map.current === m) {
+          openMvumPopup(m, e.lngLat, road)
+          return
+        }
+      }
+      // Basemap roads carry their own names — tap for a quick label
+      const roadLayers = ROAD_LAYER_IDS.filter(id => m.getLayer(id))
+      if (roadLayers.length) {
+        const roads = m.queryRenderedFeatures(e.point, { layers: roadLayers })
+        if (roads.length && roads[0].properties?.name) {
+          openRoadPopup(m, e.lngLat, roads[0])
           return
         }
       }
@@ -186,6 +203,8 @@ const Map = forwardRef(function Map(
           tiles: [layer.direct ? layer.tileUrl : toProtocolUrl(id)],
           tileSize: layer.direct ? 512 : 256,
           attribution: layer.attribution || '',
+          ...(layer.sourceMinzoom != null && { minzoom: layer.sourceMinzoom }),
+          ...(layer.sourceMaxzoom != null && { maxzoom: layer.sourceMaxzoom }),
         })
       }
       if (!m.getLayer(`${id}-layer`)) {
@@ -194,7 +213,10 @@ const Map = forwardRef(function Map(
           type: 'raster',
           source: id,
           layout: { visibility: ov[id] ? 'visible' : 'none' },
-          paint: { 'raster-opacity': buildZoomOpacityExpr(layer.zoomOpacity) },
+          paint: {
+            'raster-opacity': buildZoomOpacityExpr(layer.zoomOpacity),
+            'raster-fade-duration': 0,   // toggles respond instantly
+          },
         })
       }
     })
@@ -628,6 +650,72 @@ function esc(s) {
 }
 
 const SITE_KIND_LABELS = { campsite: 'Campsite', rv_park: 'RV park', dump: 'Dump station', water: 'Water fill' }
+
+const ROAD_LAYER_IDS = ['road-motorway', 'road-primary', 'road-secondary', 'road-minor', 'road-track', 'road-path']
+const ROAD_CLASS_LABELS = {
+  motorway: 'Highway', trunk: 'Highway', primary: 'Primary road', secondary: 'Road',
+  tertiary: 'Road', minor: 'Local road', service: 'Service road', track: 'Track / forest road', path: 'Path / trail',
+}
+
+// ArcGIS identify on the MVUM service — resolves null on miss or timeout
+async function identifyMvum(m, lngLat) {
+  const idUrl = OVERLAY_LAYERS.mvum.identifyUrl
+  if (!idUrl) return null
+  const b = m.getBounds()
+  const canvas = m.getCanvas()
+  const params = new URLSearchParams({
+    geometry: `${lngLat.lng},${lngLat.lat}`,
+    geometryType: 'esriGeometryPoint',
+    sr: '4326',
+    layers: 'visible:1,2',
+    tolerance: '8',
+    mapExtent: `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`,
+    imageDisplay: `${Math.round(canvas.clientWidth)},${Math.round(canvas.clientHeight)},96`,
+    returnGeometry: 'false',
+    f: 'json',
+  })
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 900)
+  try {
+    const res = await fetch(`${idUrl}?${params}`, { signal: ctrl.signal })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.results?.[0] || null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+const MVUM_ATTR_PATTERN = /SEASON|VEHICLE|SURFACE|SYMBOL_NAME|JURISDICTION|GIS_MILES/i
+
+function openMvumPopup(m, lngLat, result) {
+  const a = result.attributes || {}
+  const title = a.Name || a.NAME || 'Forest road'
+  const rows = Object.entries(a)
+    .filter(([k, v]) => MVUM_ATTR_PATTERN.test(k) && v && v !== 'Null' && v !== ' ')
+    .slice(0, 6)
+    .map(([k, v]) => `${esc(k.replace(/_/g, ' ').toLowerCase())}: ${esc(v)}`)
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:170px">
+      <div style="font-size:13px;font-weight:600">${esc(title)}</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 5px">USFS MVUM · ${esc(result.layerName || 'road')}</div>
+      ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+    </div>`
+  new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+}
+
+function openRoadPopup(m, lngLat, feature) {
+  const p = feature.properties
+  const cls = ROAD_CLASS_LABELS[p.class] || 'Road'
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif">
+      <div style="font-size:13px;font-weight:600">${esc(p.name)}</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin-top:2px">${esc(cls)}</div>
+    </div>`
+  new maplibregl.Popup({ offset: 8, maxWidth: '240px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+}
 
 function openSitePopup(m, f, onSaveSpot) {
   const p = f.properties

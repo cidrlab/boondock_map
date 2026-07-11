@@ -18,6 +18,12 @@ export default defineConfig({
       react: dep('react'),
     },
   },
+  build: {
+    rollupOptions: {
+      // MapLibre is most of the bundle; its own chunk caches across deploys
+      output: { manualChunks: { maplibre: ['maplibre-gl'] } },
+    },
+  },
   server: {
     // Dev server must read shared source outside web/ (../boondock/src)
     fs: { allow: ['..'] },

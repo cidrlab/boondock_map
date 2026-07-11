@@ -20,6 +20,15 @@ export const BASE_LAYERS = {
     label: 'Boondock',
     description: 'Our terrain map — hillshade relief, peak elevations in feet, minimalist CiDR style',
     custom: true,   // style built in boondockStyle.js, not a raster URL
+    styleMode: 'night',
+    maxZoom: 19,
+  },
+  'boondock-day': {
+    id: 'boondock-day',
+    label: 'Boondock Day',
+    description: 'The same map in daylight tones — easier to read in full sun',
+    custom: true,
+    styleMode: 'day',
     maxZoom: 19,
   },
   'satellite': {
@@ -51,29 +60,36 @@ export const OVERLAY_LAYERS = {
   'mvum': {
     id: 'mvum',
     label: 'MVUM Roads',
-    description: 'USFS Motor Vehicle Use Map — which forest roads are legal to drive, by vehicle type',
-    // Service has no tile cache; ArcGIS export renders per-tile via bbox
+    description: 'USFS Motor Vehicle Use Map — legal forest roads by vehicle type (National Forests only). Tap a road for its name and details.',
+    // Service has no tile cache; ArcGIS export renders per-tile via bbox.
+    // layers=show:1,2 = just roads+trails, skipping the low-zoom
+    // "Data Available" status watermark sublayers
     direct: true,
-    tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image',
+    tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&layers=show:1,2&f=image',
+    identifyUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/identify',
     attribution: 'USFS MVUM',
-    // Below z10 the service renders a "Data Available" coverage watermark —
-    // keep the layer for close zooms where actual roads draw
+    sourceMinzoom: 7,   // don't request exports while the layer is invisible
+    sourceMaxzoom: 15,
     zoomOpacity: [
-      [9.5,  0.0],
-      [10.5, 0.85],
-      [13,   0.95],
+      [5,  0.0],
+      [7,  0.7],
+      [11, 0.9],
     ],
   },
   'usfs-trails': {
     id: 'usfs-trails',
     label: 'Hiking Trails',
-    description: 'National Forest and NPS trail system',
-    tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_Trail_01/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'USFS / NPS',
+    description: 'National Forest trail system',
+    // The old EDW_Trail_01 tile cache 404s; the publish service renders via export
+    direct: true,
+    tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image',
+    attribution: 'USFS',
+    sourceMinzoom: 8,
+    sourceMaxzoom: 15,
     zoomOpacity: [
-      [8,  0.0],
-      [10, 0.6],
-      [13, 0.85],
+      [6,  0.0],
+      [8,  0.55],
+      [11, 0.85],
     ],
   },
   'sites': {
@@ -108,17 +124,20 @@ export const OVERLAY_LAYERS = {
       [15, 0.50],
     ],
   },
-  'topo': {
-    id: 'topo',
-    label: 'Topo Overlay',
-    description: 'USGS topo blended over the base — contour lines and elevation figures; great with Satellite',
-    tileUrl: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+  'contours': {
+    id: 'contours',
+    label: 'Topo Lines',
+    description: 'Just the contour lines with elevation figures — transparent over any base',
+    // The contours tile cache is dead at every zoom; export rendering works
+    direct: true,
+    tileUrl: 'https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image',
     attribution: 'USGS National Map',
-    maxZoom: 16,
+    sourceMinzoom: 10,
+    sourceMaxzoom: 16,
     zoomOpacity: [
-      [8,  0.50],
-      [14, 0.45],
-      [16, 0.40],
+      [9,    0.0],
+      [10.5, 0.6],
+      [13,   0.75],
     ],
   },
 }
@@ -129,7 +148,7 @@ export const DEFAULT_OVERLAYS = {
   'sites': true,
   'names': false,
   'blm-land': false,
-  'topo': false,
+  'contours': false,
 }
 
 export const DEFAULT_BASE = 'boondock'

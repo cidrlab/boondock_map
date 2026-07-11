@@ -10,8 +10,8 @@
 
 const GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf'
 
-// Palette — derived from BRAND.md tokens
-const C = {
+// Palettes — derived from BRAND.md tokens
+const NIGHT = {
   land:       '#16202b',
   landDark:   '#121a23',
   forest:     '#1b2b34',   // wooded ground sits slightly lighter than clearings
@@ -31,11 +31,43 @@ const C = {
   textDim:    '#9fb4c8',
   textFaint:  '#6d8098',
   halo:       '#0e141b',
+  hsExaggeration: 0.32,
+  hsShadow:    '#070b10',
+  hsHighlight: '#52719b',
+  hsAccent:    '#0d131b',
+}
+
+// Daylight: same structure, navy ink on paper-light ground for full sun
+const DAY = {
+  land:       '#eef1f4',
+  landDark:   '#e4e9ee',
+  forest:     '#e0e8e0',   // wooded ground a shade darker than clearings
+  scrub:      '#e7ece7',
+  park:       '#dce8f0',
+  water:      '#b9cfe4',
+  waterway:   '#9dbcd8',
+  building:   '#d9dfe7',
+  roadMajor:  '#3f5a78',
+  roadMid:    '#55708e',
+  roadMinor:  '#8199b1',
+  path:       '#6e87a3',
+  rail:       '#b6c0cc',
+  boundary:   'rgba(25, 34, 44, 0.30)',
+  textBright: '#19222C',
+  text:       '#2e4054',
+  textDim:    '#55708e',
+  textFaint:  '#7e91a6',
+  halo:       '#f2f5f8',
+  hsExaggeration: 0.25,
+  hsShadow:    '#93a6bc',
+  hsHighlight: '#ffffff',
+  hsAccent:    '#cdd8e4',
 }
 
 export const BOONDOCK_GLYPHS = GLYPHS
 
-export function buildBoondockStyle() {
+export function buildBoondockStyle(mode = 'night') {
+  const C = mode === 'day' ? DAY : NIGHT
   return {
     version: 8,
     glyphs: GLYPHS,
@@ -50,7 +82,8 @@ export function buildBoondockStyle() {
         tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
         encoding: 'terrarium',
         tileSize: 256,
-        maxzoom: 14,
+        // z12 relief is plenty when overzoomed; halves DEM requests up close
+        maxzoom: 12,
         attribution: 'Terrain: Mapzen terrain tiles (USGS 3DEP, SRTM) via AWS',
       },
     },
@@ -61,10 +94,10 @@ export function buildBoondockStyle() {
       {
         id: 'hillshade', type: 'hillshade', source: 'dem',
         paint: {
-          'hillshade-exaggeration': 0.32,
-          'hillshade-shadow-color': '#070b10',
-          'hillshade-highlight-color': '#52719b',
-          'hillshade-accent-color': '#0d131b',
+          'hillshade-exaggeration': C.hsExaggeration,
+          'hillshade-shadow-color': C.hsShadow,
+          'hillshade-highlight-color': C.hsHighlight,
+          'hillshade-accent-color': C.hsAccent,
         },
       },
 
