@@ -14,9 +14,11 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 
 ## Features
 
-- **5 base layers:** USGS Topo, Topo+Imagery (ESRI satellite with USGS overlay), ESRI Satellite, ESRI Hybrid, OSM Topo
-- **6 overlays:** Roads & Trails, USFS Roads, USFS Trails, Road Labels, Contour Lines, BLM Land Status
-- **Topo+Imagery composite:** High-resolution ESRI satellite at zoom 17+ fades the topo overlay for maximum detail when it matters
+- **The Boondock basemap:** our own designed terrain map — vector tiles + hillshade relief in the CiDR palette, hairline roads, mountain peaks labeled with elevation in feet
+- **Satellite base** (ESRI World Imagery) with a **Topo Overlay** blend — USGS contour lines and elevation figures over the imagery
+- **Sites database:** baseline camping layer — campsites, RV parks, dump stations, water fills as tappable, clustered map points with save-as-waypoint (2,885 Washington spots from OpenStreetMap to start)
+- **MVUM Roads overlay:** the true USFS Motor Vehicle Use Map — which forest roads are legal to drive
+- **More overlays:** Hiking Trails (USFS/NPS), Names & Labels, BLM Public Land status
 - **Waypoints:** Save, edit, categorize, and color-code locations with icons (camp, trailhead, viewpoint, fuel, water, hazard, etc.)
 - **GPX import:** Load existing GPX files for tracks and waypoints
 - **Offline maps:** Download any area (drawn box or current view) at your chosen zoom range into a local pack — the map serves pack tiles automatically when you're offline. Works on desktop and web/iPhone. USGS Topo only for now; other layers await tile-service terms verification (VISION.md).
@@ -146,28 +148,28 @@ browser equivalents (download/upload). See [VISION.md](VISION.md) Phase 2.
 
 ## Map Layers
 
-All tile sources are free and require no API key.
+All tile and data sources are free and require no API key.
 
 ### Base Layers
 
 | Name | Source | Max Zoom |
 |---|---|---|
-| USGS Topo | USGS National Map | z16 |
-| Topo + Imagery | ESRI satellite + USGS topo overlay | z19 |
-| ESRI Satellite | ESRI World Imagery | z19 |
-| ESRI Hybrid | ESRI satellite + roads + labels | z19 |
-| OSM Topo | OpenTopoMap | z17 |
+| Boondock | Our style: OpenFreeMap vector tiles (OpenMapTiles/OSM) + Mapzen terrain hillshade via AWS | z19 |
+| Satellite | ESRI World Imagery | z19 |
 
 ### Overlays
 
 | Name | Source | Notes |
 |---|---|---|
-| Roads & Trails | USFS Motor Vehicle Use Maps | Color-coded by vehicle type |
-| USFS Roads | USFS National Forest Roads | |
-| USFS Trails | USFS National Trails | |
-| Road Labels | ESRI World Boundaries & Places | Street names on satellite |
-| Contour Lines | USGS Elevation | |
-| BLM Land | BLM Surface Management Agency | Public land status |
+| MVUM Roads | USFS Motor Vehicle Use Map (export rendering) | Legal forest roads by vehicle type, z10+ |
+| Hiking Trails | USFS / NPS National Trails | |
+| Sites | OpenStreetMap (ODbL) via Overpass | Camping/RV/dump/water — Washington baseline, more states coming |
+| Names & Labels | ESRI World Boundaries & Places | Mainly for Satellite |
+| Public Land | BLM Surface Management Agency | Who manages each parcel |
+| Topo Overlay | USGS National Map | Contours + elevation figures blended over any base |
+
+Offline packs download from USGS Topo (public domain) and appear
+automatically as the fallback map when you're offline.
 
 ---
 

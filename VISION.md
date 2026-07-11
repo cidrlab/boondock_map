@@ -20,9 +20,9 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 
 | # | Feature | Status |
 |---|---------|--------|
-| 1 | Find free/dispersed camping (Campendium/iOverlander-style database + workflow) | ⬜ |
+| 1 | Find free/dispersed camping (Campendium/iOverlander-style database + workflow) | 🟡 Sites layer live 2026-07-11 — WA baseline (2,885 OSM spots: camp/RV/dump/water) with popups + save-as-waypoint; national coverage, RIDB paid campgrounds, and dispersed-spot community data next |
 | 2 | Scout areas with satellite imagery around a candidate spot | ✅ ESRI satellite + hybrid layers |
-| 3 | Hiking + 4x4 trails and forest roads on the map | 🟡 USFS roads/trails overlays exist; no MVUM detail (road type/vehicle class) |
+| 3 | Hiking + 4x4 trails and forest roads on the map | 🟡 true MVUM overlay live 2026-07-11 (legal roads by vehicle type, z10+) + USFS/NPS trails |
 | 4 | Downloadable offline basemaps | ✅ user-drawn packs render offline on desktop + web (2026-07-11); USGS Topo layer — others + prebuilt region packs pending terms checks |
 | 5 | Super lean, low-resource app | 🟡 app is small, but Electron shell is heavy; PWA direction below |
 | 6 | Desktop + iPhone + web (GitHub Pages) versions | 🟡 desktop + web live (2026-07-11); iPhone = install the web app from Safari (needs on-device testing) |
@@ -41,9 +41,9 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 19 | Cell phone coverage map (per carrier) | ⬜ |
 | 20 | Solar coverage / sun exposure at a spot | ⬜ |
 | 21 | Rank spots (ratings + reviews) | ⬜ |
-| 22 | Design-forward basemap with elevation markers (custom style: hillshade + labeled contours) | ⬜ exploration next; USGSImageryTopo tile service verified live 2026-07-11, a USGSShadedReliefOnly URL guess 404'd — needs source scouting |
+| 22 | Design-forward basemap with elevation markers (custom style: hillshade + labeled contours) | ✅ v1 shipped 2026-07-11 — the Boondock base: OpenFreeMap vector + Mapzen hillshade, CiDR palette, peak elevations in feet; plus Topo Overlay (USGS contours + figures) for any base. Native vector contour lines still a future refinement |
 | 23 | Clean water fill stations (free + pay) and dump stations | 🟡 Dump/RV + Water POI chips shipped 2026-07-11 (OSM `sanitary_dump_station` / `water_point`); free-vs-pay detail needs a richer data layer |
-| 24 | Baseline list of places to start from | ⬜ FreeRoam's spot data is unrecoverable (lived in their production DB, not GitHub — verified); seed from OSM camp_site/caravan_site + Recreation.gov RIDB (verify API terms) + BLM/USFS facility data |
+| 24 | Baseline list of places to start from | 🟡 WA baseline shipped 2026-07-11 (OSM extract, committed to repo); next: remaining states (scripted Overpass sweep), Recreation.gov RIDB for fed/state paid campgrounds (Tim needs to register a free API key), BLM/USFS facilities. FreeRoam's own data unrecoverable (verified) |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,
@@ -200,8 +200,10 @@ config generation).
   map pack-first/network-fallback on desktop and web, with a pack manager
   (list/size/delete). Remaining: prebuilt PMTiles region packs, more offline
   layers after tile-service terms verification.
-- **Phase 3 — The boondocking layer:** public-land tap-to-identify, MVUM road
-  types, stay-limit info, spot database seeded from open data, GPX import from
+- **Phase 3 — The boondocking layer:** *first slice shipped 2026-07-11* —
+  Sites database (WA baseline) + true MVUM + the Boondock basemap + Topo
+  Overlay. Remaining: national spot coverage, RIDB paid campgrounds,
+  public-land tap-to-identify, stay-limit info, GPX import from
   Gaia/iOverlander exports.
 - **Phase 4 — Safety:** weather forecast at spot (NWS/Open-Meteo), cell
   coverage overlay (FCC data), road-condition notes, area alerts (USFS/BLM
