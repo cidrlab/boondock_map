@@ -2,15 +2,13 @@
 
 **An offline-capable topographic map for boondocking, off-road exploration, and hiking — built to replace Gaia GPS and CalTopo with something faster, cleaner, and fully yours.**
 
-![Boondock Map](boondock/src/renderer/styles/app.css)
-
 ---
 
 ## What It Is
 
-Boondock Map is a desktop + web mapping application built on [MapLibre GL JS](https://maplibre.org/), [React 18](https://react.dev/), and [Electron](https://www.electronjs.org/). It layers free public tile sources — USGS, ESRI, OpenStreetMap, USFS, and BLM — into a polished, dark-themed interface optimized for field use and trip planning.
+Boondock Map is a desktop mapping application built on [MapLibre GL JS](https://maplibre.org/), [React 18](https://react.dev/), and [Electron](https://www.electronjs.org/). It layers free public tile sources — USGS, ESRI, OpenStreetMap, USFS, and BLM — into a polished, dark-themed interface optimized for field use and trip planning. Web and iPhone versions are planned but not yet built — see [VISION.md](VISION.md) for the roadmap.
 
-Waypoints and tracks sync automatically to iCloud Drive, making your saved spots available on iPhone (via Files app or any app with iCloud access). The web version runs entirely in the browser with no backend required, using IndexedDB for local storage.
+Waypoints and tracks sync automatically to iCloud Drive, making your saved spots available on iPhone (via Files app or any app with iCloud access).
 
 ---
 
@@ -20,9 +18,9 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 - **6 overlays:** Roads & Trails, USFS Roads, USFS Trails, Road Labels, Contour Lines, BLM Land Status
 - **Topo+Imagery composite:** High-resolution ESRI satellite at zoom 17+ fades the topo overlay for maximum detail when it matters
 - **Waypoints:** Save, edit, categorize, and color-code locations with icons (camp, trailhead, viewpoint, fuel, water, hazard, etc.)
-- **GPX track recording:** Record your route in real-time, save and display tracks on the map
 - **GPX import:** Load existing GPX files for tracks and waypoints
-- **Tile caching / offline use:** Download map tiles for a selected area and zoom range for fully offline field use
+- **Offline tile download:** Download map tiles for a selected area and zoom range into local MBTiles packs. *Known gap: the map does not yet read these packs back when offline — see VISION.md.*
+- **Track recording (UI only):** Record/stop controls and track display exist, but no GPS points are captured yet — recording is not functional. See VISION.md.
 - **Search:** Nominatim geocoder (place names, addresses, coordinates), biased to your current map view
 - **POI search:** Nearby points of interest via Overpass/OpenStreetMap — gas, food, groceries, campgrounds, water, restrooms, trailheads, picnic sites, viewpoints, lodging
 - **Search history:** Last 3 searches shown on focus; full history available; persistent across sessions
@@ -84,14 +82,7 @@ boondock/
 ├── vite.config.js
 └── package.json
 
-web/                        # GitHub Pages web version
-├── src/
-│   ├── App.jsx             # Web root (localStorage/IndexedDB instead of IPC)
-│   ├── storage.js          # IndexedDB wrapper (waypoints, tracks, prefs)
-│   └── ...                 # Same components as desktop
-├── index.html
-├── vite.config.js
-└── package.json
+web/                        # PLANNED — GitHub Pages web version (does not exist yet)
 ```
 
 ---
@@ -130,23 +121,9 @@ Output: `dist/` — `.dmg` and `.zip` for macOS distribution.
 
 ---
 
-## Getting Started (Web / GitHub Pages)
+## Web Version (planned)
 
-```bash
-cd web
-npm install
-npm run dev          # local development
-npm run build        # builds to web/dist/
-npm run preview      # preview production build
-```
-
-To deploy to GitHub Pages:
-
-```bash
-npm run deploy       # runs gh-pages -d dist
-```
-
-The web version is live at: **https://cidrlab.github.io/boondock_map/**
+A browser version deployable to GitHub Pages — sharing this codebase — is planned but **not yet built**. See [VISION.md](VISION.md).
 
 ---
 
@@ -184,8 +161,8 @@ Waypoints support colored pins and category icons:
 | Category | Color | Use |
 |---|---|---|
 | Generic | Brand Red `#F9322B` | Default |
-| Camp | Teal `#2dd4bf` | Camping spots |
-| Trailhead | Green `#4ade80` | Trail access |
+| Camp | Green `#22c55e` | Camping spots |
+| Trailhead | Amber `#f59e0b` | Trail access |
 | Viewpoint | Purple `#a78bfa` | Scenic overlooks |
 | Fuel | Orange `#fb923c` | Gas stations |
 | Water | Blue `#38bdf8` | Water sources |
@@ -196,17 +173,18 @@ Waypoints support colored pins and category icons:
 
 ## iCloud Sync (Desktop)
 
-All user data is stored in iCloud Drive for automatic iPhone sync:
+User data is stored in iCloud Drive for automatic iPhone sync:
 
 ```
 ~/Library/Mobile Documents/com~apple~CloudDocs/BoondockMap/
 ├── waypoints.json
-├── tracks/
-│   └── *.gpx
-├── tiles/           (offline tile cache)
+├── tracks.json
 ├── preferences.json
 └── search-history.json
 ```
+
+Offline tile packs are *not* synced to iCloud — they are stored locally in
+`~/Library/Application Support/BoondockMap/tiles/` as `.mbtiles` files.
 
 Files are accessible on iPhone via the **Files app → iCloud Drive → BoondockMap**.
 
@@ -214,16 +192,12 @@ Files are accessible on iPhone via the **Files app → iCloud Drive → Boondock
 
 ## License
 
-This project is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)** license.
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0-or-later)**.
 
-**You are free to:**
-- Share — copy and redistribute the material
-- Adapt — remix, transform, and build upon it
-
-**Under these terms:**
-- **Attribution** — You must give credit, link to the license, and indicate changes
-- **NonCommercial** — You may NOT use this for commercial purposes
-- **ShareAlike** — Derivatives must use the same license
+In plain terms: the app is free for everyone, forever. Anyone may use, copy,
+modify, and share it — but any distributed modified version must also be
+released under the same license, with source code available. No one can take
+this code and turn it into a closed, paid product.
 
 Donations to support development are welcome and encouraged.
 
@@ -233,13 +207,7 @@ See [LICENSE](LICENSE) for the full license text.
 
 ## Roadmap
 
-- [ ] iPhone/iOS companion app (native SwiftUI)
-- [ ] Offline tile download UI (area + zoom level selection)
-- [ ] Track elevation profile view
-- [ ] Weather overlay integration
-- [ ] Route planning / turn-by-turn directions
-- [ ] Collaborative waypoint sharing
-- [ ] Trip export to PDF/KMZ
+The full product vision and phased build plan live in [VISION.md](VISION.md).
 
 ---
 

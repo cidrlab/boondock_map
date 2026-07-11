@@ -116,7 +116,7 @@ The record button uses `--accent` (brand red) for its border, filled circle icon
 
 ## Map Layers
 
-Seven base layers and five overlays are defined in `shared/layers.js`. The default base layer is USGS Topo (modern style). The default active overlays are Roads & Trails, Road Labels, and Hiking Trails.
+Five base layers and six overlays are defined in `shared/layers.js`. The default base layer is USGS Topo (modern style). The default active overlays are Roads & Trails, Road Labels, and Hiking Trails.
 
 Overlays use zoom-interpolated opacity expressions for progressive disclosure at different zoom levels. The Road Labels overlay (ESRI World Boundaries and Places) adds text labels for road names, place names, and boundaries over any base layer — particularly useful on satellite and shaded relief views where road names aren't built in. The Hybrid base layer automatically stacks this labels layer in addition to the transportation reference.
 

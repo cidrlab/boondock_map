@@ -21,15 +21,10 @@ fi
 echo "✓ Node $(node -v)"
 echo "✓ npm $(npm -v)"
 
-# Install dependencies (better-sqlite3 needs native compile on Mac — that's fine)
+# Install dependencies (all pure JS — sql.js is WASM, no native compile needed)
 echo ""
 echo "📦 Installing dependencies…"
 npm install
-
-# Rebuild native modules for Electron
-echo ""
-echo "🔧 Rebuilding native modules for Electron…"
-npx electron-rebuild -f -w better-sqlite3
 
 echo ""
 echo "✅ Setup complete!"

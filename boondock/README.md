@@ -25,8 +25,8 @@ npm run dev       # launch app in dev mode
 ## Features
 
 - **Click map → drop waypoint** with name, icon (camp, water, hazard, etc.), notes
-- **Record tracks** — start/stop with the toolbar button, saves as named track
-- **Offline download** — draw a bounding box → select zoom levels → downloads to MBTiles
+- **Offline download** — draw a bounding box → select zoom levels → downloads to MBTiles. *Known gap: the map does not yet read the packs back when offline.*
+- **Track recording (UI only)** — start/stop controls exist but no GPS points are captured yet; recording is not functional
 - **GPX import/export** — compatible with Gaia GPS, Garmin, CalTopo
 - **iCloud sync** — waypoints saved to `~/Library/Mobile Documents/com~apple~CloudDocs/BoondockMap/waypoints.json`; iPhone companion app (coming) reads the same file
 
@@ -56,17 +56,12 @@ Rule of thumb for zoom levels:
 
 ## Roadmap
 
-- [ ] iPhone companion app (React Native + Capacitor)
-- [ ] Weather at coordinate (Open-Meteo API, works offline with cached forecasts)
-- [ ] Elevation profile along track
-- [ ] BLM / NPS land ownership overlay
-- [ ] OHV / 4WD trail difficulty ratings
-- [ ] Campsite ratings and notes (community shared via iCloud)
+See [../VISION.md](../VISION.md) for the product vision and phased build plan.
 
 ## Tech Stack
 
 - **Electron** — native macOS app shell
 - **React 18** — UI
 - **MapLibre GL JS** — map rendering (open-source Mapbox fork)
-- **better-sqlite3** — MBTiles storage for offline tiles
+- **sql.js** — WASM SQLite for writing MBTiles offline tile packs
 - **iCloud Drive** — zero-infrastructure sync between Mac and iPhone
