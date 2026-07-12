@@ -48,7 +48,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 26 | Light daylight basemap | ✅ Boondock Day shipped 2026-07-11 (readability pass same day: peaks/ice/city labels, road opacity ramps) |
 | 27 | Numbered search/POI results — numbered pins on the map matching a numbered, pickable list (both directions) | ✅ shipped 2026-07-11; nearby search now anchors to map center |
 | 28 | Complete WA RV park + campground coverage | 🟡 Overture Maps merged 2026-07-11 (+756 places incl. The Cedars; Sites now 4,490 w/ 849 trailheads; per-source attribution in data/ATTRIBUTION.md). Next: RIDB bulk (CC-BY, verified no-key download) + WA DNR campgrounds, then other states |
-| 29 | Boondocking-likelihood polygons — highlight "this might be a boondocking area" | ✅ v1 shipped 2026-07-11: "Boondock Zones β" overlay — 712 WA polygons (USFS land within ~300 m of a legal MVUM road; `data-pipeline/build_zones.py`), opt-in, disclaimer on click. v2 refinements: slope from DEM, closures, BLM land, water setbacks, other states |
+| 29 | Boondocking-likelihood polygons — highlight "this might be a boondocking area" | ✅ v2 shipped 2026-07-12: 455 WA zones, slope-graded from ~150k DEM samples (flat_pct on each card), 257 cliffside zones pruned. v3: closures, BLM land, water setbacks, other states |
 | 30 | FreeRoam-style site filters — by elevation, weather, nearby features (water, views) | 🟡 min + max elevation sliders shipped 2026-07-12 (every site carries elev_ft; persisted); weather + feature filters next (#9) |
 | 31 | AllStays data | ⬜ commercial directory, no public API/licensing surface (checked 2026-07-12) — would require a business licensing conversation with AllStays LLC (Tim's call); not scrapeable under our policy |
 
