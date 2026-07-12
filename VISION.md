@@ -63,8 +63,12 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 41 | Filter waypoints by their details | ✅ shipped 2026-07-12 — status / favorite / label chips on the Points tab, applied to list + map |
 | 42 | Offline packs for more layers (Boondock base, satellite, chosen overlays) | 🟡 BLM Public Land overlay added as a downloadable pack 2026-07-12 (public domain). Boondock base needs a vector+glyph pack pipeline (own phase); satellite/names blocked on ESRI terms verification |
 | 43 | Source + credibility on every searchable result | 🟡 shipped 2026-07-12: POI cards cite OpenStreetMap and show a record-detail tier (rich/fair/sparse — documentation completeness, honestly labeled). v2: context scoring (e.g. restroom inside a gas station = likelier real) |
-| 44 | Custom waypoint category colors | ✅ shipped 2026-07-12 — color pickers per category in Layers tab, persisted, with reset |
+| 44 | Custom waypoint pin colors | ✅ reshipped 2026-07-12 per Tim — color picker lives in the waypoint save modal + edit form (per-waypoint `color` field); the Layers-tab per-category section was removed. Trailhead category recolored rose #f472b6 (amber ≈ dump orange, then teal ≈ water blue) |
 | 45 | Tap trails for their identity | ✅ shipped 2026-07-12 — USFS trail identify: name, motorized status, surface, tread (e.g. Church Mountain Trail: non-motorized, native surface) |
+| 46 | Delete on every waypoint surface | ✅ shipped 2026-07-12 — two-tap "Confirm delete?" in the marker popup, trashcan (two-tap) in the edit form, existing list delete. Same commit fixed marker popups, which had never actually opened (stopPropagation ate the map click MapLibre needs; setHTML was wiping button listeners) |
+| 47 | Labels editable at save time, not just edit | ✅ shipped 2026-07-12 — vocab chips + free-text add in the New Waypoint modal |
+| 48 | In-app instructions (book button next to the legend ?) | ✅ shipped 2026-07-12 — 8-tab Guide (Welcome opener, Map, Layers, Find, Waypoints, Offline, Phone, Credits). **Standing rule: update Guide.jsx in the same commit as any user-facing feature change** |
+| 49 | Waypoints on the phone / cross-device sync | 🟡 works today via GPX: Export (share icon) → AirDrop/iCloud → Import (folder icon) on the phone PWA; carries name, notes, coords, elevation, icon, status, favorite — NOT labels/ratings/pin colors (not in the GPX format; would need a sidecar). Documented in the Guide's Phone tab. v2: extend GPX round-trip with a Boondock extension for the missing fields, then true auto-sync (needs a backend or iCloud file strategy — design decision for Tim) |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,

@@ -21,6 +21,15 @@ style, keep the surface plain, double-check before shipping, and skip chatty
 - **`~/git/evictionresearch/library/CODE_CONVENTIONS.md` → Mapping stack** — the
   MapLibre + PMTiles standard is shared and *does* apply here.
 
+## Standing rules
+
+- **Keep the in-app Guide current** (Tim, 2026-07-12): whenever a user-facing
+  feature is added or changed, update the matching tab content in
+  `boondock/src/renderer/components/Guide.jsx` in the same commit. The Guide
+  must only describe features that actually exist and work.
+- **Every feature request goes into `VISION.md`'s backlog table** — nothing
+  gets dropped; mark rows shipped with date + evidence.
+
 ## Repo orientation
 
 - **`README.md`** — what it is, the tech stack, tile sources.
