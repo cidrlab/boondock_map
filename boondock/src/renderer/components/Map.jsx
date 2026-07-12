@@ -719,7 +719,6 @@ const Map = forwardRef(function Map(
       el.style.cssText = `
         width: 30px; height: 38px; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
-        transition: transform 0.12s;
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
         overflow: visible;
       `
@@ -742,13 +741,19 @@ const Map = forwardRef(function Map(
     })
   }, [waypoints, mapReady])
 
-  // Highlight selected waypoint
+  // Highlight selected waypoint — scale the inner SVG, never the marker
+  // element itself: MapLibre positions markers via transform on that element,
+  // so touching it teleports the pin to the map's top-left corner
   useEffect(() => {
     Object.entries(markersRef.current).forEach(([id, marker]) => {
       const el = marker.getElement()
+      const svg = el.querySelector('svg')
       const isSelected = selectedWaypoint?.id === id
       el.style.zIndex = isSelected ? '10' : '1'
-      el.style.transform = isSelected ? 'scale(1.25)' : 'scale(1)'
+      if (svg) {
+        svg.style.transformOrigin = '50% 100%'
+        svg.style.transform = isSelected ? 'scale(1.25)' : 'scale(1)'
+      }
     })
   }, [selectedWaypoint])
 
@@ -873,7 +878,7 @@ function markerSvgHtml(wp) {
   const svgInner = MARKER_SVG[wp.icon] || MARKER_SVG.generic
   const status = WAYPOINT_STATUS[wp.status]
   return `
-    <svg width="30" height="38" viewBox="0 0 30 38" style="overflow:visible">
+    <svg width="30" height="38" viewBox="0 0 30 38" style="overflow:visible;transition:transform 0.12s">
       <path d="M15 0C6.72 0 0 6.72 0 15c0 10.5 15 23 15 23s15-12.5 15-23C30 6.72 23.28 0 15 0z"
         fill="${color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"/>
       <g transform="translate(6, 5) scale(0.75)" fill="none" stroke="white" stroke-width="2"
