@@ -29,8 +29,7 @@ const SITE_DOTS = [
   ['#f472b6', 'Trailhead'],
 ]
 
-export default function Legend() {
-  const [open, setOpen] = useState(false)
+export default function Legend({ open, onClose }) {
   const [mvum, setMvum] = useState(null)
 
   useEffect(() => {
@@ -39,13 +38,12 @@ export default function Legend() {
 
   return (
     <div className="legend-root">
-      <button className="legend-toggle" onClick={() => setOpen(o => !o)} title="Map legend">
-        {open ? '×' : '?'}
-      </button>
-
       {open && (
         <div className="legend-panel">
-          <div className="legend-hdr">Legend</div>
+          <div className="legend-hdr">
+            Legend
+            <button className="btn-ghost" onClick={onClose} title="Close" style={{ padding: 2 }}>×</button>
+          </div>
 
           <div className="legend-section">Sites</div>
           {SITE_DOTS.map(([c, label]) => (
@@ -61,7 +59,14 @@ export default function Legend() {
           <div className="legend-row"><span className="legend-dot" style={{ background: '#22c55e' }} />Been &amp; stayed</div>
           <div className="legend-row"><span className="legend-dot" style={{ background: '#fb923c' }} />Been, not camped</div>
           <div className="legend-row"><span className="legend-dot" style={{ background: '#F9322B' }} />Want to explore</div>
-          <div className="legend-row"><span style={{ color: '#e8eef4', fontSize: 13 }}>★</span>Favorite — same colors, star shape</div>
+          <div className="legend-row">
+            <span style={{
+              width: 14, height: 14, borderRadius: '50%', background: '#10151c',
+              border: '1px solid #e8eef4', color: '#e8eef4', fontSize: 9,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>★</span>
+            Favorite — circled star, status color
+          </div>
 
           <div className="legend-section">Areas</div>
           <div className="legend-row"><span className="legend-swatch legend-zone" />Boondock Zone β — USFS land near a legal MVUM road</div>

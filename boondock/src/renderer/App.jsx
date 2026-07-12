@@ -26,6 +26,7 @@ export default function App() {
   const [mapCursor, setMapCursor] = useState({ lng: 0, lat: 0 })
   const [mapCenterPt, setMapCenterPt] = useState({ lng: DEFAULT_CENTER[0], lat: DEFAULT_CENTER[1] })
   const [zoomLevel, setZoomLevel] = useState(null)
+  const [helpPanel, setHelpPanel] = useState(null) // 'legend' | 'guide' | null
   const [searchPins, setSearchPins] = useState([])   // numbered POI/search results shown on the map
   const [hoverPin, setHoverPin] = useState(null)     // index sync: list row ↔ map pin
   const [searchArea, setSearchArea] = useState(null) // {run} when the map moved away from the last POI search
@@ -274,6 +275,8 @@ export default function App() {
   return (
     <div className="app">
       <Toolbar
+        helpPanel={helpPanel}
+        onToggleHelp={(which) => setHelpPanel(p => p === which ? null : which)}
         isRecordingTrack={isRecordingTrack}
         onStartTrack={startTrack}
         onStopTrack={stopTrack}
@@ -369,8 +372,8 @@ export default function App() {
           }}
           onWaypointDelete={deleteWaypoint}
         />
-        <Legend />
-        <Guide />
+        <Legend open={helpPanel === 'legend'} onClose={() => setHelpPanel(null)} />
+        <Guide open={helpPanel === 'guide'} onClose={() => setHelpPanel(null)} />
         {searchArea && (
           <button className="search-area-btn" onClick={() => searchArea.run()}>
             Search this area

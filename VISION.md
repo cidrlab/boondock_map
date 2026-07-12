@@ -67,12 +67,40 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 45 | Tap trails for their identity | ✅ shipped 2026-07-12 — USFS trail identify: name, motorized status, surface, tread (e.g. Church Mountain Trail: non-motorized, native surface) |
 | 46 | Delete on every waypoint surface | ✅ shipped 2026-07-12 — two-tap "Confirm delete?" in the marker popup, trashcan (two-tap) in the edit form, existing list delete. Same commit fixed marker popups, which had never actually opened (stopPropagation ate the map click MapLibre needs; setHTML was wiping button listeners) |
 | 47 | Labels editable at save time, not just edit | ✅ shipped 2026-07-12 — vocab chips + free-text add in the New Waypoint modal |
-| 48 | In-app instructions (book button next to the legend ?) | ✅ shipped 2026-07-12 — 8-tab Guide (Welcome opener, Map, Layers, Find, Waypoints, Offline, Phone, Credits). **Standing rule: update Guide.jsx in the same commit as any user-facing feature change** |
+| 48 | In-app instructions (book button next to the legend ?) | ✅ shipped 2026-07-12 — 8-tab Guide (Welcome opener, Map, Layers, Find, Waypoints, Offline, Phone, Credits). Same day, per Tim: both help buttons moved into the toolbar's top-right icon group (Tim confirmed he likes the placement); panels drop down top-right. **Standing rule: update Guide.jsx in the same commit as any user-facing feature change** |
 | 49 | Waypoints on the phone / cross-device sync | 🟡 works today via GPX: Export (share icon) → AirDrop/iCloud → Import (folder icon) on the phone PWA; carries name, notes, coords, elevation, icon, status, favorite — NOT labels/ratings/pin colors (not in the GPX format; would need a sidecar). Documented in the Guide's Phone tab. v2: extend GPX round-trip with a Boondock extension for the missing fields, then true auto-sync (needs a backend or iCloud file strategy — design decision for Tim) |
+| 50 | Copy coordinates from any point popup | ✅ shipped 2026-07-12 — "Copy coords" button rides the Directions row on every point card (map click, waypoints, sites, search results, roads, trails); flips to "✓ Copied". Probe-verified the clipboard receives `lat, lng`. Fixing it surfaced + fixed a latent bug: three popups bound Save to their first `<button>`, which the new Copy button displaced |
+| 51 | Topo lines visible from further out | 🟡 shipped 2026-07-12 — added the service's small-scale contour set (labels off, 0.5 opacity) fading in ~z9, handing off to index lines at z10.3. Caveat flagged: in very steep country (North Cascades test tile: ~88% inked pixels) it reads as dense terrain texture — **Tim should eyeball it**; if too busy, options are raising the fade-in to z9.5+ or dropping opacity |
+| 52 | Circle around the favorite star badge | ✅ shipped 2026-07-12 — dark disc + status-color ring behind the star on map pins, matching circled star in the waypoint list and the legend |
+| 53 | Filter sites by type | ⬜ requested 2026-07-12 — checkbox popup on the Sites layer (campsite / RV park / dump / water / trailhead) with an "All" toggle, so the map shows only the kinds you want. Natural spot: a small filter chip on the Sites row in the Layers tab, or clicking the Sites label opens the checkbox card. Implementation is a `setFilter` on the sites layers over the existing `kind` property — no data changes needed |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,
 offline) — as one free app.
+
+## Where we left off — session handoff 2026-07-12
+
+Everything requested through 2026-07-12 is shipped and live except the items
+below. Last deployed commits: waypoint UX batch (delete everywhere, labels at
+save, marker-popup fix), in-app Guide, toolbar help buttons, copy-coords,
+far-out topo, circled favorite star. All probe-verified before push.
+
+**Next up, in rough priority:**
+1. **Tim eyeballs two visual judgment calls**: far-out topo density in steep
+   terrain (row 51) and the circled star at real size (row 52 — code-verified,
+   built clean, but not visually re-verified on a live map before shipping).
+2. **Track recording** — the Record button exists but recording has never been
+   verified working end-to-end; likely broken. Diagnose and fix or hide.
+3. **Offline packs for the Boondock basemap** (row 42) — vector tile + glyph
+   pack pipeline; satellite blocked on ESRI terms check.
+4. **Waypoint cross-device sync v2** (row 49) — GPX extension for
+   labels/ratings/colors, then an auto-sync design.
+5. **DNR roads layer** (row 34), **weather** (row 9), **national spots sweep**
+   beyond WA, **zones v3** (closures, BLM, more states), **PMTiles pre-render**
+   for MVUM/trails speed.
+6. Waiting on Tim: RIDB API key (optional), AllStays licensing decision,
+   community-layer moderation plan.
+7. Paused: deep-research verification re-run (task #7, needs API access).
 
 ### Claude's suggested additions
 

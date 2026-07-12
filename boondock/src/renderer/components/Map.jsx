@@ -43,6 +43,22 @@ const Map = forwardRef(function Map(
   const bboxRect = useRef(null)
   const infoPopupRef = useRef(null)
 
+  // One delegated handler serves the "Copy coords" button in every popup —
+  // popup content gets replaced by setHTML, so per-node listeners don't stick
+  useEffect(() => {
+    const onCopyClick = (e) => {
+      const btn = e.target.closest?.('[data-copy-coords]')
+      if (!btn) return
+      copyText(btn.dataset.copyCoords).then(ok => {
+        const orig = btn.innerHTML
+        btn.innerHTML = ok ? '✓ Copied' : 'Copy failed'
+        setTimeout(() => { btn.innerHTML = orig }, 1400)
+      })
+    }
+    document.addEventListener('click', onCopyClick)
+    return () => document.removeEventListener('click', onCopyClick)
+  }, [])
+
   // Keep refs in sync so callbacks always see current state
   useEffect(() => { overlaysRef.current = overlays }, [overlays])
   const downloadModeRef = useRef(downloadMode)
@@ -917,7 +933,8 @@ function markerSvgHtml(wp, wpColors) {
   const svgInner = MARKER_SVG[wp.icon] || MARKER_SVG.generic
   const badge = statusBadgeColor(wp)
   const badgeSvg = !badge ? '' : wp.favorite
-    ? `<polygon points="${STAR_POINTS}" fill="${badge}" stroke="#10151c" stroke-width="1.2"/>`
+    ? `<circle cx="27" cy="2.5" r="6.8" fill="#10151c" stroke="${badge}" stroke-width="1.3"/>
+       <polygon points="${STAR_POINTS}" fill="${badge}"/>`
     : `<circle cx="27" cy="3" r="5" fill="${badge}" stroke="#10151c" stroke-width="1.5"/>`
   return `
     <svg width="30" height="38" viewBox="0 0 30 38" style="overflow:visible;transition:transform 0.12s">
@@ -967,12 +984,35 @@ const SITE_KIND_LABELS = { campsite: 'Campsite', rv_park: 'RV park', dump: 'Dump
 function directionsHtml(lat, lng) {
   const apple = `https://maps.apple.com/?daddr=${lat},${lng}`
   const google = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+  const coords = `${lat.toFixed(5)}, ${lng.toFixed(5)}`
   return `
-    <div style="font-size:11px;margin-top:7px">
+    <div style="font-size:11px;margin-top:7px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
       Directions:
       <a href="${apple}" target="_blank" rel="noreferrer" style="color:#38bdf8">Apple</a> ·
       <a href="${google}" target="_blank" rel="noreferrer" style="color:#38bdf8">Google</a>
+      <button data-copy-coords="${coords}" title="Copy coordinates for any app"
+        style="all:unset;cursor:pointer;color:#8babd0;display:inline-flex;align-items:center;gap:3px;margin-left:auto;padding:1px 4px">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy coords
+      </button>
     </div>`
+}
+
+// Clipboard with a fallback for contexts where the async API is unavailable
+async function copyText(t) {
+  try {
+    await navigator.clipboard.writeText(t)
+    return true
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = t
+    ta.style.cssText = 'position:fixed;opacity:0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    ta.remove()
+    return ok
+  }
 }
 
 const ROAD_LAYER_IDS = ['road-motorway', 'road-primary', 'road-secondary', 'road-minor', 'road-track', 'road-path']
@@ -1066,7 +1106,7 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
       ${flat != null ? `<div style="font-size:11px;color:rgba(232,238,244,.6);margin-top:3px">≈${flat}% of sampled ground ≤ 12% grade</div>` : ''}
       ${inZone ? `<div style="font-size:10.5px;color:rgba(232,238,244,.5);margin-top:5px;line-height:1.45">USFS land near a legal MVUM road. Heuristic only — verify rules, closures, and conditions locally.</div>` : ''}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
-      <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px">
+      <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         Save waypoint
       </button>
@@ -1082,7 +1122,7 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
       if (el && meters != null) el.textContent = `Elevation: ${Math.round(meters * 3.28084).toLocaleString()} ft`
     })
     .catch(() => {})
-  root.querySelector('button')?.addEventListener('click', () => {
+  root.querySelector('[data-save-wp]')?.addEventListener('click', () => {
     popup.remove()
     onSave?.(lngLat)
   })
@@ -1102,11 +1142,11 @@ function openSearchPinPopup(m, lngLat, props, onSaveSpot) {
       <div style="font-size:13px;font-weight:600">${props.n}. ${esc(props.name || 'Result')}</div>
       ${tier ? `<div style="font-size:10.5px;color:rgba(232,238,244,.6);margin-top:3px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tier.color};margin-right:5px"></span>${tier.text}</div>` : ''}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
-      <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
+      <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
       <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">Source: © OpenStreetMap contributors</div>
     </div>`
   const popup = new maplibregl.Popup({ offset: 12, maxWidth: '250px' }).setLngLat(lngLat).setHTML(html).addTo(m)
-  popup.getElement().querySelector('button')?.addEventListener('click', () => {
+  popup.getElement().querySelector('[data-save-wp]')?.addEventListener('click', () => {
     onSaveSpot?.({ name: props.name, lat: lngLat.lat, lng: lngLat.lng })
     popup.remove()
   })
@@ -1141,14 +1181,14 @@ function openSitePopup(m, f, onSaveSpot) {
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${p.website ? `<div style="margin-top:5px"><a href="${esc(p.website)}" target="_blank" rel="noreferrer" style="font-size:11.5px;color:#38bdf8">Website</a></div>` : ''}
       ${directionsHtml(lat, lng)}
-      <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
+      <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
       <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">${p.elev_ft != null ? `${Number(p.elev_ft).toLocaleString()} ft · ` : ''}${SITE_SRC_CREDIT(p.src)}</div>
     </div>`
   const popup = new maplibregl.Popup({ offset: 10, maxWidth: '270px' })
     .setLngLat([lng, lat])
     .setHTML(html)
     .addTo(m)
-  popup.getElement().querySelector('button')?.addEventListener('click', () => {
+  popup.getElement().querySelector('[data-save-wp]')?.addEventListener('click', () => {
     onSaveSpot?.({ ...p, lat, lng })
     popup.remove()
   })

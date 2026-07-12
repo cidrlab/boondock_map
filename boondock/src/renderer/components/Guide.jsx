@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, X } from './Icons'
+import { X } from './Icons'
 import './Guide.css'
 
 // User guide. Standing rule (CLAUDE.md): when a user-facing feature changes,
@@ -26,8 +26,8 @@ const TABS = [
           record what you found: been there, camped, ratings, labels.</li>
         </ol>
         <p>Flip through the tabs above for each part of the app. The
-        <strong> ?</strong> button next to this one is the map legend — what
-        every color and symbol means.</p>
+        <strong> ?</strong> button beside the book in the top bar is the map
+        legend — what every color and symbol means.</p>
       </>
     ),
   },
@@ -45,7 +45,8 @@ const TABS = [
           coordinates and elevation; the zoom level sits bottom-right.</li>
           <li><strong>Click anywhere</strong> to get an info card — coordinates,
           elevation, and what&apos;s there — with a <em>Save waypoint</em>
-          button. Click the same spot again to dismiss it.</li>
+          button and a <em>Copy coords</em> button for pasting the spot into
+          any other app. Click the same spot again to dismiss it.</li>
           <li>Click an <strong>MVUM road</strong> (zoomed in past ~z9) for its
           route name and vehicle class; click a <strong>trail</strong> (past
           ~z10) to see whether it&apos;s hiking or motorized, plus surface
@@ -68,8 +69,8 @@ const TABS = [
           <li><strong>Hiking trails</strong> — dashed light-blue lines from the
           USFS trails system.</li>
           <li><strong>Topo lines</strong> — contours only, no background.
-          Index lines appear first; 50–100&nbsp;ft detail fills in as you zoom
-          closer.</li>
+          A light terrain texture appears from about z9, index lines from z10,
+          and 50–100&nbsp;ft detail fills in as you zoom closer.</li>
           <li><strong>Sites</strong> — the campsite database: green campsites,
           purple RV parks, orange dump stations, blue water fills, pink
           trailheads. Numbered circles are clusters — click to zoom in. Click
@@ -103,8 +104,9 @@ const TABS = [
           filter the site dots — handy for staying below snow line or above the
           heat.</li>
           <li>Every result card names its <strong>data source</strong> with a
-          confidence hint, and has <strong>Directions</strong> links that open
-          Apple or Google Maps.</li>
+          confidence hint, and has <strong>Directions</strong> links (Apple or
+          Google Maps) plus <strong>Copy coords</strong> to take the location
+          anywhere else.</li>
         </ul>
       </>
     ),
@@ -120,7 +122,7 @@ const TABS = [
         <p><strong>Visit status</strong> shows as a small badge on the pin:
         green <em>Been &amp; stayed</em>, orange <em>Been, not camped</em>,
         red <em>Explore</em> (want to go), or none. <strong>Favorite</strong>
-        turns the badge into a star.</p>
+        turns the badge into a circled star.</p>
         <p><strong>Labels</strong> are your own quick tags (“view”, “shady”,
         “rough road”). Once used, they become one-tap checkmarks on every
         save/edit form — and filter chips above the waypoint list.</p>
@@ -208,26 +210,17 @@ const TABS = [
   },
 ]
 
-export default function Guide() {
-  const [open, setOpen] = useState(false)
+export default function Guide({ open, onClose }) {
   const [tab, setTab] = useState('welcome')
   const active = TABS.find(t => t.id === tab) || TABS[0]
 
   return (
     <div className="guide-root">
-      <button
-        className="guide-toggle"
-        title="How to use Boondock Map"
-        onClick={() => setOpen(o => !o)}
-      >
-        <BookOpen size={16} />
-      </button>
-
       {open && (
         <div className="guide-panel">
           <div className="guide-hdr">
             <span>Using Boondock Map</span>
-            <button className="btn-ghost" onClick={() => setOpen(false)} title="Close">
+            <button className="btn-ghost" onClick={onClose} title="Close">
               <X size={14} />
             </button>
           </div>

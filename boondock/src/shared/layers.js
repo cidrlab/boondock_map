@@ -162,11 +162,21 @@ export const OVERLAY_LAYERS = {
     attribution: 'USGS National Map',
     parts: [
       {
+        // Small-scale set, labels off (sublayer 2 of group 0; the group is
+        // valid 1:3M–1:600k ≈ z8–z10). Low opacity — in steep country these
+        // 100-ft lines are dense, so from afar they read as terrain texture
+        key: 'far',
+        tileUrl: 'https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&layers=show:2',
+        sourceMinzoom: 8,
+        sourceMaxzoom: 10,
+        zoomOpacity: [[8.6, 0.0], [9.3, 0.5], [9.8, 0.5], [10.3, 0.0]],
+      },
+      {
         key: 'coarse',
         tileUrl: 'https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&layers=show:10,11',
         sourceMinzoom: 10,
         sourceMaxzoom: 14,
-        zoomOpacity: [[9.5, 0.0], [10.5, 0.65], [12.4, 0.65], [12.9, 0.0]],
+        zoomOpacity: [[9.6, 0.0], [10.5, 0.65], [12.4, 0.65], [12.9, 0.0]],
       },
       {
         key: 'fine',

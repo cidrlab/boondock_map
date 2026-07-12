@@ -1,31 +1,10 @@
-.guide-root {
-  position: absolute;
-  left: 54px;              /* right of the legend ? button */
-  bottom: 44px;
-  z-index: 45;
-}
-
-.guide-toggle {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-md);
-  color: var(--text-primary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-.guide-toggle:hover { background: var(--bg-hover); }
-
+/* Panel drops from the toolbar's book button (top-right), clear of the
+   zoom controls on the map's right edge */
 .guide-panel {
   position: absolute;
-  left: -42px;             /* align panel with the legend button edge */
-  bottom: 42px;
+  right: 56px;
+  top: 10px;
+  z-index: 46;
   width: min(440px, calc(100vw - 40px));
   max-height: min(68vh, 560px);
   display: flex;
@@ -91,9 +70,9 @@
 }
 
 @media (max-width: 768px) {
-  .guide-root { bottom: calc(84px + env(safe-area-inset-bottom)); }
   .guide-panel {
-    left: -42px;
+    right: 12px;
+    top: calc(var(--toolbar-h) + env(safe-area-inset-top) + 10px);
     width: min(440px, calc(100vw - 32px));
     max-height: 58vh;
   }

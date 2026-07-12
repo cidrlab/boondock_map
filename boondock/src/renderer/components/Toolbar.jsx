@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Menu, Circle, Square, Download, FolderOpen, Share, Cloud, Compass } from './Icons'
+import { Menu, Circle, Square, Download, FolderOpen, Share, Cloud, Compass, BookOpen, HelpCircle } from './Icons'
 import './Toolbar.css'
 
 export default function Toolbar({
   isRecordingTrack, onStartTrack, onStopTrack,
   onExportGPX, onImportGPX, onToggleSidebar,
   onToggleDownloadMode, downloadMode, onOpenSyncFolder,
+  helpPanel, onToggleHelp,
 }) {
   const [trackName, setTrackName] = useState('')
   const [showStopModal, setShowStopModal] = useState(false)
@@ -46,6 +47,13 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-right">
+        <button className={`tb-icon-btn ${helpPanel === 'guide' ? 'active' : ''}`} onClick={() => onToggleHelp?.('guide')} title="How to use Boondock Map">
+          <BookOpen size={16} />
+        </button>
+        <button className={`tb-icon-btn ${helpPanel === 'legend' ? 'active' : ''}`} onClick={() => onToggleHelp?.('legend')} title="Map legend">
+          <HelpCircle size={16} />
+        </button>
+        <div className="toolbar-divider" />
         <button className={`tb-icon-btn tb-draw-download ${downloadMode ? 'active' : ''}`} onClick={onToggleDownloadMode} title="Download offline tiles">
           <Download size={16} />
         </button>

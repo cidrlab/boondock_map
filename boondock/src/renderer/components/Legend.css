@@ -1,30 +1,10 @@
-.legend-root {
-  position: absolute;
-  left: 12px;
-  bottom: 44px;
-  z-index: 45;
-}
-
-.legend-toggle {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-md);
-  color: var(--text-primary);
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.legend-toggle:hover { background: var(--bg-hover); }
-
+/* Panel drops from the toolbar's help buttons (top-right), clear of the
+   zoom controls on the map's right edge */
 .legend-panel {
   position: absolute;
-  left: 0;
-  bottom: 42px;
+  right: 56px;
+  top: 10px;
+  z-index: 46;
   width: 285px;
   max-height: min(60vh, 480px);
   overflow-y: auto;
@@ -38,6 +18,9 @@
 }
 
 .legend-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 4px;
@@ -115,6 +98,9 @@
 }
 
 @media (max-width: 768px) {
-  .legend-root { bottom: calc(84px + env(safe-area-inset-bottom)); }
-  .legend-panel { width: min(285px, calc(100vw - 40px)); }
+  .legend-panel {
+    right: 12px;
+    top: calc(var(--toolbar-h) + env(safe-area-inset-top) + 10px);
+    width: min(285px, calc(100vw - 32px));
+  }
 }
