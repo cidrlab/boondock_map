@@ -58,6 +58,13 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 36 | "Search this area" pill after panning away from a POI search | ✅ shipped 2026-07-12 (>2.5 km from last search center) |
 | 37 | Directions handoff on every point card (Apple Maps / Google Maps deep links) | ✅ shipped 2026-07-12 — waypoints, sites, search pins, MVUM roads, zone/info cards |
 | 38 | CarPlay support with compass + elevation display | ⬜ requires the native iOS (Capacitor) wrapper + CarPlay entitlement — Phase 6 territory |
+| 39 | Photo attachments on waypoints | ⬜ deliberately deferred (Tim: keep it slim). Ideas when ready: resize client-side to ~200KB, store per-device in IndexedDB first; community photos later via object storage (R2/B2) — cost scales with adoption, needs a plan |
+| 40 | Labels + star ratings on waypoints (quiet/cleanliness/accessibility) → future community crowdsourcing à la FreeRoam | 🟡 personal layer shipped 2026-07-12 (user-defined label chips with shared vocabulary, 3× five-star ratings, in edit form + popups + filters). Community submission/moderation = the big v2; survey-field research (iOverlander/Campendium patterns) queued with the paused research task (#7) |
+| 41 | Filter waypoints by their details | ✅ shipped 2026-07-12 — status / favorite / label chips on the Points tab, applied to list + map |
+| 42 | Offline packs for more layers (Boondock base, satellite, chosen overlays) | 🟡 BLM Public Land overlay added as a downloadable pack 2026-07-12 (public domain). Boondock base needs a vector+glyph pack pipeline (own phase); satellite/names blocked on ESRI terms verification |
+| 43 | Source + credibility on every searchable result | 🟡 shipped 2026-07-12: POI cards cite OpenStreetMap and show a record-detail tier (rich/fair/sparse — documentation completeness, honestly labeled). v2: context scoring (e.g. restroom inside a gas station = likelier real) |
+| 44 | Custom waypoint category colors | ✅ shipped 2026-07-12 — color pickers per category in Layers tab, persisted, with reset |
+| 45 | Tap trails for their identity | ✅ shipped 2026-07-12 — USFS trail identify: name, motorized status, surface, tread (e.g. Church Mountain Trail: non-motorized, native surface) |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,

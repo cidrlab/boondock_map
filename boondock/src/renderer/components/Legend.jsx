@@ -26,7 +26,7 @@ const SITE_DOTS = [
   ['#a78bfa', 'RV park'],
   ['#fb923c', 'Dump station'],
   ['#38bdf8', 'Water fill'],
-  ['#f59e0b', 'Trailhead'],
+  ['#2dd4bf', 'Trailhead'],
 ]
 
 export default function Legend() {
@@ -58,8 +58,10 @@ export default function Legend() {
           </div>
 
           <div className="legend-section">Waypoint badges</div>
-          <div className="legend-row"><span className="legend-dot" style={{ background: '#22c55e' }} />Been there</div>
-          <div className="legend-row"><span className="legend-dot" style={{ background: '#fb923c' }} />Want to explore</div>
+          <div className="legend-row"><span className="legend-dot" style={{ background: '#22c55e' }} />Been &amp; stayed</div>
+          <div className="legend-row"><span className="legend-dot" style={{ background: '#fb923c' }} />Been, not camped</div>
+          <div className="legend-row"><span className="legend-dot" style={{ background: '#F9322B' }} />Want to explore</div>
+          <div className="legend-row"><span style={{ color: '#e8eef4', fontSize: 13 }}>★</span>Favorite — same colors, star shape</div>
 
           <div className="legend-section">Areas</div>
           <div className="legend-row"><span className="legend-swatch legend-zone" />Boondock Zone β — USFS land near a legal MVUM road</div>

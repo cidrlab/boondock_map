@@ -42,7 +42,9 @@ export const BASE_LAYERS = {
   },
 }
 
-// Downloadable offline packs (not selectable bases)
+// Downloadable offline packs (not selectable bases). Only public-domain
+// US-government services until other providers' terms are verified
+// (VISION.md) — that's why satellite and the vector base aren't here yet.
 export const PACK_LAYERS = {
   'usgs-topo': {
     id: 'usgs-topo',
@@ -50,8 +52,14 @@ export const PACK_LAYERS = {
     tileUrl: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
     attribution: 'USGS National Map',
     maxZoom: 16,
-    // Public-domain USGS service — only layer cleared for offline pack
-    // downloads until ESRI/OpenTopoMap terms are verified (VISION.md)
+    offlineOk: true,
+  },
+  'blm-land': {
+    id: 'blm-land',
+    label: 'Public Land overlay (BLM)',
+    tileUrl: 'https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_with_PriUnk/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'BLM',
+    maxZoom: 15,
     offlineOk: true,
   },
 }
@@ -96,6 +104,7 @@ export const OVERLAY_LAYERS = {
           drawingInfo: { renderer: { type: 'simple', symbol: { type: 'esriSLS', style: 'esriSLSShortDash', color: [139, 171, 208, 255], width: 1.8 } }, showLabels: false },
         }])),
     attribution: 'USFS',
+    identifyUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer/identify',
     sourceMinzoom: 8,
     sourceMaxzoom: 15,
     zoomOpacity: [

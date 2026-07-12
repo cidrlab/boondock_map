@@ -8,6 +8,7 @@ import DownloadModal from './components/DownloadModal'
 import StatusBar from './components/StatusBar'
 import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
 import { elevationAt } from '../shared/elevation'
+import { matchesWpFilter } from '../shared/waypointMeta'
 import './styles/app.css'
 
 export default function App() {
@@ -29,6 +30,9 @@ export default function App() {
   const [searchArea, setSearchArea] = useState(null) // {run} when the map moved away from the last POI search
   const [siteMinElev, setSiteMinElev] = useState(null)   // null = no lower bound
   const [siteMaxElev, setSiteMaxElev] = useState(null)   // null = no upper bound
+  const [wpFilter, setWpFilter] = useState({ status: null, favorite: false, labels: [] })
+  const [wpColors, setWpColors] = useState({})       // per-category pin color overrides
+  const [editRequestId, setEditRequestId] = useState(null)   // popup "Edit waypoint" → sidebar
   const [downloadMode, setDownloadMode] = useState(false)
   const [downloadBbox, setDownloadBbox] = useState(null)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
@@ -74,6 +78,7 @@ export default function App() {
       }
       if (typeof prefs.siteMinElev === 'number') setSiteMinElev(prefs.siteMinElev)
       if (typeof prefs.siteMaxElev === 'number') setSiteMaxElev(prefs.siteMaxElev)
+      if (prefs.wpColors && typeof prefs.wpColors === 'object') setWpColors(prefs.wpColors)
       setInitialViewport({
         center: prefs.center || DEFAULT_CENTER,
         zoom: prefs.zoom ?? DEFAULT_ZOOM,
@@ -110,11 +115,12 @@ export default function App() {
       overlays,
       siteMinElev,
       siteMaxElev,
+      wpColors,
     })
-  }, [baseLayer, overlays, siteMinElev, siteMaxElev])
+  }, [baseLayer, overlays, siteMinElev, siteMaxElev, wpColors])
 
-  // Save prefs when base layer, overlays, or filters change
-  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMinElev, siteMaxElev])
+  // Save prefs when base layer, overlays, filters, or colors change
+  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMinElev, siteMaxElev, wpColors])
 
   // Expose a handler for Map to call on moveend (debounced)
   const handleViewportChange = useCallback(() => {
@@ -311,6 +317,12 @@ export default function App() {
             hoverPin={hoverPin}
             onHoverPin={setHoverPin}
             onSearchArea={setSearchArea}
+            wpFilter={wpFilter}
+            setWpFilter={setWpFilter}
+            wpColors={wpColors}
+            setWpColors={setWpColors}
+            editRequestId={editRequestId}
+            onEditHandled={() => setEditRequestId(null)}
             siteMinElev={siteMinElev}
             setSiteMinElev={setSiteMinElev}
             siteMaxElev={siteMaxElev}
@@ -322,7 +334,7 @@ export default function App() {
           ref={mapRef}
           baseLayer={baseLayer}
           overlays={overlays}
-          waypoints={waypoints}
+          waypoints={waypoints.filter(w => matchesWpFilter(w, wpFilter))}
           tracks={tracks}
           currentTrackPoints={currentTrackPoints}
           selectedWaypoint={selectedWaypoint}
@@ -347,6 +359,12 @@ export default function App() {
           onCenterChange={setMapCenterPt}
           siteMinElev={siteMinElev}
           siteMaxElev={siteMaxElev}
+          wpColors={wpColors}
+          onWaypointEdit={(id) => {
+            setActiveTab('waypoints')
+            setSidebarOpen(true)
+            setEditRequestId(id)
+          }}
         />
         <Legend />
         {searchArea && (
@@ -406,7 +424,15 @@ function parseGPX(xmlString) {
       notes: el.querySelector('desc')?.textContent || '',
       icon: 'generic',
       ...(Number.isFinite(ele) && { elev_ft: Math.round(ele * 3.28084) }),
-      ...((type === 'been' || type === 'explore') && { status: type }),
+      ...(() => {
+        if (!type) return {}
+        const favorite = type === 'fav' || type.endsWith('-fav')
+        const status = type.replace(/-?fav$/, '').replace(/-$/, '')
+        return {
+          ...(favorite && { favorite: true }),
+          ...(['been', 'been-nc', 'explore'].includes(status) && { status }),
+        }
+      })(),
       createdAt: el.querySelector('time')?.textContent || new Date().toISOString(),
     }
   })

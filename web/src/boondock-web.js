@@ -50,7 +50,7 @@ function buildGPX({ waypoints = [], tracks = [] }) {
     <name>${escapeXml(w.name)}</name>
     <desc>${escapeXml(w.notes || '')}</desc>
     <sym>${escapeXml(w.icon || 'Flag, Blue')}</sym>
-    ${w.status ? `<type>${escapeXml(w.status)}</type>` : ''}
+    ${w.status || w.favorite ? `<type>${escapeXml([w.status, w.favorite ? 'fav' : null].filter(Boolean).join('-'))}</type>` : ''}
     <time>${w.createdAt || ''}</time>
   </wpt>`).join('')
 

@@ -13,17 +13,14 @@ const ICONS = [
   { id: 'parking',   label: 'Parking' },
 ]
 
-const STATUS_OPTIONS = [
-  { id: 'been',    label: 'Been there',      color: '#22c55e' },
-  { id: 'unknown', label: 'Not sure',        color: null },
-  { id: 'explore', label: 'Want to explore', color: '#fb923c' },
-]
+import { WP_STATUS_META, WP_STATUS_OPTIONS } from '../../shared/waypointMeta'
 
 export default function WaypointModal({ lngLat, onSave, onCancel }) {
   const [name, setName] = useState('')
   const [notes, setNotes] = useState('')
   const [icon, setIcon] = useState('generic')
   const [status, setStatus] = useState('unknown')
+  const [favorite, setFavorite] = useState(false)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -36,6 +33,7 @@ export default function WaypointModal({ lngLat, onSave, onCancel }) {
       name: name.trim(), notes: notes.trim(), icon,
       lat: lngLat.lat, lng: lngLat.lng,
       ...(status !== 'unknown' && { status }),
+      ...(favorite && { favorite: true }),
     })
   }
 
@@ -91,17 +89,28 @@ export default function WaypointModal({ lngLat, onSave, onCancel }) {
         />
 
         <div className="wp-status-row">
-          {STATUS_OPTIONS.map(o => (
-            <button
-              key={o.id}
-              className={`wp-status-btn ${status === o.id ? 'active' : ''}`}
-              style={status === o.id && o.color ? { borderColor: o.color, color: o.color } : {}}
-              onClick={() => setStatus(o.id)}
-            >
-              {o.color && <span className="wp-status-dot" style={{ background: o.color }} />}
-              {o.label}
-            </button>
-          ))}
+          {WP_STATUS_OPTIONS.map(o => {
+            const color = WP_STATUS_META[o.id]?.color || null
+            return (
+              <button
+                key={o.id}
+                className={`wp-status-btn ${status === o.id ? 'active' : ''}`}
+                style={status === o.id && color ? { borderColor: color, color } : {}}
+                onClick={() => setStatus(o.id)}
+              >
+                {color && <span className="wp-status-dot" style={{ background: color }} />}
+                {o.label}
+              </button>
+            )
+          })}
+          <button
+            className={`wp-status-btn wp-fav-btn ${favorite ? 'active' : ''}`}
+            style={favorite ? { borderColor: '#fbbf24', color: '#fbbf24' } : {}}
+            onClick={() => setFavorite(f => !f)}
+            title="Favorite — badge becomes a star"
+          >
+            {favorite ? '★' : '☆'} Favorite
+          </button>
         </div>
 
         <div className="wp-modal-actions">

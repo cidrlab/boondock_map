@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { BASE_LAYERS, OVERLAY_LAYERS } from '../../shared/layers'
 import { listPacks, deletePack, storageEstimate } from '../../shared/offlineTiles'
+import { WP_STATUS_META, WP_STATUS_OPTIONS, WP_RATING_KEYS, statusBadgeColor, matchesWpFilter } from '../../shared/waypointMeta'
 import { parseCoords, formatCoords } from '../../shared/parseCoords'
 import { useGeocoder } from '../../shared/useGeocoder'
 import { usePoiSearch, POI_CATEGORIES } from '../../shared/usePoiSearch'
@@ -23,6 +24,7 @@ export default function Sidebar({
   onFlyTo, searchHistory, onAddSearchHistory, mapCenter,
   isMobile, onSearchPins, hoverPin, onHoverPin, onSearchArea,
   siteMinElev, setSiteMinElev, siteMaxElev, setSiteMaxElev,
+  wpFilter, setWpFilter, wpColors, setWpColors, editRequestId, onEditHandled,
 }) {
   const [query, setQuery] = useState('')
   const [sheet, setSheet] = useState('peek')
@@ -59,9 +61,10 @@ export default function Sidebar({
   const isCoord = !!coordResult
   const isGeoSearch = isSearching && !isCoord
 
+  const detailFiltered = waypoints.filter(w => matchesWpFilter(w, wpFilter))
   const filteredWaypoints = isCoord || !isSearching
-    ? waypoints
-    : waypoints.filter(w =>
+    ? detailFiltered
+    : detailFiltered.filter(w =>
         w.name.toLowerCase().includes(query.toLowerCase()) ||
         (w.notes || '').toLowerCase().includes(query.toLowerCase())
       )
@@ -92,7 +95,7 @@ export default function Sidebar({
   // Mirror whichever result list is active onto the map as numbered pins
   useEffect(() => {
     const active = poiResults.length ? poiResults : geoResults
-    onSearchPins?.(active.map(r => ({ lat: r.lat, lng: r.lng, name: r.name })))
+    onSearchPins?.(active.map(r => ({ lat: r.lat, lng: r.lng, name: r.name, detail: r.detail || null })))
   }, [poiResults, geoResults])
 
   // "Search this area": offer a re-run when the map leaves the searched spot
@@ -151,16 +154,48 @@ export default function Sidebar({
   }
 
   const [editStatus, setEditStatus] = useState('unknown')
-  const startEdit = (wp) => { setEditingId(wp.id); setEditName(wp.name); setEditNotes(wp.notes || ''); setEditStatus(wp.status || 'unknown') }
+  const [editFavorite, setEditFavorite] = useState(false)
+  const [editLabels, setEditLabels] = useState([])
+  const [newLabel, setNewLabel] = useState('')
+  const [editRatings, setEditRatings] = useState({})
+
+  // Label vocabulary = every label ever used across waypoints
+  const labelVocab = [...new Set(waypoints.flatMap(w => w.labels || []))].sort()
+
+  const startEdit = (wp) => {
+    setEditingId(wp.id)
+    setEditName(wp.name)
+    setEditNotes(wp.notes || '')
+    setEditStatus(wp.status || 'unknown')
+    setEditFavorite(!!wp.favorite)
+    setEditLabels(wp.labels || [])
+    setEditRatings(wp.ratings || {})
+  }
   const saveEdit = (id) => {
-    onWaypointUpdate(id, { name: editName, notes: editNotes, status: editStatus === 'unknown' ? undefined : editStatus })
+    onWaypointUpdate(id, {
+      name: editName,
+      notes: editNotes,
+      status: editStatus === 'unknown' ? undefined : editStatus,
+      favorite: editFavorite || undefined,
+      labels: editLabels.length ? editLabels : undefined,
+      ratings: Object.keys(editRatings).length ? editRatings : undefined,
+    })
     setEditingId(null)
   }
-  const WP_STATUS = [
-    { id: 'been',    label: 'Been',    color: '#22c55e' },
-    { id: 'unknown', label: 'Not sure', color: null },
-    { id: 'explore', label: 'Explore', color: '#fb923c' },
-  ]
+  // Popup "Edit waypoint" hands off here
+  useEffect(() => {
+    if (!editRequestId) return
+    const wp = waypoints.find(w => w.id === editRequestId)
+    if (wp) startEdit(wp)
+    onEditHandled?.()
+  }, [editRequestId])
+
+  const toggleEditLabel = (l) => setEditLabels(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l])
+  const addNewLabel = () => {
+    const l = newLabel.trim().toLowerCase()
+    if (l && !editLabels.includes(l)) setEditLabels(prev => [...prev, l])
+    setNewLabel('')
+  }
 
   const tabs = [
     { id: 'waypoints', Icon: MapPin,   label: 'Points' },
@@ -354,7 +389,32 @@ export default function Sidebar({
           <div>
             <div className="section-hdr">
               <span>Waypoints</span>
-              <span className="chip chip-muted">{waypoints.length}</span>
+              <span className="chip chip-muted">{filteredWaypoints.length}{detailFiltered.length !== waypoints.length ? ` / ${waypoints.length}` : ''}</span>
+            </div>
+
+            <div className="wp-filter-row">
+              <button
+                className={`poi-chip ${wpFilter.favorite ? 'active' : ''}`}
+                onClick={() => setWpFilter(f => ({ ...f, favorite: !f.favorite }))}
+              >★ Favorites</button>
+              {WP_STATUS_OPTIONS.filter(o => o.id !== 'unknown').map(o => (
+                <button
+                  key={o.id}
+                  className={`poi-chip ${wpFilter.status === o.id ? 'active' : ''}`}
+                  style={wpFilter.status === o.id ? { borderColor: WP_STATUS_META[o.id].color, color: WP_STATUS_META[o.id].color } : {}}
+                  onClick={() => setWpFilter(f => ({ ...f, status: f.status === o.id ? null : o.id }))}
+                >{o.label}</button>
+              ))}
+              {labelVocab.map(l => (
+                <button
+                  key={l}
+                  className={`poi-chip ${wpFilter.labels.includes(l) ? 'active' : ''}`}
+                  onClick={() => setWpFilter(f => ({
+                    ...f,
+                    labels: f.labels.includes(l) ? f.labels.filter(x => x !== l) : [...f.labels, l],
+                  }))}
+                >{l}</button>
+              ))}
             </div>
 
             {filteredWaypoints.length === 0 && !isCoord && (
@@ -367,7 +427,7 @@ export default function Sidebar({
             <ul className="wp-list">
               {filteredWaypoints.map(wp => {
                 const IconC = WAYPOINT_ICON_COMPONENTS[wp.icon] || MapPin
-                const iconColor = WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
+                const iconColor = wpColors?.[wp.icon] || WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
                 return (
                   <li
                     key={wp.id}
@@ -392,17 +452,67 @@ export default function Sidebar({
                             )
                           })}
                         </div>
-                        <div className="wp-status-row">
-                          {WP_STATUS.map(o => (
+                        <div className="wp-status-row wp-status-wrap">
+                          {WP_STATUS_OPTIONS.map(o => {
+                            const color = WP_STATUS_META[o.id]?.color || null
+                            return (
+                              <button
+                                key={o.id}
+                                className={`wp-status-btn ${editStatus === o.id ? 'active' : ''}`}
+                                style={editStatus === o.id && color ? { borderColor: color, color } : {}}
+                                onClick={() => setEditStatus(o.id)}
+                              >
+                                {color && <span className="wp-status-dot" style={{ background: color }} />}
+                                {o.label}
+                              </button>
+                            )
+                          })}
+                          <button
+                            className={`wp-status-btn ${editFavorite ? 'active' : ''}`}
+                            style={editFavorite ? { borderColor: '#fbbf24', color: '#fbbf24' } : {}}
+                            onClick={() => setEditFavorite(f => !f)}
+                          >
+                            {editFavorite ? '★' : '☆'} Favorite
+                          </button>
+                        </div>
+
+                        <div className="wp-labels-edit">
+                          {labelVocab.map(l => (
                             <button
-                              key={o.id}
-                              className={`wp-status-btn ${editStatus === o.id ? 'active' : ''}`}
-                              style={editStatus === o.id && o.color ? { borderColor: o.color, color: o.color } : {}}
-                              onClick={() => setEditStatus(o.id)}
-                            >
-                              {o.color && <span className="wp-status-dot" style={{ background: o.color }} />}
-                              {o.label}
-                            </button>
+                              key={l}
+                              className={`poi-chip ${editLabels.includes(l) ? 'active' : ''}`}
+                              onClick={() => toggleEditLabel(l)}
+                            >{editLabels.includes(l) ? '✓ ' : ''}{l}</button>
+                          ))}
+                          {editLabels.filter(l => !labelVocab.includes(l)).map(l => (
+                            <button key={l} className="poi-chip active" onClick={() => toggleEditLabel(l)}>✓ {l}</button>
+                          ))}
+                          <input
+                            className="wp-label-input"
+                            placeholder="Add label…"
+                            value={newLabel}
+                            onChange={e => setNewLabel(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewLabel() } }}
+                          />
+                        </div>
+
+                        <div className="wp-ratings-edit">
+                          {WP_RATING_KEYS.map(rk => (
+                            <div className="wp-rating-row" key={rk.id}>
+                              <span>{rk.label}</span>
+                              <span className="wp-rating-stars">
+                                {[1, 2, 3, 4, 5].map(v => (
+                                  <button
+                                    key={v}
+                                    className={editRatings[rk.id] >= v ? 'on' : ''}
+                                    onClick={() => setEditRatings(prev => ({
+                                      ...prev,
+                                      [rk.id]: prev[rk.id] === v ? undefined : v,
+                                    }))}
+                                  >★</button>
+                                ))}
+                              </span>
+                            </div>
                           ))}
                         </div>
                         <div className="wp-edit-actions">
@@ -414,12 +524,13 @@ export default function Sidebar({
                       <>
                         <div className="wp-dot" style={{ background: iconColor, position: 'relative' }}>
                           <IconC size={12} color="white" />
-                          {(wp.status === 'been' || wp.status === 'explore') && (
-                            <span
-                              className="wp-visit-badge"
-                              style={{ background: wp.status === 'been' ? '#22c55e' : '#fb923c' }}
-                            />
-                          )}
+                          {(() => {
+                            const c = statusBadgeColor(wp)
+                            if (!c) return null
+                            return wp.favorite
+                              ? <span className="wp-visit-star" style={{ color: c }}>★</span>
+                              : <span className="wp-visit-badge" style={{ background: c }} />
+                          })()}
                         </div>
                         <div className="wp-info">
                           <div className="wp-name">{wp.name}</div>
@@ -533,6 +644,23 @@ export default function Sidebar({
                 }}
               />
             </div>
+
+            <div className="section-hdr" style={{ marginTop: 20 }}>
+              <span>Waypoint Colors</span>
+              {Object.keys(wpColors || {}).length > 0 && (
+                <button className="btn-ghost" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setWpColors({})}>Reset</button>
+              )}
+            </div>
+            {WAYPOINT_ICONS.map(iconId => (
+              <div className="wp-color-row" key={iconId}>
+                <span style={{ textTransform: 'capitalize' }}>{iconId}</span>
+                <input
+                  type="color"
+                  value={wpColors?.[iconId] || WAYPOINT_COLORS[iconId]}
+                  onChange={e => setWpColors(prev => ({ ...prev, [iconId]: e.target.value }))}
+                />
+              </div>
+            ))}
           </div>
         )}
 

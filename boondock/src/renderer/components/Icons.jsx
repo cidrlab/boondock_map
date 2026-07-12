@@ -89,7 +89,7 @@ export const WAYPOINT_COLORS = {
   camp:      '#22c55e',
   water:     '#38bdf8',
   hazard:    '#fbbf24',
-  trailhead: '#f59e0b',
+  trailhead: '#2dd4bf',
   viewpoint: '#a78bfa',
   fuel:      '#fb923c',
   parking:   '#e8eef4',    /* CiDR cool blue tint */

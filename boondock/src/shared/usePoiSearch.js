@@ -92,6 +92,11 @@ export function usePoiSearch() {
           const dlng = (lng - center.lng) * 111320 * Math.cos(center.lat * Math.PI / 180)
           const dist = Math.sqrt(dlat * dlat + dlng * dlng)
 
+          // Documentation richness — a proxy for how established the record
+          // is, not ground truth (a named, well-tagged node beats a bare pin)
+          const tagCount = Object.keys(tags).length
+          const detail = tags.name && tagCount >= 4 ? 'rich' : (tags.name || tagCount >= 3) ? 'fair' : 'sparse'
+
           return {
             id: `osm-${el.type}-${el.id}`,
             name,
@@ -102,6 +107,8 @@ export function usePoiSearch() {
             distance: dist,
             distanceLabel: dist < 1609 ? `${Math.round(dist)}m` : `${(dist / 1609.34).toFixed(1)} mi`,
             tags,
+            src: 'osm',
+            detail,
           }
         })
         .filter(Boolean)

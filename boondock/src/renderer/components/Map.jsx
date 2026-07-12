@@ -4,6 +4,7 @@ import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../..
 import { buildBoondockStyle, BOONDOCK_GLYPHS } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
 import { elevationAt } from '../../shared/elevation'
+import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/waypointMeta'
 import { WAYPOINT_COLORS } from './Icons'
 
 // All tile requests go through boondock:// so downloaded offline packs are
@@ -29,7 +30,7 @@ const Map = forwardRef(function Map(
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
     initialViewport, onViewportChange, showPackAreas, onSaveSpot,
     searchPins, hoverPin, onPinHover, onZoomChange, onCenterChange,
-    siteMinElev, siteMaxElev,
+    siteMinElev, siteMaxElev, wpColors, onWaypointEdit,
   },
   ref
 ) {
@@ -40,6 +41,7 @@ const Map = forwardRef(function Map(
   const markersRef = useRef({})
   const bboxStart = useRef(null)
   const bboxRect = useRef(null)
+  const infoPopupRef = useRef(null)
 
   // Keep refs in sync so callbacks always see current state
   useEffect(() => { overlaysRef.current = overlays }, [overlays])
@@ -157,11 +159,18 @@ const Map = forwardRef(function Map(
           return
         }
       }
-      // Tap a forest road for its MVUM details (quick identify, then move on)
+      // Tap a forest road or trail for its USFS details (quick identifies)
       if (overlaysRef.current.mvum && m.getZoom() >= 9) {
         const road = await identifyMvum(m, e.lngLat)
         if (road && map.current === m) {
           openMvumPopup(m, e.lngLat, road)
+          return
+        }
+      }
+      if (overlaysRef.current['usfs-trails'] && m.getZoom() >= 10) {
+        const trail = await identifyTrail(m, e.lngLat)
+        if (trail && map.current === m) {
+          openTrailPopup(m, e.lngLat, trail)
           return
         }
       }
@@ -175,13 +184,21 @@ const Map = forwardRef(function Map(
         }
       }
       // Empty ground: show the spot's numbers first; saving is one tap more.
-      // Inside a Boondock Zone the card carries the heuristic's disclaimer.
+      // Clicking near an open card dismisses it; clicking elsewhere replaces
+      // it. Inside a Boondock Zone the card carries the heuristic's disclaimer.
+      const prev = infoPopupRef.current
+      if (prev?.isOpen?.()) {
+        const prevPt = m.project(prev.getLngLat())
+        prev.remove()
+        infoPopupRef.current = null
+        if (Math.hypot(prevPt.x - e.point.x, prevPt.y - e.point.y) < 44) return
+      }
       let zoneProps = null
       if (overlaysRef.current.zones && m.getLayer('zones-fill')) {
         const zhits = m.queryRenderedFeatures(e.point, { layers: ['zones-fill'] })
         if (zhits.length) zoneProps = zhits[0].properties || {}
       }
-      openPointInfoPopup(m, e.lngLat, onMapClick, zoneProps)
+      infoPopupRef.current = openPointInfoPopup(m, e.lngLat, onMapClick, zoneProps)
     })
 
     map.current.on('mouseenter', 'search-pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer' })
@@ -357,7 +374,7 @@ const Map = forwardRef(function Map(
             'rv_park', '#a78bfa',
             'dump', '#fb923c',
             'water', '#38bdf8',
-            'trailhead', '#f59e0b',
+            'trailhead', '#2dd4bf',
             '#e8eef4'],
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 13, 6],
           'circle-stroke-color': '#10151c',
@@ -444,7 +461,7 @@ const Map = forwardRef(function Map(
       features: (searchPinsRef.current || []).map((p, i) => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-        properties: { n: i + 1, name: p.name || '' },
+        properties: { n: i + 1, name: p.name || '', detail: p.detail || '' },
       })),
     })
   }
@@ -709,7 +726,7 @@ const Map = forwardRef(function Map(
       if (markersRef.current[wp.id]) {
         const marker = markersRef.current[wp.id]
         marker.setLngLat([wp.lng, wp.lat])
-        marker.getElement().innerHTML = markerSvgHtml(wp)   // icon/status may have changed
+        marker.getElement().innerHTML = markerSvgHtml(wp, wpColors)   // icon/status/colors may have changed
         marker.getPopup()?.setHTML(waypointPopupHtml(wp))
         return
       }
@@ -722,10 +739,17 @@ const Map = forwardRef(function Map(
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
         overflow: visible;
       `
-      el.innerHTML = markerSvgHtml(wp)
+      el.innerHTML = markerSvgHtml(wp, wpColors)
 
       const popup = new maplibregl.Popup({ offset: [0, -30], closeButton: true, maxWidth: '260px' })
         .setHTML(waypointPopupHtml(wp))
+      const wpId = wp.id
+      popup.on('open', () => {
+        popup.getElement()?.querySelector('[data-wp-edit]')?.addEventListener('click', () => {
+          popup.remove()
+          onWaypointEdit?.(wpId)
+        })
+      })
 
       const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([wp.lng, wp.lat])
@@ -739,7 +763,7 @@ const Map = forwardRef(function Map(
 
       markersRef.current[wp.id] = marker
     })
-  }, [waypoints, mapReady])
+  }, [waypoints, mapReady, wpColors])
 
   // Highlight selected waypoint — scale the inner SVG, never the marker
   // element itself: MapLibre positions markers via transform on that element,
@@ -868,15 +892,16 @@ function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-const WAYPOINT_STATUS = {
-  been:    { color: '#22c55e', label: 'Been there' },
-  explore: { color: '#fb923c', label: 'Want to explore' },
-}
+// Star polygon for favorite badges, centered on the marker's shoulder
+const STAR_POINTS = '27,-2.5 28.35,1.14 32.23,1.3 29.19,3.71 30.23,7.45 27,5.3 23.77,7.45 24.81,3.71 21.77,1.3 25.65,1.14'
 
-function markerSvgHtml(wp) {
-  const color = WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
+function markerSvgHtml(wp, wpColors) {
+  const color = wpColors?.[wp.icon] || WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
   const svgInner = MARKER_SVG[wp.icon] || MARKER_SVG.generic
-  const status = WAYPOINT_STATUS[wp.status]
+  const badge = statusBadgeColor(wp)
+  const badgeSvg = !badge ? '' : wp.favorite
+    ? `<polygon points="${STAR_POINTS}" fill="${badge}" stroke="#10151c" stroke-width="1.2"/>`
+    : `<circle cx="27" cy="3" r="5" fill="${badge}" stroke="#10151c" stroke-width="1.5"/>`
   return `
     <svg width="30" height="38" viewBox="0 0 30 38" style="overflow:visible;transition:transform 0.12s">
       <path d="M15 0C6.72 0 0 6.72 0 15c0 10.5 15 23 15 23s15-12.5 15-23C30 6.72 23.28 0 15 0z"
@@ -885,20 +910,34 @@ function markerSvgHtml(wp) {
         stroke-linecap="round" stroke-linejoin="round">
         ${svgInner}
       </g>
-      ${status ? `<circle cx="27" cy="3" r="5" fill="${status.color}" stroke="#10151c" stroke-width="1.5"/>` : ''}
+      ${badgeSvg}
     </svg>
   `
 }
 
 function waypointPopupHtml(wp) {
-  const status = WAYPOINT_STATUS[wp.status]
+  const status = WP_STATUS_META[wp.status]
+  const badge = statusBadgeColor(wp)
+  const statusLine = status || wp.favorite
+    ? `<div style="font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:${badge};margin-bottom:3px">${wp.favorite ? '★ ' : '● '}${status ? status.label : 'Favorite'}</div>`
+    : ''
+  const labels = (wp.labels || []).length
+    ? `<div style="margin:4px 0 2px">${wp.labels.map(l => `<span style="display:inline-block;font-size:10px;padding:1px 7px;margin:1px 3px 1px 0;border-radius:100px;background:rgba(255,255,255,0.08);color:rgba(232,238,244,.8)">${esc(l)}</span>`).join('')}</div>`
+    : ''
+  const ratings = WP_RATING_KEYS
+    .filter(rk => wp.ratings?.[rk.id])
+    .map(rk => `<div style="font-size:11px;color:rgba(232,238,244,.7)">${rk.label}: <span style="color:#fbbf24">${'★'.repeat(wp.ratings[rk.id])}</span><span style="color:rgba(255,255,255,.25)">${'★'.repeat(5 - wp.ratings[rk.id])}</span></div>`)
+    .join('')
   return `
     <div style="font-family:-apple-system,system-ui,sans-serif;">
       <div style="font-size:14px;font-weight:600;margin-bottom:2px">${esc(wp.name)}</div>
-      ${status ? `<div style="font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:${status.color};margin-bottom:3px">● ${status.label}</div>` : ''}
+      ${statusLine}
       ${wp.notes ? `<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:4px">${esc(wp.notes)}</div>` : ''}
-      <div style="font-size:11px;color:rgba(255,255,255,0.35);font-variant-numeric:tabular-nums">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}${wp.elev_ft != null ? ` · ${Number(wp.elev_ft).toLocaleString()} ft` : ''}</div>
+      ${labels}
+      ${ratings}
+      <div style="font-size:11px;color:rgba(255,255,255,0.35);font-variant-numeric:tabular-nums;margin-top:3px">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}${wp.elev_ft != null ? ` · ${Number(wp.elev_ft).toLocaleString()} ft` : ''}</div>
       ${directionsHtml(wp.lat, wp.lng)}
+      <button data-wp-edit class="btn-secondary" style="margin-top:8px;width:100%;padding:5px 10px;font-size:11.5px">Edit waypoint</button>
     </div>`
 }
 
@@ -922,9 +961,8 @@ const ROAD_CLASS_LABELS = {
   tertiary: 'Road', minor: 'Local road', service: 'Service road', track: 'Track / forest road', path: 'Path / trail',
 }
 
-// ArcGIS identify on the MVUM service — resolves null on miss or timeout
-async function identifyMvum(m, lngLat) {
-  const idUrl = OVERLAY_LAYERS.mvum.identifyUrl
+// ArcGIS identify — resolves null on miss or timeout
+async function identifyArc(idUrl, layersParam, m, lngLat) {
   if (!idUrl) return null
   const b = m.getBounds()
   const canvas = m.getCanvas()
@@ -932,7 +970,7 @@ async function identifyMvum(m, lngLat) {
     geometry: `${lngLat.lng},${lngLat.lat}`,
     geometryType: 'esriGeometryPoint',
     sr: '4326',
-    layers: 'visible:1,2',
+    layers: layersParam,
     tolerance: '8',
     mapExtent: `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`,
     imageDisplay: `${Math.round(canvas.clientWidth)},${Math.round(canvas.clientHeight)},96`,
@@ -951,6 +989,31 @@ async function identifyMvum(m, lngLat) {
   } finally {
     clearTimeout(timer)
   }
+}
+
+const identifyMvum = (m, lngLat) => identifyArc(OVERLAY_LAYERS.mvum.identifyUrl, 'visible:1,2', m, lngLat)
+const identifyTrail = (m, lngLat) => identifyArc(OVERLAY_LAYERS['usfs-trails'].identifyUrl, 'all', m, lngLat)
+
+function titleCase(s) {
+  return String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function openTrailPopup(m, lngLat, result) {
+  const a = result.attributes || {}
+  const name = titleCase(a.TRAIL_NAME) || 'Forest trail'
+  const motorized = a.TERRA_MOTORIZED === 'Y'
+  const rows = []
+  rows.push(motorized ? 'Motorized use allowed — check MVUM' : 'Non-motorized — hiking / stock')
+  if (a.TRAIL_SURFACE) rows.push(`Surface: ${esc(titleCase(String(a.TRAIL_SURFACE).split('-').pop()))}`)
+  if (a.TYPICAL_TREAD_WIDTH) rows.push(`Tread: ${esc(String(a.TYPICAL_TREAD_WIDTH).split('-').slice(1).join('-').trim() || a.TYPICAL_TREAD_WIDTH)}`)
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:170px">
+      <div style="font-size:13px;font-weight:600">${esc(name)} Trail</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 5px">USFS National Forest trail</div>
+      <div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>
+      ${directionsHtml(lngLat.lat, lngLat.lng)}
+    </div>`
+  new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
 }
 
 const MVUM_ATTR_PATTERN = /SEASON|VEHICLE|SURFACE|SYMBOL_NAME|JURISDICTION|GIS_MILES/i
@@ -1003,14 +1066,24 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
     popup.remove()
     onSave?.(lngLat)
   })
+  return popup
+}
+
+const DETAIL_TIERS = {
+  rich:   { color: '#22c55e', text: 'Well-documented record' },
+  fair:   { color: '#fbbf24', text: 'Some detail on record' },
+  sparse: { color: '#9fb4c8', text: 'Sparse record — verify before relying on it' },
 }
 
 function openSearchPinPopup(m, lngLat, props, onSaveSpot) {
+  const tier = DETAIL_TIERS[props.detail]
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px">
       <div style="font-size:13px;font-weight:600">${props.n}. ${esc(props.name || 'Result')}</div>
+      ${tier ? `<div style="font-size:10.5px;color:rgba(232,238,244,.6);margin-top:3px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tier.color};margin-right:5px"></span>${tier.text}</div>` : ''}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
       <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
+      <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">Source: © OpenStreetMap contributors</div>
     </div>`
   const popup = new maplibregl.Popup({ offset: 12, maxWidth: '250px' }).setLngLat(lngLat).setHTML(html).addTo(m)
   popup.getElement().querySelector('button')?.addEventListener('click', () => {

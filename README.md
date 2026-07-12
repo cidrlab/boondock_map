@@ -6,7 +6,7 @@
 
 ## What It Is
 
-Boondock Map is a desktop mapping application built on [MapLibre GL JS](https://maplibre.org/), [React 18](https://react.dev/), and [Electron](https://www.electronjs.org/). It layers free public tile sources — USGS, ESRI, OpenStreetMap, USFS, and BLM — into a polished, dark-themed interface optimized for field use and trip planning. Web and iPhone versions are planned but not yet built — see [VISION.md](VISION.md) for the roadmap.
+Boondock Map is a desktop + web mapping application built on [MapLibre GL JS](https://maplibre.org/), [React 18](https://react.dev/), and [Electron](https://www.electronjs.org/) — the web version is a PWA at **https://cidrlab.org/boondock_map/**, installable on iPhone. It layers free and open sources — our own Boondock basemap (OpenFreeMap/OpenMapTiles + Mapzen terrain), USGS, ESRI, OpenStreetMap, Overture, USFS, and BLM — into a polished interface optimized for field use and trip planning. Roadmap: [VISION.md](VISION.md).
 
 Waypoints and tracks sync automatically to iCloud Drive, making your saved spots available on iPhone (via Files app or any app with iCloud access).
 
@@ -50,7 +50,7 @@ _Coming soon_
 | Geocoding | Nominatim (OpenStreetMap) |
 | POI search | Overpass API (OpenStreetMap) |
 | Storage (desktop) | iCloud Drive via Node.js fs + IPC |
-| Storage (web) | IndexedDB via idb |
+| Storage (web) | IndexedDB (hand-rolled, no deps) |
 | Styling | CSS custom properties, DM Sans font |
 
 ---
@@ -84,7 +84,7 @@ boondock/
 ├── vite.config.js
 └── package.json
 
-web/                        # PLANNED — GitHub Pages web version (does not exist yet)
+web/                        # GitHub Pages PWA (live) — window.boondock shim over IndexedDB
 ```
 
 ---
@@ -181,7 +181,7 @@ Waypoints support colored pins and category icons:
 |---|---|---|
 | Generic | Brand Red `#F9322B` | Default |
 | Camp | Green `#22c55e` | Camping spots |
-| Trailhead | Amber `#f59e0b` | Trail access |
+| Trailhead | Teal `#2dd4bf` | Trail access |
 | Viewpoint | Purple `#a78bfa` | Scenic overlooks |
 | Fuel | Orange `#fb923c` | Gas stations |
 | Water | Blue `#38bdf8` | Water sources |
