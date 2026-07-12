@@ -30,7 +30,7 @@ const Map = forwardRef(function Map(
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
     initialViewport, onViewportChange, showPackAreas, onSaveSpot,
     searchPins, hoverPin, onPinHover, onZoomChange, onCenterChange,
-    siteMinElev, siteMaxElev, wpColors, onWaypointEdit,
+    siteMinElev, siteMaxElev, wpColors, onWaypointEdit, onWaypointDelete,
   },
   ref
 ) {
@@ -129,8 +129,8 @@ const Map = forwardRef(function Map(
     emitCenter()
 
     map.current.on('click', async (e) => {
-      // Check if click is on a waypoint marker — handled by marker popups
-      if (e.originalEvent.target?.classList?.contains('bdk-marker')) return
+      // Clicks on a waypoint marker (or its inner SVG) belong to its popup
+      if (e.originalEvent.target?.closest?.('.bdk-marker')) return
       if (downloadModeRef.current) return   // bbox drawing owns the pointer
       const m = map.current
       // Numbered search pins first — they're what the user just asked for
@@ -374,7 +374,7 @@ const Map = forwardRef(function Map(
             'rv_park', '#a78bfa',
             'dump', '#fb923c',
             'water', '#38bdf8',
-            'trailhead', '#2dd4bf',
+            'trailhead', '#f472b6',
             '#e8eef4'],
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 13, 6],
           'circle-stroke-color': '#10151c',
@@ -745,9 +745,25 @@ const Map = forwardRef(function Map(
         .setHTML(waypointPopupHtml(wp))
       const wpId = wp.id
       popup.on('open', () => {
-        popup.getElement()?.querySelector('[data-wp-edit]')?.addEventListener('click', () => {
-          popup.remove()
-          onWaypointEdit?.(wpId)
+        // Delegate on the popup container: setHTML() (marker-update path)
+        // replaces the content nodes, so listeners bound to them get wiped
+        popup.getElement()?.addEventListener('click', (ev) => {
+          if (ev.target.closest('[data-wp-edit]')) {
+            popup.remove()
+            onWaypointEdit?.(wpId)
+            return
+          }
+          const del = ev.target.closest('[data-wp-delete]')
+          if (del) {
+            // two-tap confirm; no blocking dialogs in the field
+            if (del.dataset.armed) {
+              popup.remove()
+              onWaypointDelete?.(wpId)
+            } else {
+              del.dataset.armed = '1'
+              del.textContent = 'Confirm delete?'
+            }
+          }
         })
       })
 
@@ -756,8 +772,9 @@ const Map = forwardRef(function Map(
         .setPopup(popup)
         .addTo(map.current)
 
-      el.addEventListener('click', (e) => {
-        e.stopPropagation()
+      // No stopPropagation: MapLibre toggles the marker's popup from the
+      // map's own click event, so swallowing it here kills popups entirely
+      el.addEventListener('click', () => {
         onWaypointClick?.(wp)
       })
 
@@ -896,7 +913,7 @@ function esc(s) {
 const STAR_POINTS = '27,-2.5 28.35,1.14 32.23,1.3 29.19,3.71 30.23,7.45 27,5.3 23.77,7.45 24.81,3.71 21.77,1.3 25.65,1.14'
 
 function markerSvgHtml(wp, wpColors) {
-  const color = wpColors?.[wp.icon] || WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
+  const color = wp.color || wpColors?.[wp.icon] || WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
   const svgInner = MARKER_SVG[wp.icon] || MARKER_SVG.generic
   const badge = statusBadgeColor(wp)
   const badgeSvg = !badge ? '' : wp.favorite
@@ -937,7 +954,10 @@ function waypointPopupHtml(wp) {
       ${ratings}
       <div style="font-size:11px;color:rgba(255,255,255,0.35);font-variant-numeric:tabular-nums;margin-top:3px">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}${wp.elev_ft != null ? ` · ${Number(wp.elev_ft).toLocaleString()} ft` : ''}</div>
       ${directionsHtml(wp.lat, wp.lng)}
-      <button data-wp-edit class="btn-secondary" style="margin-top:8px;width:100%;padding:5px 10px;font-size:11.5px">Edit waypoint</button>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button data-wp-edit class="btn-secondary" style="flex:1;padding:5px 10px;font-size:11.5px">Edit</button>
+        <button data-wp-delete class="btn-danger" style="flex:1;padding:5px 10px;font-size:11.5px;justify-content:center">Delete</button>
+      </div>
     </div>`
 }
 

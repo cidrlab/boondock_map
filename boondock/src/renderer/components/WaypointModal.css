@@ -3,7 +3,10 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   padding: 24px;
-  width: 380px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: 88dvh;
+  overflow-y: auto;
   box-shadow: var(--shadow-lg);
 }
 
@@ -53,6 +56,12 @@
 .wp-icon-btn.active { background: var(--bg-tertiary); }
 
 .wp-modal input { margin-bottom: 8px; }
-.wp-modal textarea { margin-bottom: 18px; }
+.wp-modal textarea { margin-bottom: 12px; }
+
+/* Status + favorite chips wrap inside the card */
+.wp-modal .wp-status-row { flex-wrap: wrap; margin: 0 0 10px; }
+.wp-modal .wp-status-btn { flex: 0 1 auto; padding: 6px 9px; }
+.wp-modal .wp-color-row { margin-bottom: 14px; }
+.wp-modal .wp-labels-edit { margin-bottom: 12px; }
 
 .wp-modal-actions { display: flex; gap: 8px; }

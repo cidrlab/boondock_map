@@ -209,6 +209,7 @@ button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: tran
 
 /* ── Waypoint visit-status control ───────────────────────────────────────── */
 .wp-status-row { display: flex; gap: 5px; margin-top: 10px; }
+.wp-status-wrap { flex-wrap: wrap; }
 .wp-status-btn {
   flex: 1;
   display: inline-flex;

@@ -181,7 +181,7 @@ Waypoints support colored pins and category icons:
 |---|---|---|
 | Generic | Brand Red `#F9322B` | Default |
 | Camp | Green `#22c55e` | Camping spots |
-| Trailhead | Teal `#2dd4bf` | Trail access |
+| Trailhead | Rose `#f472b6` | Trail access |
 | Viewpoint | Purple `#a78bfa` | Scenic overlooks |
 | Fuel | Orange `#fb923c` | Gas stations |
 | Water | Blue `#38bdf8` | Water sources |

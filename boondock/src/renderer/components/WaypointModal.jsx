@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { WAYPOINT_ICON_COMPONENTS, WAYPOINT_COLORS, Crosshair } from './Icons'
+
 import './WaypointModal.css'
 
 const ICONS = [
@@ -15,13 +16,24 @@ const ICONS = [
 
 import { WP_STATUS_META, WP_STATUS_OPTIONS } from '../../shared/waypointMeta'
 
-export default function WaypointModal({ lngLat, onSave, onCancel }) {
+export default function WaypointModal({ lngLat, onSave, onCancel, labelVocab = [] }) {
   const [name, setName] = useState('')
   const [notes, setNotes] = useState('')
   const [icon, setIcon] = useState('generic')
   const [status, setStatus] = useState('unknown')
   const [favorite, setFavorite] = useState(false)
+  const [color, setColor] = useState(null)   // null = category default
+  const [labels, setLabels] = useState([])
+  const [newLabel, setNewLabel] = useState('')
   const inputRef = useRef(null)
+
+  const toggleLabel = (l) =>
+    setLabels(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l])
+  const addNewLabel = () => {
+    const l = newLabel.trim().toLowerCase()
+    if (l && !labels.includes(l)) setLabels(prev => [...prev, l])
+    setNewLabel('')
+  }
 
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 50)
@@ -34,6 +46,8 @@ export default function WaypointModal({ lngLat, onSave, onCancel }) {
       lat: lngLat.lat, lng: lngLat.lng,
       ...(status !== 'unknown' && { status }),
       ...(favorite && { favorite: true }),
+      ...(color && color !== WAYPOINT_COLORS[icon] && { color }),
+      ...(labels.length && { labels }),
     })
   }
 
@@ -111,6 +125,40 @@ export default function WaypointModal({ lngLat, onSave, onCancel }) {
           >
             {favorite ? '★' : '☆'} Favorite
           </button>
+        </div>
+
+        <div className="wp-labels-edit">
+          {labelVocab.map(l => (
+            <button
+              key={l}
+              className={`poi-chip ${labels.includes(l) ? 'active' : ''}`}
+              onClick={() => toggleLabel(l)}
+            >{labels.includes(l) ? '✓ ' : ''}{l}</button>
+          ))}
+          {labels.filter(l => !labelVocab.includes(l)).map(l => (
+            <button key={l} className="poi-chip active" onClick={() => toggleLabel(l)}>✓ {l}</button>
+          ))}
+          <input
+            className="wp-label-input"
+            placeholder="Add label…"
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNewLabel() } }}
+          />
+        </div>
+
+        <div className="wp-color-row">
+          <span>Pin color</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="color"
+              value={color || WAYPOINT_COLORS[icon]}
+              onChange={e => setColor(e.target.value)}
+            />
+            {color && (
+              <button className="btn-ghost" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColor(null)}>Reset</button>
+            )}
+          </span>
         </div>
 
         <div className="wp-modal-actions">

@@ -156,13 +156,16 @@ export default function Sidebar({
   const [editStatus, setEditStatus] = useState('unknown')
   const [editFavorite, setEditFavorite] = useState(false)
   const [editLabels, setEditLabels] = useState([])
+  const [confirmDel, setConfirmDel] = useState(false)
   const [newLabel, setNewLabel] = useState('')
   const [editRatings, setEditRatings] = useState({})
+  const [editColor, setEditColor] = useState(null)
 
   // Label vocabulary = every label ever used across waypoints
   const labelVocab = [...new Set(waypoints.flatMap(w => w.labels || []))].sort()
 
   const startEdit = (wp) => {
+    setConfirmDel(false)
     setEditingId(wp.id)
     setEditName(wp.name)
     setEditNotes(wp.notes || '')
@@ -170,6 +173,7 @@ export default function Sidebar({
     setEditFavorite(!!wp.favorite)
     setEditLabels(wp.labels || [])
     setEditRatings(wp.ratings || {})
+    setEditColor(wp.color || null)
   }
   const saveEdit = (id) => {
     onWaypointUpdate(id, {
@@ -179,6 +183,7 @@ export default function Sidebar({
       favorite: editFavorite || undefined,
       labels: editLabels.length ? editLabels : undefined,
       ratings: Object.keys(editRatings).length ? editRatings : undefined,
+      color: editColor || undefined,
     })
     setEditingId(null)
   }
@@ -427,7 +432,7 @@ export default function Sidebar({
             <ul className="wp-list">
               {filteredWaypoints.map(wp => {
                 const IconC = WAYPOINT_ICON_COMPONENTS[wp.icon] || MapPin
-                const iconColor = wpColors?.[wp.icon] || WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
+                const iconColor = wp.color || wpColors?.[wp.icon] || WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
                 return (
                   <li
                     key={wp.id}
@@ -496,6 +501,19 @@ export default function Sidebar({
                           />
                         </div>
 
+                        <div className="wp-color-row">
+                          <span>Pin color</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="color"
+                              value={editColor || WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic}
+                              onChange={e => setEditColor(e.target.value)}
+                            />
+                            {editColor && (
+                              <button className="btn-ghost" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setEditColor(null)}>Reset</button>
+                            )}
+                          </span>
+                        </div>
                         <div className="wp-ratings-edit">
                           {WP_RATING_KEYS.map(rk => (
                             <div className="wp-rating-row" key={rk.id}>
@@ -518,6 +536,15 @@ export default function Sidebar({
                         <div className="wp-edit-actions">
                           <button className="btn-primary" style={{padding:'5px 14px',fontSize:12}} onClick={() => saveEdit(wp.id)}>Save</button>
                           <button className="btn-secondary" style={{padding:'5px 14px',fontSize:12}} onClick={() => setEditingId(null)}>Cancel</button>
+                          <button
+                            className="btn-danger"
+                            style={{ marginLeft: 'auto', padding: '5px 9px', fontSize: 11 }}
+                            title="Delete waypoint"
+                            onClick={() => {
+                              if (confirmDel) { setEditingId(null); onWaypointDelete(wp.id) }
+                              else setConfirmDel(true)
+                            }}
+                          ><Trash2 size={13} />{confirmDel ? 'Delete?' : ''}</button>
                         </div>
                       </div>
                     ) : (
@@ -645,22 +672,6 @@ export default function Sidebar({
               />
             </div>
 
-            <div className="section-hdr" style={{ marginTop: 20 }}>
-              <span>Waypoint Colors</span>
-              {Object.keys(wpColors || {}).length > 0 && (
-                <button className="btn-ghost" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setWpColors({})}>Reset</button>
-              )}
-            </div>
-            {WAYPOINT_ICONS.map(iconId => (
-              <div className="wp-color-row" key={iconId}>
-                <span style={{ textTransform: 'capitalize' }}>{iconId}</span>
-                <input
-                  type="color"
-                  value={wpColors?.[iconId] || WAYPOINT_COLORS[iconId]}
-                  onChange={e => setWpColors(prev => ({ ...prev, [iconId]: e.target.value }))}
-                />
-              </div>
-            ))}
           </div>
         )}
 

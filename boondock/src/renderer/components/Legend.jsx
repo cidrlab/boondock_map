@@ -26,7 +26,7 @@ const SITE_DOTS = [
   ['#a78bfa', 'RV park'],
   ['#fb923c', 'Dump station'],
   ['#38bdf8', 'Water fill'],
-  ['#2dd4bf', 'Trailhead'],
+  ['#f472b6', 'Trailhead'],
 ]
 
 export default function Legend() {

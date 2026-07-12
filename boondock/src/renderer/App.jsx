@@ -365,6 +365,7 @@ export default function App() {
             setSidebarOpen(true)
             setEditRequestId(id)
           }}
+          onWaypointDelete={deleteWaypoint}
         />
         <Legend />
         {searchArea && (
@@ -381,6 +382,7 @@ export default function App() {
           lngLat={pendingWaypoint}
           onSave={saveWaypoint}
           onCancel={() => setPendingWaypoint(null)}
+          labelVocab={[...new Set(waypoints.flatMap(w => w.labels || []))].sort()}
         />
       )}
 

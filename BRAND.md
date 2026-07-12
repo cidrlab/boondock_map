@@ -84,7 +84,7 @@ All icons are custom SVG monoline icons defined in `Icons.jsx`. The icon library
 | Camp | `#22c55e` | `Tent` | Green — campsite |
 | Water | `#38bdf8` | `Droplet` | Sky blue — water source |
 | Hazard | `#fbbf24` | `AlertTriangle` | Amber warning |
-| Trailhead | `#2dd4bf` | `Footprints` | Teal |
+| Trailhead | `#f472b6` | `Footprints` | Rose — distinct from water blue |
 | Viewpoint | `#a78bfa` | `Camera` | Soft purple |
 | Fuel | `#fb923c` | `Fuel` | Orange |
 | Parking | `#e8eef4` | `ParkingCircle` | CiDR cool blue tint |
