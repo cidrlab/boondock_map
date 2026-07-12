@@ -291,6 +291,7 @@ ipcMain.handle('export:gpx', async (_, { waypoints, tracks }) => {
 
   const wptXml = waypoints.map(w => `
   <wpt lat="${w.lat}" lon="${w.lng}">
+    ${w.elev_ft != null ? `<ele>${(w.elev_ft / 3.28084).toFixed(1)}</ele>` : ''}
     <name>${escapeXml(w.name)}</name>
     <desc>${escapeXml(w.notes || '')}</desc>
     <sym>${w.icon || 'Flag, Blue'}</sym>

@@ -6,6 +6,7 @@ import WaypointModal from './components/WaypointModal'
 import DownloadModal from './components/DownloadModal'
 import StatusBar from './components/StatusBar'
 import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
+import { elevationAt } from '../shared/elevation'
 import './styles/app.css'
 
 export default function App() {
@@ -23,7 +24,8 @@ export default function App() {
   const [mapCenterPt, setMapCenterPt] = useState({ lng: DEFAULT_CENTER[0], lat: DEFAULT_CENTER[1] })
   const [zoomLevel, setZoomLevel] = useState(null)
   const [searchPins, setSearchPins] = useState([])   // numbered POI/search results shown on the map
-  const [siteMaxElev, setSiteMaxElev] = useState(null)   // null = show all elevations
+  const [siteMinElev, setSiteMinElev] = useState(null)   // null = no lower bound
+  const [siteMaxElev, setSiteMaxElev] = useState(null)   // null = no upper bound
   const [downloadMode, setDownloadMode] = useState(false)
   const [downloadBbox, setDownloadBbox] = useState(null)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
@@ -67,6 +69,7 @@ export default function App() {
         )
         setOverlays({ ...DEFAULT_OVERLAYS, ...known })
       }
+      if (typeof prefs.siteMinElev === 'number') setSiteMinElev(prefs.siteMinElev)
       if (typeof prefs.siteMaxElev === 'number') setSiteMaxElev(prefs.siteMaxElev)
       setInitialViewport({
         center: prefs.center || DEFAULT_CENTER,
@@ -102,12 +105,13 @@ export default function App() {
       zoom: m.getZoom(),
       baseLayer,
       overlays,
+      siteMinElev,
       siteMaxElev,
     })
-  }, [baseLayer, overlays, siteMaxElev])
+  }, [baseLayer, overlays, siteMinElev, siteMaxElev])
 
   // Save prefs when base layer, overlays, or filters change
-  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMaxElev])
+  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMinElev, siteMaxElev])
 
   // Expose a handler for Map to call on moveend (debounced)
   const handleViewportChange = useCallback(() => {
@@ -132,6 +136,15 @@ export default function App() {
     setPendingWaypoint({ lng: lngLat.lng, lat: lngLat.lat })
   }, [downloadMode])
 
+  // Waypoints carry their elevation; sampled quietly after save
+  const attachElevation = useCallback((id, lat, lng) => {
+    elevationAt(lng, lat).then(meters => {
+      if (meters == null) return
+      const ft = Math.round(meters * 3.28084)
+      setWaypoints(prev => prev.map(w => w.id === id ? { ...w, elev_ft: ft } : w))
+    }).catch(() => {})
+  }, [])
+
   const saveWaypoint = useCallback((waypointData) => {
     const wp = {
       id: crypto.randomUUID(),
@@ -142,7 +155,8 @@ export default function App() {
     setPendingWaypoint(null)
     setActiveTab('waypoints')
     setSidebarOpen(true)
-  }, [])
+    attachElevation(wp.id, wp.lat, wp.lng)
+  }, [attachElevation])
 
   const deleteWaypoint = useCallback((id) => {
     setWaypoints(prev => prev.filter(w => w.id !== id))
@@ -205,16 +219,19 @@ export default function App() {
   const saveSpotAsWaypoint = useCallback((s) => {
     if (!s) return
     const iconMap = { campsite: 'camp', rv_park: 'parking', dump: 'generic', water: 'water', trailhead: 'trailhead' }
+    const id = crypto.randomUUID()
     setWaypoints(prev => [...prev, {
-      id: crypto.randomUUID(),
+      id,
       name: s.name || 'Site',
       notes: s.desc || '',
       icon: iconMap[s.kind] || 'generic',
       lat: s.lat,
       lng: s.lng,
+      ...(s.elev_ft != null && { elev_ft: Number(s.elev_ft) }),
       createdAt: new Date().toISOString(),
     }])
-  }, [])
+    if (s.elev_ft == null) attachElevation(id, s.lat, s.lng)
+  }, [attachElevation])
 
   // ── Fly to waypoint ──────────────────────────────────────────────────────
   const flyToWaypoint = useCallback((wp) => {
@@ -288,6 +305,8 @@ export default function App() {
             onAddSearchHistory={addSearchHistory}
             mapCenter={mapCenterPt}
             onSearchPins={setSearchPins}
+            siteMinElev={siteMinElev}
+            setSiteMinElev={setSiteMinElev}
             siteMaxElev={siteMaxElev}
             setSiteMaxElev={setSiteMaxElev}
           />
@@ -318,6 +337,7 @@ export default function App() {
           searchPins={searchPins}
           onZoomChange={setZoomLevel}
           onCenterChange={setMapCenterPt}
+          siteMinElev={siteMinElev}
           siteMaxElev={siteMaxElev}
         />
       </div>

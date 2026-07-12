@@ -21,7 +21,7 @@ export default function Sidebar({
   onWaypointClick, onWaypointDelete, onWaypointUpdate,
   selectedWaypoint, onShowDownloadModal, downloadBbox,
   onFlyTo, searchHistory, onAddSearchHistory, mapCenter,
-  isMobile, onSearchPins, siteMaxElev, setSiteMaxElev,
+  isMobile, onSearchPins, siteMinElev, setSiteMinElev, siteMaxElev, setSiteMaxElev,
 }) {
   const [query, setQuery] = useState('')
   const [sheet, setSheet] = useState('peek')
@@ -366,7 +366,7 @@ export default function Sidebar({
                         </div>
                         <div className="wp-info">
                           <div className="wp-name">{wp.name}</div>
-                          <div className="wp-meta">{wp.lat.toFixed(4)}, {wp.lng.toFixed(4)}</div>
+                          <div className="wp-meta">{wp.lat.toFixed(4)}, {wp.lng.toFixed(4)}{wp.elev_ft != null ? ` · ${wp.elev_ft.toLocaleString()} ft` : ''}</div>
                           {wp.notes && <div className="wp-notes">{wp.notes}</div>}
                         </div>
                         <div className="wp-actions">
@@ -448,6 +448,20 @@ export default function Sidebar({
             <div className="section-hdr" style={{ marginTop: 20 }}>Site Filter</div>
             <div className="elev-filter">
               <label>
+                Min elevation
+                <span>{siteMinElev == null ? 'Any' : `${siteMinElev.toLocaleString()} ft`}</span>
+              </label>
+              <input
+                type="range" min={0} max={7500} step={250}
+                value={siteMinElev ?? 0}
+                onChange={e => {
+                  const v = +e.target.value
+                  const next = v <= 0 ? null : v
+                  setSiteMinElev(next)
+                  if (next != null && siteMaxElev != null && next > siteMaxElev) setSiteMaxElev(null)
+                }}
+              />
+              <label style={{ marginTop: 10 }}>
                 Max elevation
                 <span>{siteMaxElev == null ? 'Any' : `${siteMaxElev.toLocaleString()} ft`}</span>
               </label>
@@ -456,7 +470,9 @@ export default function Sidebar({
                 value={siteMaxElev ?? 8500}
                 onChange={e => {
                   const v = +e.target.value
-                  setSiteMaxElev(v >= 8500 ? null : v)
+                  const next = v >= 8500 ? null : v
+                  setSiteMaxElev(next)
+                  if (next != null && siteMinElev != null && siteMinElev > next) setSiteMinElev(null)
                 }}
               />
             </div>

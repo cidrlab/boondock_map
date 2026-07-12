@@ -28,7 +28,7 @@ const Map = forwardRef(function Map(
     selectedWaypoint, onMapClick, onMouseMove, onTrackPoint,
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
     initialViewport, onViewportChange, showPackAreas, onSaveSpot,
-    searchPins, onZoomChange, onCenterChange, siteMaxElev,
+    searchPins, onZoomChange, onCenterChange, siteMinElev, siteMaxElev,
   },
   ref
 ) {
@@ -175,11 +175,12 @@ const Map = forwardRef(function Map(
       }
       // Empty ground: show the spot's numbers first; saving is one tap more.
       // Inside a Boondock Zone the card carries the heuristic's disclaimer.
-      let inZone = false
+      let zoneProps = null
       if (overlaysRef.current.zones && m.getLayer('zones-fill')) {
-        inZone = m.queryRenderedFeatures(e.point, { layers: ['zones-fill'] }).length > 0
+        const zhits = m.queryRenderedFeatures(e.point, { layers: ['zones-fill'] })
+        if (zhits.length) zoneProps = zhits[0].properties || {}
       }
-      openPointInfoPopup(m, e.lngLat, onMapClick, inZone)
+      openPointInfoPopup(m, e.lngLat, onMapClick, zoneProps)
     })
 
     map.current.on('mouseenter', 'search-pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer' })
@@ -206,7 +207,9 @@ const Map = forwardRef(function Map(
     // On first render the map hasn't loaded yet — skip, on('load') handles it
     if (!mapReady) return
     m.setStyle(buildStyle(baseLayer))
-    m.once('style.load', () => {
+    // style.load proved unreliable after setStyle (overlays silently lost
+    // until a page refresh) — poll readiness instead
+    const readd = () => {
       addOfflineFallbackLayer()
       addOverlaySources()
       addTracksLayer()
@@ -219,7 +222,14 @@ const Map = forwardRef(function Map(
       applySearchPins()
       applyOverlayVisibility()
       applyPackAreasVisibility()
-    })
+      applySiteElevFilter()
+    }
+    const waitReady = () => {
+      if (map.current !== m) return
+      if (m.isStyleLoaded()) readd()
+      else setTimeout(waitReady, 120)
+    }
+    waitReady()
   }, [baseLayer])
 
   // ── Overlay helpers ──────────────────────────────────────────────────────
@@ -457,24 +467,34 @@ const Map = forwardRef(function Map(
   }
 
   // ── Site elevation filter — refilter source data so clusters stay honest ──
-  useEffect(() => {
-    if (!mapReady) return
+  const elevRangeRef = useRef({ min: siteMinElev, max: siteMaxElev })
+  useEffect(() => { elevRangeRef.current = { min: siteMinElev, max: siteMaxElev } }, [siteMinElev, siteMaxElev])
+
+  function applySiteElevFilter() {
     const m = map.current
     if (!m?.getSource('sites')) return
     fetchSitesData().then(full => {
       const src = m.getSource('sites')
       if (!src) return
-      if (siteMaxElev == null) {
+      const { min, max } = elevRangeRef.current
+      if (min == null && max == null) {
         src.setData(full)
-      } else {
-        src.setData({
-          ...full,
-          features: full.features.filter(f =>
-            f.properties.elev_ft == null || f.properties.elev_ft <= siteMaxElev),
-        })
+        return
       }
+      src.setData({
+        ...full,
+        features: full.features.filter(f => {
+          const e = f.properties.elev_ft
+          if (e == null) return true
+          return (min == null || e >= min) && (max == null || e <= max)
+        }),
+      })
     }).catch(() => {})
-  }, [siteMaxElev, mapReady])
+  }
+
+  useEffect(() => {
+    if (mapReady) applySiteElevFilter()
+  }, [siteMinElev, siteMaxElev, mapReady])
 
   // ── Offline fallback: saved USGS packs appear when the network is gone ────
   function addOfflineFallbackLayer() {
@@ -662,6 +682,7 @@ const Map = forwardRef(function Map(
     waypoints.forEach(wp => {
       if (markersRef.current[wp.id]) {
         markersRef.current[wp.id].setLngLat([wp.lng, wp.lat])
+        markersRef.current[wp.id].getPopup()?.setHTML(waypointPopupHtml(wp))
         return
       }
 
@@ -690,13 +711,7 @@ const Map = forwardRef(function Map(
       `
 
       const popup = new maplibregl.Popup({ offset: [0, -30], closeButton: true, maxWidth: '260px' })
-        .setHTML(`
-          <div style="font-family:-apple-system,system-ui,sans-serif;">
-            <div style="font-size:14px;font-weight:600;margin-bottom:2px">${wp.name}</div>
-            ${wp.notes ? `<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:4px">${wp.notes}</div>` : ''}
-            <div style="font-size:11px;color:rgba(255,255,255,0.35);font-variant-numeric:tabular-nums">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}</div>
-          </div>
-        `)
+        .setHTML(waypointPopupHtml(wp))
 
       const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([wp.lng, wp.lat])
@@ -833,6 +848,15 @@ function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+function waypointPopupHtml(wp) {
+  return `
+    <div style="font-family:-apple-system,system-ui,sans-serif;">
+      <div style="font-size:14px;font-weight:600;margin-bottom:2px">${esc(wp.name)}</div>
+      ${wp.notes ? `<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:4px">${esc(wp.notes)}</div>` : ''}
+      <div style="font-size:11px;color:rgba(255,255,255,0.35);font-variant-numeric:tabular-nums">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}${wp.elev_ft != null ? ` · ${Number(wp.elev_ft).toLocaleString()} ft` : ''}</div>
+    </div>`
+}
+
 const SITE_KIND_LABELS = { campsite: 'Campsite', rv_park: 'RV park', dump: 'Dump station', water: 'Water fill', trailhead: 'Trailhead' }
 
 const ROAD_LAYER_IDS = ['road-motorway', 'road-primary', 'road-secondary', 'road-minor', 'road-track', 'road-path']
@@ -890,12 +914,15 @@ function openMvumPopup(m, lngLat, result) {
   new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
 }
 
-function openPointInfoPopup(m, lngLat, onSave, inZone = false) {
+function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
+  const inZone = zoneProps != null
+  const flat = inZone && zoneProps.flat_pct != null ? Number(zoneProps.flat_pct) : null
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:190px">
       ${inZone ? `<div style="font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:#34d399;margin-bottom:5px">Possible boondocking zone · beta</div>` : ''}
       <div style="font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums">${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}</div>
       <div style="font-size:11.5px;color:rgba(232,238,244,.65);margin-top:3px" data-elev>Elevation: …</div>
+      ${flat != null ? `<div style="font-size:11px;color:rgba(232,238,244,.6);margin-top:3px">≈${flat}% of sampled ground ≤ 12% grade</div>` : ''}
       ${inZone ? `<div style="font-size:10.5px;color:rgba(232,238,244,.5);margin-top:5px;line-height:1.45">USFS land near a legal MVUM road. Heuristic only — verify rules, closures, and conditions locally.</div>` : ''}
       <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
