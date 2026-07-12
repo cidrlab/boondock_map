@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Map from './components/Map'
 import Legend from './components/Legend'
+import Guide from './components/Guide'
 import Sidebar from './components/Sidebar'
 import Toolbar from './components/Toolbar'
 import WaypointModal from './components/WaypointModal'
@@ -330,6 +331,7 @@ export default function App() {
           />
         )}
 
+        <div className="map-wrap">
         <Map
           ref={mapRef}
           baseLayer={baseLayer}
@@ -368,11 +370,13 @@ export default function App() {
           onWaypointDelete={deleteWaypoint}
         />
         <Legend />
+        <Guide />
         {searchArea && (
           <button className="search-area-btn" onClick={() => searchArea.run()}>
             Search this area
           </button>
         )}
+        </div>
       </div>
 
       <StatusBar cursor={mapCursor} zoom={zoomLevel} isRecording={isRecordingTrack} trackPoints={currentTrackPoints.length} />

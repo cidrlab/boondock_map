@@ -18,6 +18,7 @@ function I({ size = defaults.size, color = defaults.color, sw = defaults.strokeW
 // ── Navigation & UI ──────────────────────────────────────────────────────
 export const Menu = (p) => <I {...p}><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></I>
 export const X = (p) => <I {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></I>
+export const BookOpen = (p) => <I {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></I>
 export const Search = (p) => <I {...p}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></I>
 export const ChevronDown = (p) => <I {...p} d="M6 9l6 6 6-6" />
 export const ChevronRight = (p) => <I {...p} d="M9 18l6-6-6-6" />

@@ -17,6 +17,15 @@
 button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 
 /* ── Map ──────────────────────────────────────────────────────────────────── */
+/* Positioned wrapper so map-anchored chrome (legend, guide, search pill)
+   sits over the map itself, never over the sidebar */
+.map-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+}
+
 .map-container {
   flex: 1;
   height: 100%;
@@ -266,6 +275,7 @@ button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: tran
   }
 
   .app-body { height: 100%; }
+  .map-wrap { position: absolute; inset: 0; }
   .map-container { position: absolute; inset: 0; }
 
   .statusbar { display: none; }
