@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Map from './components/Map'
+import Legend from './components/Legend'
 import Sidebar from './components/Sidebar'
 import Toolbar from './components/Toolbar'
 import WaypointModal from './components/WaypointModal'
@@ -24,6 +25,8 @@ export default function App() {
   const [mapCenterPt, setMapCenterPt] = useState({ lng: DEFAULT_CENTER[0], lat: DEFAULT_CENTER[1] })
   const [zoomLevel, setZoomLevel] = useState(null)
   const [searchPins, setSearchPins] = useState([])   // numbered POI/search results shown on the map
+  const [hoverPin, setHoverPin] = useState(null)     // index sync: list row ↔ map pin
+  const [searchArea, setSearchArea] = useState(null) // {run} when the map moved away from the last POI search
   const [siteMinElev, setSiteMinElev] = useState(null)   // null = no lower bound
   const [siteMaxElev, setSiteMaxElev] = useState(null)   // null = no upper bound
   const [downloadMode, setDownloadMode] = useState(false)
@@ -305,6 +308,9 @@ export default function App() {
             onAddSearchHistory={addSearchHistory}
             mapCenter={mapCenterPt}
             onSearchPins={setSearchPins}
+            hoverPin={hoverPin}
+            onHoverPin={setHoverPin}
+            onSearchArea={setSearchArea}
             siteMinElev={siteMinElev}
             setSiteMinElev={setSiteMinElev}
             siteMaxElev={siteMaxElev}
@@ -335,11 +341,19 @@ export default function App() {
           showPackAreas={activeTab === 'download'}
           onSaveSpot={saveSpotAsWaypoint}
           searchPins={searchPins}
+          hoverPin={hoverPin}
+          onPinHover={setHoverPin}
           onZoomChange={setZoomLevel}
           onCenterChange={setMapCenterPt}
           siteMinElev={siteMinElev}
           siteMaxElev={siteMaxElev}
         />
+        <Legend />
+        {searchArea && (
+          <button className="search-area-btn" onClick={() => searchArea.run()}>
+            Search this area
+          </button>
+        )}
       </div>
 
       <StatusBar cursor={mapCursor} zoom={zoomLevel} isRecording={isRecordingTrack} trackPoints={currentTrackPoints.length} />
@@ -381,15 +395,21 @@ function calculateDistance(points) {
 function parseGPX(xmlString) {
   const parser = new DOMParser()
   const doc = parser.parseFromString(xmlString, 'text/xml')
-  const wpts = Array.from(doc.querySelectorAll('wpt')).map(el => ({
-    id: crypto.randomUUID(),
-    lat: parseFloat(el.getAttribute('lat')),
-    lng: parseFloat(el.getAttribute('lon')),
-    name: el.querySelector('name')?.textContent || 'Imported',
-    notes: el.querySelector('desc')?.textContent || '',
-    icon: 'generic',
-    createdAt: el.querySelector('time')?.textContent || new Date().toISOString(),
-  }))
+  const wpts = Array.from(doc.querySelectorAll('wpt')).map(el => {
+    const ele = parseFloat(el.querySelector('ele')?.textContent)
+    const type = el.querySelector('type')?.textContent
+    return {
+      id: crypto.randomUUID(),
+      lat: parseFloat(el.getAttribute('lat')),
+      lng: parseFloat(el.getAttribute('lon')),
+      name: el.querySelector('name')?.textContent || 'Imported',
+      notes: el.querySelector('desc')?.textContent || '',
+      icon: 'generic',
+      ...(Number.isFinite(ele) && { elev_ft: Math.round(ele * 3.28084) }),
+      ...((type === 'been' || type === 'explore') && { status: type }),
+      createdAt: el.querySelector('time')?.textContent || new Date().toISOString(),
+    }
+  })
   const trks = Array.from(doc.querySelectorAll('trk')).map(el => ({
     id: crypto.randomUUID(),
     name: el.querySelector('name')?.textContent || 'Imported Track',

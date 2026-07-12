@@ -339,6 +339,14 @@
   margin-top: 1px;
 }
 
+.wp-visit-badge {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--bg-secondary);
+}
+
 .wp-info { flex: 1; min-width: 0; }
 .wp-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wp-meta { font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-top: 2px; }

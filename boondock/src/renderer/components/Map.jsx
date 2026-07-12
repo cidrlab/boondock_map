@@ -28,7 +28,8 @@ const Map = forwardRef(function Map(
     selectedWaypoint, onMapClick, onMouseMove, onTrackPoint,
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
     initialViewport, onViewportChange, showPackAreas, onSaveSpot,
-    searchPins, onZoomChange, onCenterChange, siteMinElev, siteMaxElev,
+    searchPins, hoverPin, onPinHover, onZoomChange, onCenterChange,
+    siteMinElev, siteMaxElev,
   },
   ref
 ) {
@@ -184,7 +185,14 @@ const Map = forwardRef(function Map(
     })
 
     map.current.on('mouseenter', 'search-pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer' })
-    map.current.on('mouseleave', 'search-pins-circle', () => { map.current.getCanvas().style.cursor = '' })
+    map.current.on('mousemove', 'search-pins-circle', (e) => {
+      const f = e.features?.[0]
+      if (f) onPinHover?.(f.properties.n - 1)
+    })
+    map.current.on('mouseleave', 'search-pins-circle', () => {
+      map.current.getCanvas().style.cursor = ''
+      onPinHover?.(null)
+    })
     map.current.on('mouseenter', 'sites-points', () => { map.current.getCanvas().style.cursor = 'pointer' })
     map.current.on('mouseleave', 'sites-points', () => { map.current.getCanvas().style.cursor = '' })
     map.current.on('mouseenter', 'sites-clusters', () => { map.current.getCanvas().style.cursor = 'pointer' })
@@ -382,6 +390,18 @@ const Map = forwardRef(function Map(
     if (!m.getSource('search-pins')) {
       m.addSource('search-pins', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
     }
+    if (!m.getLayer('search-pins-hover')) {
+      m.addLayer({
+        id: 'search-pins-hover', type: 'circle', source: 'search-pins',
+        filter: ['==', ['get', 'n'], -1],
+        paint: {
+          'circle-color': 'rgba(249, 50, 43, 0.22)',
+          'circle-radius': 17,
+          'circle-stroke-color': '#F9322B',
+          'circle-stroke-width': 2,
+        },
+      })
+    }
     if (!m.getLayer('search-pins-circle')) {
       m.addLayer({
         id: 'search-pins-circle', type: 'circle', source: 'search-pins',
@@ -434,6 +454,12 @@ const Map = forwardRef(function Map(
     searchPinsRef.current = searchPins
     if (mapReady) applySearchPins()
   }, [searchPins, mapReady])
+
+  useEffect(() => {
+    const m = map.current
+    if (!mapReady || !m?.getLayer('search-pins-hover')) return
+    m.setFilter('search-pins-hover', ['==', ['get', 'n'], hoverPin == null ? -1 : hoverPin + 1])
+  }, [hoverPin, mapReady])
 
   // ── Boondock Zones β polygons ──────────────────────────────────────────────
   async function addZonesLayers() {
@@ -681,13 +707,12 @@ const Map = forwardRef(function Map(
     // Add/update markers
     waypoints.forEach(wp => {
       if (markersRef.current[wp.id]) {
-        markersRef.current[wp.id].setLngLat([wp.lng, wp.lat])
-        markersRef.current[wp.id].getPopup()?.setHTML(waypointPopupHtml(wp))
+        const marker = markersRef.current[wp.id]
+        marker.setLngLat([wp.lng, wp.lat])
+        marker.getElement().innerHTML = markerSvgHtml(wp)   // icon/status may have changed
+        marker.getPopup()?.setHTML(waypointPopupHtml(wp))
         return
       }
-
-      const color = WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
-      const svgInner = MARKER_SVG[wp.icon] || MARKER_SVG.generic
 
       const el = document.createElement('div')
       el.className = 'bdk-marker'
@@ -698,17 +723,7 @@ const Map = forwardRef(function Map(
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
         overflow: visible;
       `
-      // Modern pin: circle with inner SVG icon
-      el.innerHTML = `
-        <svg width="30" height="38" viewBox="0 0 30 38">
-          <path d="M15 0C6.72 0 0 6.72 0 15c0 10.5 15 23 15 23s15-12.5 15-23C30 6.72 23.28 0 15 0z"
-            fill="${color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"/>
-          <g transform="translate(6, 5) scale(0.75)" fill="none" stroke="white" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round">
-            ${svgInner}
-          </g>
-        </svg>
-      `
+      el.innerHTML = markerSvgHtml(wp)
 
       const popup = new maplibregl.Popup({ offset: [0, -30], closeButton: true, maxWidth: '260px' })
         .setHTML(waypointPopupHtml(wp))
@@ -848,16 +863,53 @@ function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+const WAYPOINT_STATUS = {
+  been:    { color: '#22c55e', label: 'Been there' },
+  explore: { color: '#fb923c', label: 'Want to explore' },
+}
+
+function markerSvgHtml(wp) {
+  const color = WAYPOINT_COLORS[wp.icon] || WAYPOINT_COLORS.generic
+  const svgInner = MARKER_SVG[wp.icon] || MARKER_SVG.generic
+  const status = WAYPOINT_STATUS[wp.status]
+  return `
+    <svg width="30" height="38" viewBox="0 0 30 38" style="overflow:visible">
+      <path d="M15 0C6.72 0 0 6.72 0 15c0 10.5 15 23 15 23s15-12.5 15-23C30 6.72 23.28 0 15 0z"
+        fill="${color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"/>
+      <g transform="translate(6, 5) scale(0.75)" fill="none" stroke="white" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        ${svgInner}
+      </g>
+      ${status ? `<circle cx="27" cy="3" r="5" fill="${status.color}" stroke="#10151c" stroke-width="1.5"/>` : ''}
+    </svg>
+  `
+}
+
 function waypointPopupHtml(wp) {
+  const status = WAYPOINT_STATUS[wp.status]
   return `
     <div style="font-family:-apple-system,system-ui,sans-serif;">
       <div style="font-size:14px;font-weight:600;margin-bottom:2px">${esc(wp.name)}</div>
+      ${status ? `<div style="font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:${status.color};margin-bottom:3px">● ${status.label}</div>` : ''}
       ${wp.notes ? `<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:4px">${esc(wp.notes)}</div>` : ''}
       <div style="font-size:11px;color:rgba(255,255,255,0.35);font-variant-numeric:tabular-nums">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}${wp.elev_ft != null ? ` · ${Number(wp.elev_ft).toLocaleString()} ft` : ''}</div>
+      ${directionsHtml(wp.lat, wp.lng)}
     </div>`
 }
 
 const SITE_KIND_LABELS = { campsite: 'Campsite', rv_park: 'RV park', dump: 'Dump station', water: 'Water fill', trailhead: 'Trailhead' }
+
+// Directions handoff — standard Apple/Google Maps deep links
+function directionsHtml(lat, lng) {
+  const apple = `https://maps.apple.com/?daddr=${lat},${lng}`
+  const google = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+  return `
+    <div style="font-size:11px;margin-top:7px">
+      Directions:
+      <a href="${apple}" target="_blank" rel="noreferrer" style="color:#38bdf8">Apple</a> ·
+      <a href="${google}" target="_blank" rel="noreferrer" style="color:#38bdf8">Google</a>
+    </div>`
+}
 
 const ROAD_LAYER_IDS = ['road-motorway', 'road-primary', 'road-secondary', 'road-minor', 'road-track', 'road-path']
 const ROAD_CLASS_LABELS = {
@@ -910,6 +962,7 @@ function openMvumPopup(m, lngLat, result) {
       <div style="font-size:13px;font-weight:600">${esc(title)}</div>
       <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 5px">USFS MVUM · ${esc(result.layerName || 'road')}</div>
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      ${directionsHtml(lngLat.lat, lngLat.lng)}
     </div>`
   new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
 }
@@ -924,6 +977,7 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
       <div style="font-size:11.5px;color:rgba(232,238,244,.65);margin-top:3px" data-elev>Elevation: …</div>
       ${flat != null ? `<div style="font-size:11px;color:rgba(232,238,244,.6);margin-top:3px">≈${flat}% of sampled ground ≤ 12% grade</div>` : ''}
       ${inZone ? `<div style="font-size:10.5px;color:rgba(232,238,244,.5);margin-top:5px;line-height:1.45">USFS land near a legal MVUM road. Heuristic only — verify rules, closures, and conditions locally.</div>` : ''}
+      ${directionsHtml(lngLat.lat, lngLat.lng)}
       <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         Save waypoint
@@ -950,6 +1004,7 @@ function openSearchPinPopup(m, lngLat, props, onSaveSpot) {
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px">
       <div style="font-size:13px;font-weight:600">${props.n}. ${esc(props.name || 'Result')}</div>
+      ${directionsHtml(lngLat.lat, lngLat.lng)}
       <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
     </div>`
   const popup = new maplibregl.Popup({ offset: 12, maxWidth: '250px' }).setLngLat(lngLat).setHTML(html).addTo(m)
@@ -987,6 +1042,7 @@ function openSitePopup(m, f, onSaveSpot) {
       <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 6px">${kindLabel}</div>
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${p.website ? `<div style="margin-top:5px"><a href="${esc(p.website)}" target="_blank" rel="noreferrer" style="font-size:11.5px;color:#38bdf8">Website</a></div>` : ''}
+      ${directionsHtml(lat, lng)}
       <button class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
       <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">${p.elev_ft != null ? `${Number(p.elev_ft).toLocaleString()} ft · ` : ''}${SITE_SRC_CREDIT(p.src)}</div>
     </div>`

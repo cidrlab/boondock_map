@@ -51,6 +51,13 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 29 | Boondocking-likelihood polygons — highlight "this might be a boondocking area" | ✅ v2 shipped 2026-07-12: 455 WA zones, slope-graded from ~150k DEM samples (flat_pct on each card), 257 cliffside zones pruned. v3: closures, BLM land, water setbacks, other states |
 | 30 | FreeRoam-style site filters — by elevation, weather, nearby features (water, views) | 🟡 min + max elevation sliders shipped 2026-07-12 (every site carries elev_ft; persisted); weather + feature filters next (#9) |
 | 31 | AllStays data | ⬜ commercial directory, no public API/licensing surface (checked 2026-07-12) — would require a business licensing conversation with AllStays LLC (Tim's call); not scrapeable under our policy |
+| 32 | Waypoint visit status — been there / not sure / want to explore, with green/orange marker badges | ✅ shipped 2026-07-12 (save modal + edit form + list + popups + GPX `<type>` round-trip) |
+| 33 | Map legend button | ✅ shipped 2026-07-12 — glass panel: site colors, badges, zones/packs, verified Public Land tints (USFS #cceac6, State #b3e3ef — sampled from the live layer), official USFS MVUM swatches fetched from the service legend API |
+| 34 | WA DNR roads layer (state trust lands aren't in MVUM — e.g. Tim's found spot on blue state land) | ⬜ hunt a DNR road dataset on geo.wa.gov; also extend zones to state lands where dispersed camping is allowed |
+| 35 | List ↔ map hover sync for search/POI results | ✅ shipped 2026-07-12 (hover a row → ring on the pin; hover a pin → row highlights) |
+| 36 | "Search this area" pill after panning away from a POI search | ✅ shipped 2026-07-12 (>2.5 km from last search center) |
+| 37 | Directions handoff on every point card (Apple Maps / Google Maps deep links) | ✅ shipped 2026-07-12 — waypoints, sites, search pins, MVUM roads, zone/info cards |
+| 38 | CarPlay support with compass + elevation display | ⬜ requires the native iOS (Capacitor) wrapper + CarPlay entitlement — Phase 6 territory |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,

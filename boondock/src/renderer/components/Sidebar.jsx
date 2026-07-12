@@ -21,7 +21,8 @@ export default function Sidebar({
   onWaypointClick, onWaypointDelete, onWaypointUpdate,
   selectedWaypoint, onShowDownloadModal, downloadBbox,
   onFlyTo, searchHistory, onAddSearchHistory, mapCenter,
-  isMobile, onSearchPins, siteMinElev, setSiteMinElev, siteMaxElev, setSiteMaxElev,
+  isMobile, onSearchPins, hoverPin, onHoverPin, onSearchArea,
+  siteMinElev, setSiteMinElev, siteMaxElev, setSiteMaxElev,
 }) {
   const [query, setQuery] = useState('')
   const [sheet, setSheet] = useState('peek')
@@ -94,6 +95,26 @@ export default function Sidebar({
     onSearchPins?.(active.map(r => ({ lat: r.lat, lng: r.lng, name: r.name })))
   }, [poiResults, geoResults])
 
+  // "Search this area": offer a re-run when the map leaves the searched spot
+  const lastPoiCenterRef = useRef(null)
+  useEffect(() => {
+    if (!poiCategory || !lastPoiCenterRef.current || !mapCenter?.lat) {
+      onSearchArea?.(null)
+      return
+    }
+    const c = lastPoiCenterRef.current
+    const dx = (mapCenter.lng - c.lng) * 111320 * Math.cos(mapCenter.lat * Math.PI / 180)
+    const dy = (mapCenter.lat - c.lat) * 110540
+    const movedM = Math.hypot(dx, dy)
+    onSearchArea?.(movedM > 2500 ? {
+      run: () => {
+        lastPoiCenterRef.current = { ...mapCenter }
+        poiSearch(poiCategory, mapCenter)
+        onSearchArea?.(null)
+      },
+    } : null)
+  }, [mapCenter, poiCategory])
+
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') { setQuery(''); geoClear(); setShowHistory(false); return }
     if (isCoord && e.key === 'Enter') { onFlyTo(coordResult); setQuery(''); return }
@@ -129,8 +150,17 @@ export default function Sidebar({
     setShowHistory(false); setShowAllHistory(false)
   }
 
-  const startEdit = (wp) => { setEditingId(wp.id); setEditName(wp.name); setEditNotes(wp.notes || '') }
-  const saveEdit = (id) => { onWaypointUpdate(id, { name: editName, notes: editNotes }); setEditingId(null) }
+  const [editStatus, setEditStatus] = useState('unknown')
+  const startEdit = (wp) => { setEditingId(wp.id); setEditName(wp.name); setEditNotes(wp.notes || ''); setEditStatus(wp.status || 'unknown') }
+  const saveEdit = (id) => {
+    onWaypointUpdate(id, { name: editName, notes: editNotes, status: editStatus === 'unknown' ? undefined : editStatus })
+    setEditingId(null)
+  }
+  const WP_STATUS = [
+    { id: 'been',    label: 'Been',    color: '#22c55e' },
+    { id: 'unknown', label: 'Not sure', color: null },
+    { id: 'explore', label: 'Explore', color: '#fb923c' },
+  ]
 
   const tabs = [
     { id: 'waypoints', Icon: MapPin,   label: 'Points' },
@@ -250,9 +280,10 @@ export default function Sidebar({
             {geoResults.map((r, i) => (
               <div
                 key={r.id}
-                className={`geo-item ${i === selectedGeoIdx ? 'focused' : ''}`}
+                className={`geo-item ${i === selectedGeoIdx || hoverPin === i ? 'focused' : ''}`}
                 onClick={() => flyToGeoResult(r)}
-                onMouseEnter={() => setSelectedGeoIdx(i)}
+                onMouseEnter={() => { setSelectedGeoIdx(i); onHoverPin?.(i) }}
+                onMouseLeave={() => onHoverPin?.(null)}
               >
                 <div className="geo-icon-wrap geo-num">{i + 1}</div>
                 <div className="geo-info">
@@ -274,8 +305,13 @@ export default function Sidebar({
               key={cat.id}
               className={`poi-chip ${poiCategory === cat.id ? 'active' : ''}`}
               onClick={() => {
-                if (poiCategory === cat.id) { poiClear() }
-                else { poiSearch(cat.id, mapCenter) }
+                if (poiCategory === cat.id) {
+                  poiClear()
+                  lastPoiCenterRef.current = null
+                } else {
+                  lastPoiCenterRef.current = { ...mapCenter }
+                  poiSearch(cat.id, mapCenter)
+                }
               }}
             >{cat.label}</button>
           ))}
@@ -288,8 +324,10 @@ export default function Sidebar({
             {poiResults.map((r, i) => (
               <div
                 key={r.id}
-                className="geo-item"
+                className={`geo-item ${hoverPin === i ? 'focused' : ''}`}
                 onClick={() => onFlyTo({ lat: r.lat, lng: r.lng })}
+                onMouseEnter={() => onHoverPin?.(i)}
+                onMouseLeave={() => onHoverPin?.(null)}
               >
                 <div className="geo-icon-wrap geo-num">{i + 1}</div>
                 <div className="geo-info">
@@ -354,6 +392,19 @@ export default function Sidebar({
                             )
                           })}
                         </div>
+                        <div className="wp-status-row">
+                          {WP_STATUS.map(o => (
+                            <button
+                              key={o.id}
+                              className={`wp-status-btn ${editStatus === o.id ? 'active' : ''}`}
+                              style={editStatus === o.id && o.color ? { borderColor: o.color, color: o.color } : {}}
+                              onClick={() => setEditStatus(o.id)}
+                            >
+                              {o.color && <span className="wp-status-dot" style={{ background: o.color }} />}
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
                         <div className="wp-edit-actions">
                           <button className="btn-primary" style={{padding:'5px 14px',fontSize:12}} onClick={() => saveEdit(wp.id)}>Save</button>
                           <button className="btn-secondary" style={{padding:'5px 14px',fontSize:12}} onClick={() => setEditingId(null)}>Cancel</button>
@@ -361,8 +412,14 @@ export default function Sidebar({
                       </div>
                     ) : (
                       <>
-                        <div className="wp-dot" style={{ background: iconColor }}>
+                        <div className="wp-dot" style={{ background: iconColor, position: 'relative' }}>
                           <IconC size={12} color="white" />
+                          {(wp.status === 'been' || wp.status === 'explore') && (
+                            <span
+                              className="wp-visit-badge"
+                              style={{ background: wp.status === 'been' ? '#22c55e' : '#fb923c' }}
+                            />
+                          )}
                         </div>
                         <div className="wp-info">
                           <div className="wp-name">{wp.name}</div>
