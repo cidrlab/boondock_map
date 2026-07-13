@@ -72,7 +72,9 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 50 | Copy coordinates from any point popup | ✅ shipped 2026-07-12 — "Copy coords" button rides the Directions row on every point card (map click, waypoints, sites, search results, roads, trails); flips to "✓ Copied". Probe-verified the clipboard receives `lat, lng`. Fixing it surfaced + fixed a latent bug: three popups bound Save to their first `<button>`, which the new Copy button displaced |
 | 51 | Topo lines visible from further out | 🟡 shipped 2026-07-12 — added the service's small-scale contour set (labels off, 0.5 opacity) fading in ~z9, handing off to index lines at z10.3. Caveat flagged: in very steep country (North Cascades test tile: ~88% inked pixels) it reads as dense terrain texture — **Tim should eyeball it**; if too busy, options are raising the fade-in to z9.5+ or dropping opacity |
 | 52 | Circle around the favorite star badge | ✅ shipped 2026-07-12 — dark disc + status-color ring behind the star on map pins, matching circled star in the waypoint list and the legend |
-| 53 | Filter sites by type | ⬜ requested 2026-07-12 — checkbox popup on the Sites layer (campsite / RV park / dump / water / trailhead) with an "All" toggle, so the map shows only the kinds you want. Natural spot: a small filter chip on the Sites row in the Layers tab, or clicking the Sites label opens the checkbox card. Implementation is a `setFilter` on the sites layers over the existing `kind` property — no data changes needed |
+| 53 | Filter sites by type | ✅ shipped 2026-07-13 — checkbox chips (All + the 5 kinds, dot-colored) in the Layers tab's Site Filter section; persisted in prefs; filters via the same setData path as the elevation filter so cluster counts stay honest. Went with always-visible inline chips instead of the suggested click-popup — one less click and discoverable; say the word to change it |
+| 54 | Track recording actually records | ✅ fixed 2026-07-13 — Record had never produced a point: all the downstream plumbing existed but nothing called `watchPosition`. GPS watch added (high-accuracy, error toast). Probe with mocked GPS: 4 points → live red line + status-bar count → Stop → named track saved with 0.22 mi distance. Guide's Map tab now documents it |
+| 55 | Far-out topo actually renders | ✅ fixed 2026-07-13 — the z9 far tiles were silently blank: a 512px export of a z9 tile is 1:577,790, 4% outside the small-scale set's 1:600k scale band, so ArcGIS returned empty PNGs. Tiles capped at z8 (in-band, overscaled through the fade). Full-strength test rendered the Cascades as a brown blanket → opacity 0.22: subtle etched relief ~z9–10.3, then index lines. Tim: judge the look live |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,
@@ -85,22 +87,20 @@ below. Last deployed commits: waypoint UX batch (delete everywhere, labels at
 save, marker-popup fix), in-app Guide, toolbar help buttons, copy-coords,
 far-out topo, circled favorite star. All probe-verified before push.
 
-**Next up, in rough priority:**
-1. **Tim eyeballs two visual judgment calls**: far-out topo density in steep
-   terrain (row 51) and the circled star at real size (row 52 — code-verified,
-   built clean, but not visually re-verified on a live map before shipping).
-2. **Track recording** — the Record button exists but recording has never been
-   verified working end-to-end; likely broken. Diagnose and fix or hide.
-3. **Offline packs for the Boondock basemap** (row 42) — vector tile + glyph
+**Next up, in rough priority (updated 2026-07-13):**
+1. **Tim's visual sign-off**: far-out topo texture (row 55, screenshots shown
+   in chat 2026-07-13 — etched-relief look at 0.22 opacity) and the circled
+   favorite star (row 52 — screenshot verified at z14.5, looks clean).
+2. **Offline packs for the Boondock basemap** (row 42) — vector tile + glyph
    pack pipeline; satellite blocked on ESRI terms check.
-4. **Waypoint cross-device sync v2** (row 49) — GPX extension for
+3. **Waypoint cross-device sync v2** (row 49) — GPX extension for
    labels/ratings/colors, then an auto-sync design.
-5. **DNR roads layer** (row 34), **weather** (row 9), **national spots sweep**
+4. **DNR roads layer** (row 34), **weather** (row 9), **national spots sweep**
    beyond WA, **zones v3** (closures, BLM, more states), **PMTiles pre-render**
    for MVUM/trails speed.
-6. Waiting on Tim: RIDB API key (optional), AllStays licensing decision,
+5. Waiting on Tim: RIDB API key (optional), AllStays licensing decision,
    community-layer moderation plan.
-7. Paused: deep-research verification re-run (task #7, needs API access).
+6. Paused: deep-research verification re-run (task #7, needs API access).
 
 ### Claude's suggested additions
 
