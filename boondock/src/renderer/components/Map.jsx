@@ -30,7 +30,7 @@ const Map = forwardRef(function Map(
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
     initialViewport, onViewportChange, showPackAreas, onSaveSpot,
     searchPins, hoverPin, onPinHover, onZoomChange, onCenterChange,
-    siteMinElev, siteMaxElev, wpColors, onWaypointEdit, onWaypointDelete,
+    siteMinElev, siteMaxElev, siteKinds, wpColors, onWaypointEdit, onWaypointDelete,
   },
   ref
 ) {
@@ -42,6 +42,27 @@ const Map = forwardRef(function Map(
   const bboxStart = useRef(null)
   const bboxRect = useRef(null)
   const infoPopupRef = useRef(null)
+
+  // GPS feed for track recording. Everything downstream (accumulate in App,
+  // draw current-track, save on stop) was already wired; nothing watched the
+  // position, so Record had never produced a point
+  useEffect(() => {
+    if (!isRecordingTrack) return
+    if (!navigator.geolocation) {
+      showToast(mapContainer.current, 'Location unavailable — cannot record a track')
+      return
+    }
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => onTrackPoint?.({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        ele: pos.coords.altitude ?? 0,
+      }),
+      (err) => showToast(mapContainer.current, `Location error while recording: ${err.message}`),
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
+    )
+    return () => navigator.geolocation.clearWatch(watchId)
+  }, [isRecordingTrack, onTrackPoint])
 
   // One delegated handler serves the "Copy coords" button in every popup —
   // popup content gets replaced by setHTML, so per-node listeners don't stick
@@ -528,6 +549,8 @@ const Map = forwardRef(function Map(
   // ── Site elevation filter — refilter source data so clusters stay honest ──
   const elevRangeRef = useRef({ min: siteMinElev, max: siteMaxElev })
   useEffect(() => { elevRangeRef.current = { min: siteMinElev, max: siteMaxElev } }, [siteMinElev, siteMaxElev])
+  const siteKindsRef = useRef(siteKinds)
+  useEffect(() => { siteKindsRef.current = siteKinds }, [siteKinds])
 
   function applySiteElevFilter() {
     const m = map.current
@@ -536,13 +559,15 @@ const Map = forwardRef(function Map(
       const src = m.getSource('sites')
       if (!src) return
       const { min, max } = elevRangeRef.current
-      if (min == null && max == null) {
+      const kinds = siteKindsRef.current
+      if (min == null && max == null && kinds == null) {
         src.setData(full)
         return
       }
       src.setData({
         ...full,
         features: full.features.filter(f => {
+          if (kinds != null && !kinds.includes(f.properties.kind)) return false
           const e = f.properties.elev_ft
           if (e == null) return true
           return (min == null || e >= min) && (max == null || e <= max)
@@ -553,7 +578,7 @@ const Map = forwardRef(function Map(
 
   useEffect(() => {
     if (mapReady) applySiteElevFilter()
-  }, [siteMinElev, siteMaxElev, mapReady])
+  }, [siteMinElev, siteMaxElev, siteKinds, mapReady])
 
   // ── Offline fallback: saved USGS packs appear when the network is gone ────
   function addOfflineFallbackLayer() {

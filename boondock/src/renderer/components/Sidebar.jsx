@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { BASE_LAYERS, OVERLAY_LAYERS } from '../../shared/layers'
+import { BASE_LAYERS, OVERLAY_LAYERS, SITE_KINDS } from '../../shared/layers'
 import { listPacks, deletePack, storageEstimate } from '../../shared/offlineTiles'
 import { WP_STATUS_META, WP_STATUS_OPTIONS, WP_RATING_KEYS, statusBadgeColor, matchesWpFilter } from '../../shared/waypointMeta'
 import { parseCoords, formatCoords } from '../../shared/parseCoords'
@@ -24,6 +24,7 @@ export default function Sidebar({
   onFlyTo, searchHistory, onAddSearchHistory, mapCenter,
   isMobile, onSearchPins, hoverPin, onHoverPin, onSearchArea,
   siteMinElev, setSiteMinElev, siteMaxElev, setSiteMaxElev,
+  siteKinds, setSiteKinds,
   wpFilter, setWpFilter, wpColors, setWpColors, editRequestId, onEditHandled,
 }) {
   const [query, setQuery] = useState('')
@@ -641,6 +642,27 @@ export default function Sidebar({
             </div>
 
             <div className="section-hdr" style={{ marginTop: 20 }}>Site Filter</div>
+            <div className="site-kind-row">
+              <button
+                className={`poi-chip ${siteKinds == null ? 'active' : ''}`}
+                onClick={() => setSiteKinds(null)}
+              >All</button>
+              {SITE_KINDS.map(k => {
+                const on = siteKinds == null || siteKinds.includes(k.id)
+                return (
+                  <button
+                    key={k.id}
+                    className={`poi-chip ${on ? 'active' : ''}`}
+                    style={on ? { borderColor: k.color, color: k.color } : {}}
+                    onClick={() => setSiteKinds(prev => {
+                      const cur = prev == null ? SITE_KINDS.map(x => x.id) : prev
+                      const next = cur.includes(k.id) ? cur.filter(x => x !== k.id) : [...cur, k.id]
+                      return next.length === SITE_KINDS.length ? null : next
+                    })}
+                  >{on ? '✓ ' : ''}{k.label}</button>
+                )
+              })}
+            </div>
             <div className="elev-filter">
               <label>
                 Min elevation

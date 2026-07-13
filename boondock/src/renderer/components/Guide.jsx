@@ -52,6 +52,9 @@ const TABS = [
           ~z10) to see whether it&apos;s hiking or motorized, plus surface
           info.</li>
           <li>Zoom buttons and the locate-me button are on the right edge.</li>
+          <li><strong>Record</strong> (top bar) starts a GPS track: your path
+          draws on the map as you move, and <em>Stop</em> names and saves it
+          to the Tracks tab. Tracks ride along in GPX export.</li>
         </ul>
       </>
     ),
@@ -74,7 +77,10 @@ const TABS = [
           <li><strong>Sites</strong> — the campsite database: green campsites,
           purple RV parks, orange dump stations, blue water fills, pink
           trailheads. Numbered circles are clusters — click to zoom in. Click
-          any dot for details, its data source, and directions.</li>
+          any dot for details, its data source, and directions. The
+          <em> Site Filter</em> checkboxes below the overlays choose which
+          types show (<em>All</em> resets), and the elevation sliders under
+          them bound the sites by height.</li>
           <li><strong>Boondock zones</strong> — dashed green polygons marking
           Forest Service land within reach of an MVUM road: places where
           dispersed camping is <em>likely</em> allowed. Each shows how much of
@@ -100,9 +106,10 @@ const TABS = [
           the map; hovering one highlights the other.</li>
           <li>Pan away and a <strong>Search this area</strong> pill appears up
           top to re-run the search where you&apos;re looking.</li>
-          <li><strong>Min / Max elevation</strong> sliders (bottom of the tab)
-          filter the site dots — handy for staying below snow line or above the
-          heat.</li>
+          <li><strong>Site Filter</strong> (Layers tab): type checkboxes plus
+          Min / Max elevation sliders filter the site dots — handy for staying
+          below snow line, or showing only water and dump stations on a supply
+          run.</li>
           <li>Every result card names its <strong>data source</strong> with a
           confidence hint, and has <strong>Directions</strong> links (Apple or
           Google Maps) plus <strong>Copy coords</strong> to take the location

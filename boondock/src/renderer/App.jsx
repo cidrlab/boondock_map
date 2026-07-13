@@ -31,6 +31,7 @@ export default function App() {
   const [hoverPin, setHoverPin] = useState(null)     // index sync: list row ↔ map pin
   const [searchArea, setSearchArea] = useState(null) // {run} when the map moved away from the last POI search
   const [siteMinElev, setSiteMinElev] = useState(null)   // null = no lower bound
+  const [siteKinds, setSiteKinds] = useState(null)       // null = all site types
   const [siteMaxElev, setSiteMaxElev] = useState(null)   // null = no upper bound
   const [wpFilter, setWpFilter] = useState({ status: null, favorite: false, labels: [] })
   const [wpColors, setWpColors] = useState({})       // per-category pin color overrides
@@ -80,6 +81,7 @@ export default function App() {
       }
       if (typeof prefs.siteMinElev === 'number') setSiteMinElev(prefs.siteMinElev)
       if (typeof prefs.siteMaxElev === 'number') setSiteMaxElev(prefs.siteMaxElev)
+      if (Array.isArray(prefs.siteKinds)) setSiteKinds(prefs.siteKinds)
       if (prefs.wpColors && typeof prefs.wpColors === 'object') setWpColors(prefs.wpColors)
       setInitialViewport({
         center: prefs.center || DEFAULT_CENTER,
@@ -117,12 +119,13 @@ export default function App() {
       overlays,
       siteMinElev,
       siteMaxElev,
+      siteKinds,
       wpColors,
     })
-  }, [baseLayer, overlays, siteMinElev, siteMaxElev, wpColors])
+  }, [baseLayer, overlays, siteMinElev, siteMaxElev, siteKinds, wpColors])
 
   // Save prefs when base layer, overlays, filters, or colors change
-  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMinElev, siteMaxElev, wpColors])
+  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMinElev, siteMaxElev, siteKinds, wpColors])
 
   // Expose a handler for Map to call on moveend (debounced)
   const handleViewportChange = useCallback(() => {
@@ -331,6 +334,8 @@ export default function App() {
             setSiteMinElev={setSiteMinElev}
             siteMaxElev={siteMaxElev}
             setSiteMaxElev={setSiteMaxElev}
+            siteKinds={siteKinds}
+            setSiteKinds={setSiteKinds}
           />
         )}
 
@@ -364,6 +369,7 @@ export default function App() {
           onCenterChange={setMapCenterPt}
           siteMinElev={siteMinElev}
           siteMaxElev={siteMaxElev}
+          siteKinds={siteKinds}
           wpColors={wpColors}
           onWaypointEdit={(id) => {
             setActiveTab('waypoints')

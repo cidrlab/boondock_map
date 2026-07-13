@@ -163,13 +163,15 @@ export const OVERLAY_LAYERS = {
     parts: [
       {
         // Small-scale set, labels off (sublayer 2 of group 0; the group is
-        // valid 1:3M–1:600k ≈ z8–z10). Low opacity — in steep country these
-        // 100-ft lines are dense, so from afar they read as terrain texture
+        // valid 1:3M–1:600k). Tiles must stop at z8: a 512px export of a z9
+        // tile is 1:577,790 — 4% outside the band, and ArcGIS returns blank.
+        // z8 tiles overscale through the fade window. Low opacity — in steep
+        // country these 100-ft lines are dense and read as terrain texture
         key: 'far',
         tileUrl: 'https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&layers=show:2',
         sourceMinzoom: 8,
-        sourceMaxzoom: 10,
-        zoomOpacity: [[8.6, 0.0], [9.3, 0.5], [9.8, 0.5], [10.3, 0.0]],
+        sourceMaxzoom: 8,
+        zoomOpacity: [[8.8, 0.0], [9.4, 0.22], [9.9, 0.22], [10.3, 0.0]],
       },
       {
         key: 'coarse',
@@ -188,6 +190,16 @@ export const OVERLAY_LAYERS = {
     ],
   },
 }
+
+// Site categories in the spots database — ids match the GeoJSON `kind`
+// property; colors match the map dots and the legend
+export const SITE_KINDS = [
+  { id: 'campsite',  label: 'Campsite',  color: '#22c55e' },
+  { id: 'rv_park',   label: 'RV park',   color: '#a78bfa' },
+  { id: 'dump',      label: 'Dump',      color: '#fb923c' },
+  { id: 'water',     label: 'Water',     color: '#38bdf8' },
+  { id: 'trailhead', label: 'Trailhead', color: '#f472b6' },
+]
 
 export const DEFAULT_OVERLAYS = {
   'mvum': true,
