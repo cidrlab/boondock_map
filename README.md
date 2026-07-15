@@ -23,6 +23,7 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 - **GPX import:** Load existing GPX files for tracks and waypoints
 - **Offline maps:** Download any area (drawn box or current view) at your chosen zoom range into a local pack — the map serves pack tiles automatically when you're offline. Works on desktop and web/iPhone. USGS Topo only for now; other layers await tile-service terms verification (VISION.md).
 - **Track recording (UI only):** Record/stop controls and track display exist, but no GPS points are captured yet — recording is not functional. See VISION.md.
+- **Weather:** a 16-day Open-Meteo forecast card on every point popup (sites, waypoints, map clicks, roads, trails, search results), plus a **Temperature Filter** — set "no day hotter than", "no night colder than", or an average-temperature range over the next 7–16 days; a dashed blue polygon shades where the forecast fits and sites outside it are hidden
 - **Search:** Nominatim geocoder (place names, addresses, coordinates), biased to your current map view
 - **POI search:** Nearby points of interest via Overpass/OpenStreetMap — gas, food, groceries, campgrounds, water, restrooms, trailheads, picnic sites, viewpoints, lodging
 - **Search history:** Last 3 searches shown on focus; full history available; persistent across sessions
@@ -49,6 +50,7 @@ _Coming soon_
 | Tile sources | USGS National Map, ESRI World Imagery, OSM, USFS, BLM |
 | Geocoding | Nominatim (OpenStreetMap) |
 | POI search | Overpass API (OpenStreetMap) |
+| Weather | Open-Meteo forecast API (CC-BY 4.0) |
 | Storage (desktop) | iCloud Drive via Node.js fs + IPC |
 | Storage (web) | IndexedDB (hand-rolled, no deps) |
 | Styling | CSS custom properties, DM Sans font |
@@ -242,5 +244,6 @@ Built with free and open data:
 - [ESRI](https://www.esri.com/) World Imagery (free tier)
 - [USDA Forest Service](https://www.fs.usda.gov/) trail and road data
 - [Bureau of Land Management](https://www.blm.gov/)
+- [Open-Meteo](https://open-meteo.com/) — weather forecast data (CC-BY 4.0)
 
 Developed by the [CiDR Lab](https://cidrlab.org/) — Collective Impact Data & Research.

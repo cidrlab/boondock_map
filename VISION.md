@@ -28,7 +28,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 6 | Desktop + iPhone + web (GitHub Pages) versions | 🟡 desktop + web live (2026-07-11); iPhone = install the web app from Safari (needs on-device testing) |
 | 7 | Looks amazing, CiDR/ERN palette | 🟡 mobile redesign shipped 2026-07-11 (map-first bottom sheet, glass chrome, visible controls, pack footprints); desktop polish + custom basemap next |
 | 8 | Free for everyone + public | ✅ GPL-3.0 added 2026-07-11 |
-| 9 | Safety: weather forecasting at a spot | ⬜ |
+| 9 | Safety: weather forecasting at a spot | 🟡 forecast card built 2026-07-14 on every point popup (row 56, deploy pending) — current conditions + 8-day strip + days-9–16 outlook, Open-Meteo. Still open for "safety": NWS watches/warnings/alerts |
 | 10 | Safety: road conditions / road types (washboard, clearance, mud) | ⬜ |
 | 11 | Nearby points of interest to hike to | 🟡 Overpass POI search exists (trailheads, viewpoints, water…) |
 | 12 | Community layer to store/share spot info | ⬜ |
@@ -49,7 +49,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 27 | Numbered search/POI results — numbered pins on the map matching a numbered, pickable list (both directions) | ✅ shipped 2026-07-11; nearby search now anchors to map center |
 | 28 | Complete WA RV park + campground coverage | 🟡 Overture Maps merged 2026-07-11 (+756 places incl. The Cedars; Sites now 4,490 w/ 849 trailheads; per-source attribution in data/ATTRIBUTION.md). Next: RIDB bulk (CC-BY, verified no-key download) + WA DNR campgrounds, then other states |
 | 29 | Boondocking-likelihood polygons — highlight "this might be a boondocking area" | ✅ v2 shipped 2026-07-12: 455 WA zones, slope-graded from ~150k DEM samples (flat_pct on each card), 257 cliffside zones pruned. v3: closures, BLM land, water setbacks, other states |
-| 30 | FreeRoam-style site filters — by elevation, weather, nearby features (water, views) | 🟡 min + max elevation sliders shipped 2026-07-12 (every site carries elev_ft; persisted); weather + feature filters next (#9) |
+| 30 | FreeRoam-style site filters — by elevation, weather, nearby features (water, views) | 🟡 min + max elevation sliders shipped 2026-07-12 (every site carries elev_ft; persisted); weather filter built 2026-07-14 (row 56, deploy pending); nearby-feature filters still open |
 | 31 | AllStays data | ⬜ commercial directory, no public API/licensing surface (checked 2026-07-12) — would require a business licensing conversation with AllStays LLC (Tim's call); not scrapeable under our policy |
 | 32 | Waypoint visit status — been there / not sure / want to explore, with green/orange marker badges | ✅ shipped 2026-07-12 (save modal + edit form + list + popups + GPX `<type>` round-trip) |
 | 33 | Map legend button | ✅ shipped 2026-07-12 — glass panel: site colors, badges, zones/packs, verified Public Land tints (USFS #cceac6, State #b3e3ef — sampled from the live layer), official USFS MVUM swatches fetched from the service legend API |
@@ -75,10 +75,47 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 53 | Filter sites by type | ✅ shipped 2026-07-13 — checkbox chips (All + the 5 kinds, dot-colored) in the Layers tab's Site Filter section; persisted in prefs; filters via the same setData path as the elevation filter so cluster counts stay honest. Went with always-visible inline chips instead of the suggested click-popup — one less click and discoverable; say the word to change it |
 | 54 | Track recording actually records | ✅ fixed 2026-07-13 — Record had never produced a point: all the downstream plumbing existed but nothing called `watchPosition`. GPS watch added (high-accuracy, error toast). Probe with mocked GPS: 4 points → live red line + status-bar count → Stop → named track saved with 0.22 mi distance. Guide's Map tab now documents it |
 | 55 | Far-out topo actually renders | ✅ fixed 2026-07-13 — the z9 far tiles were silently blank: a 512px export of a z9 tile is 1:577,790, 4% outside the small-scale set's 1:600k scale band, so ArcGIS returned empty PNGs. Tiles capped at z8 (in-band, overscaled through the fade). Full-strength test rendered the Cascades as a brown blanket → opacity 0.22: subtle etched relief ~z9–10.3, then index lines. Tim: judge the look live |
+| 56 | Temperature trip filter — "no day above / no night below X°" + average-temp range over the next 7–16 days, drawn as a polygon of qualifying area, to pick where to head next; weather info on all features | ✅ built & probe-verified 2026-07-14 (**in the working tree — commit + push still pending**, session paused; see handoff below) — Layers → Temperature Filter: days-ahead slider (7–16, Open-Meteo's max horizon), no-day-hotter-than / no-night-colder-than / average-at-least / average-at-most sliders (°F, extreme end = Any). Viewport is sampled on a cached forecast lattice (~≤520 pts, 0.05°–6.4° cells by zoom), margins contoured by marching squares into a dashed blue polygon; site dots failing the criteria hide via the same setData path as the other filters (sites outside the sampled area stay visible — unknown ≠ failing); re-checks on pan, slider changes recompute instantly from cache. Plus a weather card on every point popup — site, waypoint, ground click, search pin, MVUM road, trail: now-conditions, 8-day strip (hover a day for detail), days-9–16 extremes + model elevation. In Guide (Map/Layers/Find/Credits), Legend, README |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,
 offline) — as one free app.
+
+## Where we left off — session handoff 2026-07-14 (paused mid-session)
+
+Tim paused until the weekend. **The temperature-filter + popup-weather feature
+(row 56) is complete and probe-verified but sits uncommitted in the working
+tree** — 9 modified files + new `boondock/src/shared/weather.js` (316
+insertions). Nothing is deployed yet; the live site is unchanged.
+
+**Verified before pausing (2026-07-14):**
+- Open-Meteo API empirically checked: 16-day daily max/min/mean °F, batch
+  multi-location requests (array response; single location returns an
+  object), CORS `*`, CC-BY 4.0 / free non-commercial, no key, <10k calls/day.
+- 26 Node sanity checks on the grid math all pass (margins, bilinear site
+  verdicts, zero-contour placement, saddle cells both ways, missing-node
+  holes, day-window slicing).
+- `web/` production build clean.
+- Offscreen-Electron probe against the built web app, screenshots read:
+  Cascades at z9 with "no day hotter than 85°F" → dashed blue polygons over
+  the high country (Glacier Peak, Whitehorse, Big Chiwaukum), valleys
+  excluded, site clusters only in qualifying areas; status line "Fits 36 of
+  187 forecast points in view"; ground-click popup card shows now-conditions
+  / 8-day strip (rain day carries ☂ 48%) / days-9–16 outlook + model
+  elevation; Clear resets to "Set any limit to activate".
+
+**To resume:**
+1. Tim eyeballs the look (fill is `#38bdf8` at 0.13 opacity — subtle on the
+   dark base by design; easy to raise if he wants it louder).
+2. Commit everything together (Guide/Legend/README/VISION ride along per the
+   standing rule) and push — push to `main` auto-deploys the live site.
+3. Optional spot-check on desktop Electron (same shared code as the verified
+   web build) and on the phone PWA.
+4. Probe recipe if needed again: build `web/`, serve `dist` behind a
+   `boondock_map` symlink on :4173, offscreen Electron (do NOT
+   `disableHardwareAcceleration` — it kills WebGL), drive React range
+   sliders via the native value setter + `input` event, reposition the map
+   with `window.boondock.savePrefs({center, zoom})` + reload.
 
 ## Where we left off — session handoff 2026-07-12
 
@@ -95,9 +132,10 @@ far-out topo, circled favorite star. All probe-verified before push.
    pack pipeline; satellite blocked on ESRI terms check.
 3. **Waypoint cross-device sync v2** (row 49) — GPX extension for
    labels/ratings/colors, then an auto-sync design.
-4. **DNR roads layer** (row 34), **weather** (row 9), **national spots sweep**
-   beyond WA, **zones v3** (closures, BLM, more states), **PMTiles pre-render**
-   for MVUM/trails speed.
+4. **DNR roads layer** (row 34), **national spots sweep** beyond WA,
+   **zones v3** (closures, BLM, more states), **PMTiles pre-render** for
+   MVUM/trails speed. Weather built 2026-07-14 (rows 9/56, deploy pending) —
+   remaining weather idea is NWS alerts.
 5. Waiting on Tim: RIDB API key (optional), AllStays licensing decision,
    community-layer moderation plan.
 6. Paused: deep-research verification re-run (task #7, needs API access).

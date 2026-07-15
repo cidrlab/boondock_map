@@ -104,3 +104,7 @@
     width: min(285px, calc(100vw - 32px));
   }
 }
+.legend-temp {
+  background: rgba(56, 189, 248, 0.14);
+  border: 1.5px dashed #38bdf8;
+}

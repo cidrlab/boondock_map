@@ -25,6 +25,7 @@ export default function Sidebar({
   isMobile, onSearchPins, hoverPin, onHoverPin, onSearchArea,
   siteMinElev, setSiteMinElev, siteMaxElev, setSiteMaxElev,
   siteKinds, setSiteKinds,
+  tempFilter, setTempFilter, tempStatus,
   wpFilter, setWpFilter, wpColors, setWpColors, editRequestId, onEditHandled,
 }) {
   const [query, setQuery] = useState('')
@@ -694,6 +695,14 @@ export default function Sidebar({
               />
             </div>
 
+            <div className="section-hdr" style={{ marginTop: 20 }}>Temperature Filter</div>
+            <p className="dl-info">
+              Filter by the forecast: where the coming days fit your limits, the
+              map shades blue and sites outside it are hidden. Slide an end to
+              its edge for “Any”. Forecasts: Open-Meteo, up to 16 days out.
+            </p>
+            <TempFilter tempFilter={tempFilter} setTempFilter={setTempFilter} tempStatus={tempStatus} />
+
           </div>
         )}
 
@@ -710,6 +719,77 @@ export default function Sidebar({
         )}
       </div>
     </aside>
+  )
+}
+
+// Temperature filter controls — forecast window plus three kinds of limit.
+// A limit slid to its extreme end reads as null = “Any” (off), mirroring the
+// elevation sliders; conflicting pairs clear the other side the same way.
+function TempFilter({ tempFilter, setTempFilter, tempStatus }) {
+  const f = tempFilter
+  const active = f.maxHi != null || f.minLo != null || f.avgLo != null || f.avgHi != null
+  const set = (patch) => setTempFilter(prev => ({ ...prev, ...patch }))
+  const fmt = (v) => v == null ? 'Any' : `${v}°F`
+  return (
+    <div className="elev-filter">
+      <label>Days ahead<span>next {f.days} days</span></label>
+      <input
+        type="range" min={7} max={16} step={1} value={f.days}
+        onChange={e => set({ days: +e.target.value })}
+      />
+      <label style={{ marginTop: 10 }}>No day hotter than<span>{fmt(f.maxHi)}</span></label>
+      <input
+        type="range" min={30} max={110} step={1} value={f.maxHi ?? 110}
+        onChange={e => {
+          const v = +e.target.value
+          const maxHi = v >= 110 ? null : v
+          set({ maxHi, ...(maxHi != null && f.minLo != null && f.minLo > maxHi ? { minLo: null } : {}) })
+        }}
+      />
+      <label style={{ marginTop: 10 }}>No night colder than<span>{fmt(f.minLo)}</span></label>
+      <input
+        type="range" min={-20} max={70} step={1} value={f.minLo ?? -20}
+        onChange={e => {
+          const v = +e.target.value
+          const minLo = v <= -20 ? null : v
+          set({ minLo, ...(minLo != null && f.maxHi != null && f.maxHi < minLo ? { maxHi: null } : {}) })
+        }}
+      />
+      <label style={{ marginTop: 10 }}>Average at least<span>{fmt(f.avgLo)}</span></label>
+      <input
+        type="range" min={0} max={90} step={1} value={f.avgLo ?? 0}
+        onChange={e => {
+          const v = +e.target.value
+          const avgLo = v <= 0 ? null : v
+          set({ avgLo, ...(avgLo != null && f.avgHi != null && f.avgHi < avgLo ? { avgHi: null } : {}) })
+        }}
+      />
+      <label style={{ marginTop: 10 }}>Average at most<span>{fmt(f.avgHi)}</span></label>
+      <input
+        type="range" min={10} max={100} step={1} value={f.avgHi ?? 100}
+        onChange={e => {
+          const v = +e.target.value
+          const avgHi = v >= 100 ? null : v
+          set({ avgHi, ...(avgHi != null && f.avgLo != null && f.avgLo > avgHi ? { avgLo: null } : {}) })
+        }}
+      />
+      <div className="temp-status">
+        <span>
+          {!active && 'Set any limit to activate'}
+          {active && tempStatus?.state === 'loading' && 'Fetching forecast grid…'}
+          {active && tempStatus?.state === 'error' && 'Forecast unavailable — no connection?'}
+          {active && tempStatus?.state === 'ok' &&
+            `Fits ${tempStatus.pass} of ${tempStatus.total} forecast points in view · ${new Date(tempStatus.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+          {active && (tempStatus == null || tempStatus.state === 'idle') && '…'}
+        </span>
+        {active && (
+          <button
+            className="poi-chip"
+            onClick={() => set({ maxHi: null, minLo: null, avgLo: null, avgHi: null })}
+          >Clear</button>
+        )}
+      </div>
+    </div>
   )
 }
 

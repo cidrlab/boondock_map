@@ -47,6 +47,11 @@ const TABS = [
           elevation, and what&apos;s there — with a <em>Save waypoint</em>
           button and a <em>Copy coords</em> button for pasting the spot into
           any other app. Click the same spot again to dismiss it.</li>
+          <li>Every point card (map clicks, sites, waypoints, roads, trails,
+          search results) also carries a <strong>weather card</strong>: current
+          conditions, an 8-day forecast strip (tap a day for detail), and the
+          days-9–16 outlook. Forecasts are Open-Meteo model data — mountain
+          microclimates can differ, so treat them as planning guidance.</li>
           <li>Click an <strong>MVUM road</strong> (zoomed in past ~z9) for its
           route name and vehicle class; click a <strong>trail</strong> (past
           ~z10) to see whether it&apos;s hiking or motorized, plus surface
@@ -86,6 +91,15 @@ const TABS = [
           dispersed camping is <em>likely</em> allowed. Each shows how much of
           it is reasonably flat. It&apos;s a computed hint, not a promise —
           always confirm district rules and closures.</li>
+          <li><strong>Temperature Filter</strong> (bottom of the Layers tab) —
+          find where the weather will suit you. Pick a window (next 7–16
+          days), then set any of: <em>no day hotter than</em>, <em>no night
+          colder than</em>, or an <em>average temperature</em> range. A dashed
+          blue area shades everywhere in view whose forecast fits all your
+          limits, and site dots outside it are hidden. Pan the map and it
+          re-checks the new area; drag the temperature sliders and the shape
+          updates instantly. Slide a limit to its end (“Any”) to drop it, or
+          hit <em>Clear</em>.</li>
           <li><strong>Names</strong> — extra town and place labels.</li>
           <li><strong>Public land</strong> — land-ownership tint: green Forest
           Service, blue state land, and other agencies per the legend.</li>
@@ -109,7 +123,9 @@ const TABS = [
           <li><strong>Site Filter</strong> (Layers tab): type checkboxes plus
           Min / Max elevation sliders filter the site dots — handy for staying
           below snow line, or showing only water and dump stations on a supply
-          run.</li>
+          run. The <strong>Temperature Filter</strong> below it goes further:
+          it hides sites whose 7–16-day forecast breaks your heat, cold, or
+          average-temperature limits, and shades the areas that qualify.</li>
           <li>Every result card names its <strong>data source</strong> with a
           confidence hint, and has <strong>Directions</strong> links (Apple or
           Google Maps) plus <strong>Copy coords</strong> to take the location
@@ -209,6 +225,8 @@ const TABS = [
           (CC-BY-4.0).</li>
           <li><strong>WA DNR</strong> — state recreation sites.</li>
           <li><strong>Overture Maps</strong> — additional places data.</li>
+          <li><strong>Open-Meteo</strong> — weather forecasts on point cards
+          and behind the temperature filter (CC-BY 4.0).</li>
         </ul>
         <p>Feature ideas from the late, great FreeRoam app. Full license detail
         lives in <code>data/ATTRIBUTION.md</code> in the repository.</p>

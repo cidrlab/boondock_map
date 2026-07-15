@@ -600,3 +600,14 @@
   gap: 5px;
   margin-bottom: 14px;
 }
+
+/* Temperature filter status row */
+.temp-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 10px;
+}

@@ -33,6 +33,9 @@ export default function App() {
   const [siteMinElev, setSiteMinElev] = useState(null)   // null = no lower bound
   const [siteKinds, setSiteKinds] = useState(null)       // null = all site types
   const [siteMaxElev, setSiteMaxElev] = useState(null)   // null = no upper bound
+  // Temperature filter over the forecast window; null limits are off
+  const [tempFilter, setTempFilter] = useState({ days: 10, maxHi: null, minLo: null, avgLo: null, avgHi: null })
+  const [tempStatus, setTempStatus] = useState({ state: 'idle' })  // Map reports grid fetches here
   const [wpFilter, setWpFilter] = useState({ status: null, favorite: false, labels: [] })
   const [wpColors, setWpColors] = useState({})       // per-category pin color overrides
   const [editRequestId, setEditRequestId] = useState(null)   // popup "Edit waypoint" → sidebar
@@ -82,6 +85,9 @@ export default function App() {
       if (typeof prefs.siteMinElev === 'number') setSiteMinElev(prefs.siteMinElev)
       if (typeof prefs.siteMaxElev === 'number') setSiteMaxElev(prefs.siteMaxElev)
       if (Array.isArray(prefs.siteKinds)) setSiteKinds(prefs.siteKinds)
+      if (prefs.tempFilter && typeof prefs.tempFilter === 'object') {
+        setTempFilter(f => ({ ...f, ...prefs.tempFilter }))
+      }
       if (prefs.wpColors && typeof prefs.wpColors === 'object') setWpColors(prefs.wpColors)
       setInitialViewport({
         center: prefs.center || DEFAULT_CENTER,
@@ -120,12 +126,13 @@ export default function App() {
       siteMinElev,
       siteMaxElev,
       siteKinds,
+      tempFilter,
       wpColors,
     })
-  }, [baseLayer, overlays, siteMinElev, siteMaxElev, siteKinds, wpColors])
+  }, [baseLayer, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors])
 
   // Save prefs when base layer, overlays, filters, or colors change
-  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMinElev, siteMaxElev, siteKinds, wpColors])
+  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors])
 
   // Expose a handler for Map to call on moveend (debounced)
   const handleViewportChange = useCallback(() => {
@@ -336,6 +343,9 @@ export default function App() {
             setSiteMaxElev={setSiteMaxElev}
             siteKinds={siteKinds}
             setSiteKinds={setSiteKinds}
+            tempFilter={tempFilter}
+            setTempFilter={setTempFilter}
+            tempStatus={tempStatus}
           />
         )}
 
@@ -370,6 +380,8 @@ export default function App() {
           siteMinElev={siteMinElev}
           siteMaxElev={siteMaxElev}
           siteKinds={siteKinds}
+          tempFilter={tempFilter}
+          onTempStatus={setTempStatus}
           wpColors={wpColors}
           onWaypointEdit={(id) => {
             setActiveTab('waypoints')

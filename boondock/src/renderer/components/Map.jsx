@@ -4,6 +4,7 @@ import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../..
 import { buildBoondockStyle, BOONDOCK_GLYPHS } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
 import { elevationAt } from '../../shared/elevation'
+import { pointForecast, wmoInfo, fetchTempGrid, gridMargins, gridToGeoJSON, marginAt, criteriaActive } from '../../shared/weather'
 import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/waypointMeta'
 import { WAYPOINT_COLORS } from './Icons'
 
@@ -30,7 +31,8 @@ const Map = forwardRef(function Map(
     isRecordingTrack, downloadMode, onBboxDrawn, onWaypointClick,
     initialViewport, onViewportChange, showPackAreas, onSaveSpot,
     searchPins, hoverPin, onPinHover, onZoomChange, onCenterChange,
-    siteMinElev, siteMaxElev, siteKinds, wpColors, onWaypointEdit, onWaypointDelete,
+    siteMinElev, siteMaxElev, siteKinds, tempFilter, onTempStatus,
+    wpColors, onWaypointEdit, onWaypointDelete,
   },
   ref
 ) {
@@ -147,12 +149,21 @@ const Map = forwardRef(function Map(
       refreshPackAreas()
       addSitesLayers()
       addZonesLayers()
+      addTempLayers()
       addSearchPinsLayers()
       setMapReady(true)
     })
 
     // Save viewport on pan/zoom
     map.current.on('moveend', () => { onViewportChange?.() })
+
+    // Temperature filter follows the view — refresh the forecast grid after
+    // panning settles (cached lattice nodes make small moves free)
+    map.current.on('moveend', () => {
+      if (!criteriaActive(tempFilterRef.current)) return
+      clearTimeout(tempDebounceRef.current)
+      tempDebounceRef.current = setTimeout(() => refreshTempOverlay(), 700)
+    })
 
     const emitZoom = () => onZoomChange?.(Math.round(map.current.getZoom() * 10) / 10)
     map.current.on('move', emitZoom)
@@ -280,6 +291,8 @@ const Map = forwardRef(function Map(
       refreshPackAreas()
       addSitesLayers()
       addZonesLayers()
+      addTempLayers()
+      applyTempData()
       addSearchPinsLayers()
       applySearchPins()
       applyOverlayVisibility()
@@ -546,6 +559,90 @@ const Map = forwardRef(function Map(
     }
   }
 
+  // ── Temperature filter — forecast grid over the view, contoured ───────────
+  const tempFilterRef = useRef(tempFilter)
+  const onTempStatusRef = useRef(onTempStatus)
+  useEffect(() => { onTempStatusRef.current = onTempStatus }, [onTempStatus])
+  const tempGridRef = useRef(null)      // last fetched forecast lattice
+  const tempMarginsRef = useRef(null)   // margins for the current criteria
+  const tempDataRef = useRef(null)      // {area, edge} GeoJSON for re-adds
+  const tempTokenRef = useRef(0)        // drops stale async grid fetches
+  const tempDebounceRef = useRef(null)
+
+  function addTempLayers() {
+    const m = map.current
+    if (!m) return
+    const empty = { type: 'FeatureCollection', features: [] }
+    if (!m.getSource('temp-area')) m.addSource('temp-area', { type: 'geojson', data: empty })
+    if (!m.getSource('temp-edge')) m.addSource('temp-edge', { type: 'geojson', data: empty })
+    // Under the site dots when they exist, so pins stay full-strength
+    const before = m.getLayer('sites-clusters') ? 'sites-clusters' : undefined
+    if (!m.getLayer('temp-area-fill')) {
+      m.addLayer({
+        id: 'temp-area-fill', type: 'fill', source: 'temp-area',
+        paint: { 'fill-color': '#38bdf8', 'fill-opacity': 0.13 },
+      }, before)
+    }
+    if (!m.getLayer('temp-area-line')) {
+      m.addLayer({
+        id: 'temp-area-line', type: 'line', source: 'temp-edge',
+        paint: { 'line-color': '#38bdf8', 'line-opacity': 0.75, 'line-width': 1.4, 'line-dasharray': [3, 2] },
+      }, before)
+    }
+  }
+
+  function applyTempData() {
+    const m = map.current
+    if (!m) return
+    const empty = { type: 'FeatureCollection', features: [] }
+    const d = tempDataRef.current
+    m.getSource('temp-area')?.setData(d?.area || empty)
+    m.getSource('temp-edge')?.setData(d?.edge || empty)
+  }
+
+  async function refreshTempOverlay() {
+    const m = map.current
+    if (!m) return
+    const token = ++tempTokenRef.current
+    if (!criteriaActive(tempFilterRef.current)) {
+      tempGridRef.current = null
+      tempMarginsRef.current = null
+      tempDataRef.current = null
+      applyTempData()
+      applySiteElevFilter()
+      onTempStatusRef.current?.({ state: 'idle' })
+      return
+    }
+    onTempStatusRef.current?.({ state: 'loading' })
+    let grid
+    try {
+      const b = m.getBounds()
+      grid = await fetchTempGrid({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() })
+    } catch {
+      if (token !== tempTokenRef.current || map.current !== m) return
+      onTempStatusRef.current?.({ state: 'error' })
+      showToast(mapContainer.current, 'Weather forecast unavailable — temperature filter is paused')
+      return
+    }
+    if (token !== tempTokenRef.current || map.current !== m) return
+    const margins = gridMargins(grid, tempFilterRef.current)
+    tempGridRef.current = grid
+    tempMarginsRef.current = margins
+    tempDataRef.current = gridToGeoJSON(grid, margins)
+    applyTempData()
+    applySiteElevFilter()
+    let pass = 0, total = 0
+    for (const v of margins) {
+      if (!Number.isNaN(v)) { total++; if (v >= 0) pass++ }
+    }
+    onTempStatusRef.current?.({ state: 'ok', at: Date.now(), pass, total })
+  }
+
+  useEffect(() => {
+    tempFilterRef.current = tempFilter
+    if (mapReady) refreshTempOverlay()
+  }, [tempFilter, mapReady])
+
   // ── Site elevation filter — refilter source data so clusters stay honest ──
   const elevRangeRef = useRef({ min: siteMinElev, max: siteMaxElev })
   useEffect(() => { elevRangeRef.current = { min: siteMinElev, max: siteMaxElev } }, [siteMinElev, siteMaxElev])
@@ -560,7 +657,9 @@ const Map = forwardRef(function Map(
       if (!src) return
       const { min, max } = elevRangeRef.current
       const kinds = siteKindsRef.current
-      if (min == null && max == null && kinds == null) {
+      const tGrid = tempGridRef.current
+      const tMargins = tempMarginsRef.current
+      if (min == null && max == null && kinds == null && tGrid == null) {
         src.setData(full)
         return
       }
@@ -568,6 +667,12 @@ const Map = forwardRef(function Map(
         ...full,
         features: full.features.filter(f => {
           if (kinds != null && !kinds.includes(f.properties.kind)) return false
+          if (tGrid && tMargins) {
+            const [lng, lat] = f.geometry.coordinates
+            const mv = marginAt(tGrid, tMargins, lng, lat)
+            // null = outside the forecast grid → unknown, keep visible
+            if (mv != null && mv < 0) return false
+          }
           const e = f.properties.elev_ft
           if (e == null) return true
           return (min == null || e >= min) && (max == null || e <= max)
@@ -768,7 +873,10 @@ const Map = forwardRef(function Map(
         const marker = markersRef.current[wp.id]
         marker.setLngLat([wp.lng, wp.lat])
         marker.getElement().innerHTML = markerSvgHtml(wp, wpColors)   // icon/status/colors may have changed
-        marker.getPopup()?.setHTML(waypointPopupHtml(wp))
+        const popup = marker.getPopup()
+        popup?.setHTML(waypointPopupHtml(wp))
+        // setHTML resets the weather slot; refill if the popup is showing
+        if (popup?.isOpen?.()) attachWeather(popup, wp.lat, wp.lng)
         return
       }
 
@@ -786,6 +894,8 @@ const Map = forwardRef(function Map(
         .setHTML(waypointPopupHtml(wp))
       const wpId = wp.id
       popup.on('open', () => {
+        const ll = marker.getLngLat()
+        attachWeather(popup, ll.lat, ll.lng)
         // Delegate on the popup container: setHTML() (marker-update path)
         // replaces the content nodes, so listeners bound to them get wiped
         popup.getElement()?.addEventListener('click', (ev) => {
@@ -995,6 +1105,7 @@ function waypointPopupHtml(wp) {
       ${labels}
       ${ratings}
       <div style="font-size:11px;color:rgba(255,255,255,0.35);font-variant-numeric:tabular-nums;margin-top:3px">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}${wp.elev_ft != null ? ` · ${Number(wp.elev_ft).toLocaleString()} ft` : ''}</div>
+      ${weatherHtml()}
       ${directionsHtml(wp.lat, wp.lng)}
       <div style="display:flex;gap:6px;margin-top:8px">
         <button data-wp-edit class="btn-secondary" style="flex:1;padding:5px 10px;font-size:11.5px">Edit</button>
@@ -1004,6 +1115,57 @@ function waypointPopupHtml(wp) {
 }
 
 const SITE_KIND_LABELS = { campsite: 'Campsite', rv_park: 'RV park', dump: 'Dump station', water: 'Water fill', trailhead: 'Trailhead' }
+
+// ── Popup weather card — Open-Meteo (CC-BY 4.0) ─────────────────────────────
+// Every point popup carries this block; attachWeather() fills it in once the
+// (cached) forecast arrives, same async pattern as the elevation readout.
+
+function weatherHtml() {
+  return `
+    <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08)">
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);display:flex;justify-content:space-between"><span>Weather</span><span style="text-transform:none;letter-spacing:0">Open-Meteo</span></div>
+      <div data-weather-body style="font-size:11px;color:rgba(232,238,244,.55);margin-top:3px">Loading forecast…</div>
+    </div>`
+}
+
+function forecastBodyHtml(fc) {
+  const chips = fc.days.slice(0, 8).map(d => {
+    const [label, emoji] = wmoInfo(d.code)
+    const dow = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' })
+    const wet = d.precipProb != null && d.precipProb >= 30
+    const tip = `${d.date}: ${label} · high ${Math.round(d.hi)}° low ${Math.round(d.lo)}° · precip ${d.precipProb ?? 0}%${d.precipIn > 0.005 ? ` (${d.precipIn}in)` : ''} · wind ${Math.round(d.wind)} mph`
+    return `<span title="${esc(tip)}" style="flex:1 0 44px;text-align:center;background:rgba(255,255,255,0.05);border-radius:5px;padding:3px 2px;line-height:1.3">
+      <span style="font-size:9px;color:rgba(232,238,244,.55)">${esc(dow)}</span><br>
+      <span style="font-size:11px">${emoji}</span><br>
+      <span style="font-size:9.5px;color:rgba(232,238,244,.9)">${Math.round(d.hi)}°<span style="color:rgba(232,238,244,.45)">/${Math.round(d.lo)}°</span></span>${wet ? `<br><span style="font-size:8.5px;color:#38bdf8">☂ ${d.precipProb}%</span>` : ''}
+    </span>`
+  }).join('')
+  const rest = fc.days.slice(8)
+  const restLine = rest.length ? (() => {
+    const hi = Math.max(...rest.map(d => d.hi))
+    const lo = Math.min(...rest.map(d => d.lo))
+    const wetSum = rest.reduce((s, d) => s + (d.precipIn || 0), 0)
+    return `<div style="font-size:10px;color:rgba(232,238,244,.5);margin-top:4px">Days 9–16: ${Math.round(hi)}°/${Math.round(lo)}°${wetSum > 0.005 ? ` · ${wetSum.toFixed(2)}" precip` : ''}${fc.elevFt != null ? ` · model elev ${fc.elevFt.toLocaleString()} ft` : ''}</div>`
+  })() : ''
+  const cur = fc.current
+  const nowLine = cur
+    ? `<div style="font-size:11.5px;color:rgba(232,238,244,.85)">Now ${cur.temp}° · ${esc(wmoInfo(cur.code)[0])} · wind ${cur.wind} mph · ${cur.humidity}% RH</div>`
+    : ''
+  return `${nowLine}<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${chips}</div>${restLine}`
+}
+
+function attachWeather(popup, lat, lng) {
+  pointForecast(lat, lng)
+    .then(fc => {
+      if (!popup.isOpen?.()) return
+      const slot = popup.getElement()?.querySelector('[data-weather-body]')
+      if (slot) slot.innerHTML = forecastBodyHtml(fc)
+    })
+    .catch(() => {
+      const slot = popup.getElement()?.querySelector('[data-weather-body]')
+      if (slot) slot.textContent = 'Forecast unavailable — needs a connection'
+    })
+}
 
 // Directions handoff — standard Apple/Google Maps deep links
 function directionsHtml(lat, lng) {
@@ -1096,9 +1258,11 @@ function openTrailPopup(m, lngLat, result) {
       <div style="font-size:13px;font-weight:600">${esc(name)} Trail</div>
       <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 5px">USFS National Forest trail</div>
       <div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>
+      ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
     </div>`
-  new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng)
 }
 
 const MVUM_ATTR_PATTERN = /SEASON|VEHICLE|SURFACE|SYMBOL_NAME|JURISDICTION|GIS_MILES/i
@@ -1115,9 +1279,11 @@ function openMvumPopup(m, lngLat, result) {
       <div style="font-size:13px;font-weight:600">${esc(title)}</div>
       <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 5px">USFS MVUM · ${esc(result.layerName || 'road')}</div>
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
     </div>`
-  new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng)
 }
 
 function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
@@ -1130,6 +1296,7 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
       <div style="font-size:11.5px;color:rgba(232,238,244,.65);margin-top:3px" data-elev>Elevation: …</div>
       ${flat != null ? `<div style="font-size:11px;color:rgba(232,238,244,.6);margin-top:3px">≈${flat}% of sampled ground ≤ 12% grade</div>` : ''}
       ${inZone ? `<div style="font-size:10.5px;color:rgba(232,238,244,.5);margin-top:5px;line-height:1.45">USFS land near a legal MVUM road. Heuristic only — verify rules, closures, and conditions locally.</div>` : ''}
+      ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -1140,6 +1307,7 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
     .setLngLat(lngLat)
     .setHTML(html)
     .addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng)
   const root = popup.getElement()
   elevationAt(lngLat.lng, lngLat.lat)
     .then(meters => {
@@ -1166,11 +1334,13 @@ function openSearchPinPopup(m, lngLat, props, onSaveSpot) {
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px">
       <div style="font-size:13px;font-weight:600">${props.n}. ${esc(props.name || 'Result')}</div>
       ${tier ? `<div style="font-size:10.5px;color:rgba(232,238,244,.6);margin-top:3px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tier.color};margin-right:5px"></span>${tier.text}</div>` : ''}
+      ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
       <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">Source: © OpenStreetMap contributors</div>
     </div>`
   const popup = new maplibregl.Popup({ offset: 12, maxWidth: '250px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng)
   popup.getElement().querySelector('[data-save-wp]')?.addEventListener('click', () => {
     onSaveSpot?.({ name: props.name, lat: lngLat.lat, lng: lngLat.lng })
     popup.remove()
@@ -1205,6 +1375,7 @@ function openSitePopup(m, f, onSaveSpot) {
       <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 6px">${kindLabel}</div>
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${p.website ? `<div style="margin-top:5px"><a href="${esc(p.website)}" target="_blank" rel="noreferrer" style="font-size:11.5px;color:#38bdf8">Website</a></div>` : ''}
+      ${weatherHtml()}
       ${directionsHtml(lat, lng)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
       <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">${p.elev_ft != null ? `${Number(p.elev_ft).toLocaleString()} ft · ` : ''}${SITE_SRC_CREDIT(p.src)}</div>
@@ -1213,6 +1384,7 @@ function openSitePopup(m, f, onSaveSpot) {
     .setLngLat([lng, lat])
     .setHTML(html)
     .addTo(m)
+  attachWeather(popup, lat, lng)
   popup.getElement().querySelector('[data-save-wp]')?.addEventListener('click', () => {
     onSaveSpot?.({ ...p, lat, lng })
     popup.remove()

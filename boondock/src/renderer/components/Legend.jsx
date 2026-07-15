@@ -70,6 +70,7 @@ export default function Legend({ open, onClose }) {
 
           <div className="legend-section">Areas</div>
           <div className="legend-row"><span className="legend-swatch legend-zone" />Boondock Zone β — USFS land near a legal MVUM road</div>
+          <div className="legend-row"><span className="legend-swatch legend-temp" />Temperature filter — forecast fits your limits here</div>
           <div className="legend-row"><span className="legend-swatch legend-pack" />Offline map pack you've downloaded</div>
 
           <div className="legend-section">Public Land tints</div>
