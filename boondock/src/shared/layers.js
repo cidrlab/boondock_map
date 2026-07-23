@@ -116,7 +116,7 @@ export const OVERLAY_LAYERS = {
   'sites': {
     id: 'sites',
     label: 'Sites',
-    description: 'Campsites, RV parks, dump stations, water fills, trailheads — 4,500+ Washington places from OSM, Overture, Recreation.gov, and WA DNR',
+    description: 'Campsites, RV parks, dump stations, water fills, trailheads — 7,100+ places across Washington and Arizona from OSM, Overture, Recreation.gov, and WA DNR',
     sites: true,    // GeoJSON spots layer, handled in Map.jsx
   },
   'zones': {

@@ -1,11 +1,13 @@
 # Sites data — sources & attribution
 
-`spots-wa.geojson` (generated 2026-07-11) merges these sources. Each feature
-carries a `src` property identifying where it came from.
+`spots-wa.geojson` (generated 2026-07-11) and `spots-az.geojson` (generated
+2026-07-23) merge these sources. Each feature carries a `src` property
+identifying where it came from. Build script: `data-pipeline/build_spots.py`.
 
 ## OpenStreetMap (`src: osm`)
 Campsites, RV parks, dump stations, water points, and trailheads extracted
-via the Overpass API.
+via the Overpass API. The Arizona build also uses the OSM state boundary
+polygon (via Nominatim) to clip non-OSM sources to the state line.
 © OpenStreetMap contributors, Open Database License (ODbL) 1.0 —
 https://www.openstreetmap.org/copyright
 
@@ -28,9 +30,10 @@ Database (RIDB), Recreation.gov.
 
 ## Washington DNR (`src: wadnr`)
 DNR Campgrounds dataset from geo.wa.gov, provided "as is" by the Washington
-State Department of Natural Resources.
+State Department of Natural Resources. Washington only — no equivalent
+state-lands source is merged for Arizona yet.
 
-## Boondock Zones β (`boondock-zones-wa.geojson`)
+## Boondock Zones β (`boondock-zones-wa.geojson`, `boondock-zones-az.geojson`)
 Derived layer: USFS-owned land (EDW Basic Ownership) within ~300 m of a
 legal MVUM road (EDW_MVUM_01), both US Government / USFS public-domain
 services. Heuristic only — not a statement of legality. Build script:

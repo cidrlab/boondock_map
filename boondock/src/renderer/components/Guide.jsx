@@ -85,7 +85,8 @@ const TABS = [
           any dot for details, its data source, and directions. The
           <em> Site Filter</em> checkboxes below the overlays choose which
           types show (<em>All</em> resets), and the elevation sliders under
-          them bound the sites by height.</li>
+          them bound the sites by height. Coverage so far: Washington and
+          Arizona; more states coming.</li>
           <li><strong>Boondock zones</strong> — dashed green polygons marking
           Forest Service land within reach of an MVUM road: places where
           dispersed camping is <em>likely</em> allowed. Each shows how much of

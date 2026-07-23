@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # ==========================================================================
-# Boondocking-likelihood zones v2 — Washington
+# Boondocking-likelihood zones v2 — multi-state
 # ==========================================================================
 # Author: Tim Thomas
 # Created: 2026-07-11
 # Updated: 2026-07-12 — v2 adds terrain: each zone is sampled against the
 #   Mapzen DEM (z12) and annotated with flat_pct (share of samples at
 #   <= 12% grade); zones with flat_pct < 10 are pruned as cliffside noise.
+# Updated: 2026-07-23 — parameterized by state for the Arizona pilot.
 # ==========================================================================
 # Heuristic: USFS-owned land (EDW BasicOwnership) within ~300 m of a legal
 # MVUM road (EDW_MVUM_01 layer 1). Explicitly NOT modeled: closures, water
@@ -17,15 +18,19 @@
 #   https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1
 #   https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_01/MapServer/0
 #
-# Usage: python3 build_zones.py <out.geojson>
+# Usage: python3 build_zones.py <state> <out.geojson>
 
 import io, json, math, sys, time, urllib.parse, urllib.request
+from datetime import date
 
 MVUM = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query'
 OWN = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_01/MapServer/0/query'
-WA = (-124.9, 45.5, -116.9, 49.05)
+BBOXES = {
+    'wa': (-124.9, 45.5, -116.9, 49.05),
+    'az': (-114.85, 31.32, -109.04, 37.01),
+}
 CELL = 0.5
-BUFFER_DEG = 0.003          # ~250-330 m at WA latitudes
+BUFFER_DEG = 0.003          # ~230-330 m across CONUS latitudes
 SIMPLIFY_DEG = 0.0006
 SLOPE_Z = 12                # DEM zoom for slope sampling (~26 m/px here)
 FLAT_GRADE = 12.0           # percent grade considered campable
@@ -33,7 +38,7 @@ PRUNE_BELOW = 10            # drop zones with flat_pct under this
 
 from PIL import Image
 from shapely import make_valid
-from shapely.geometry import Point, shape, mapping
+from shapely.geometry import Point, box, shape, mapping
 from shapely.ops import unary_union
 from shapely.prepared import prep
 
@@ -69,8 +74,8 @@ def query_all(url, extra):
         if offset > 60000: break   # runaway guard
     return feats
 
-def main(out_path):
-    x0, y0, x1, y1 = WA
+def main(state, out_path):
+    x0, y0, x1, y1 = BBOXES[state]
     zones = []
     nx = math.ceil((x1 - x0) / CELL)
     ny = math.ceil((y1 - y0) / CELL)
@@ -100,7 +105,9 @@ def main(out_path):
             cells += 1
             print(f'cell {i},{j}: roads={len(roads)} own={len(own)} zones-so-far={len(zones)}', flush=True)
 
-    merged = unary_union(zones).simplify(SIMPLIFY_DEG)
+    # Queried geometries extend past the envelope (whole polygons come back),
+    # so clip to the state box — keeps neighboring state builds from overlapping
+    merged = unary_union(zones).intersection(box(x0, y0, x1, y1)).simplify(SIMPLIFY_DEG)
     polys = [p for p in (merged.geoms if merged.geom_type == 'MultiPolygon' else [merged]) if p.area > 1e-6]
 
     # ── v2: terrain annotation ────────────────────────────────────────────
@@ -165,7 +172,7 @@ def main(out_path):
 
     fc = {
         'type': 'FeatureCollection',
-        'attribution': 'Derived from USFS MVUM roads + USFS Basic Ownership (public domain); terrain from Mapzen tiles (USGS 3DEP). Heuristic beta — not a statement of legality. Generated 2026-07-12.',
+        'attribution': f'Derived from USFS MVUM roads + USFS Basic Ownership (public domain); terrain from Mapzen tiles (USGS 3DEP). Heuristic beta — not a statement of legality. Generated {date.today().isoformat()}.',
         'features': features,
     }
     txt = json.dumps(fc, separators=(',', ':'))
@@ -173,4 +180,4 @@ def main(out_path):
     print(f'DONE cells={cells} polygons={len(features)} pruned={pruned} dem_tiles={len(tile_cache)} bytes={len(txt)}', flush=True)
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2])
