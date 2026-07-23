@@ -1,5 +1,7 @@
 # CLAUDE.md — Boondock Map
 
+If this repo has an `AGENTS.md`, read it before substantive work — it complements this file.
+
 Project context for Claude Code sessions in this repo. An offline-capable
 topographic mapping app (desktop + web) built on **MapLibre GL JS + React 18 +
 Electron** — a TypeScript/JS app, not an R analysis repo. See `README.md` for the
