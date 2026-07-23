@@ -1,24 +1,49 @@
 #!/usr/bin/env python3
 # ==========================================================================
-# Sites database build — Washington (v3)
+# Sites database build — multi-state (v4)
 # ==========================================================================
 # Author: Tim Thomas
-# Created: 2026-07-11
+# Created: 2026-07-11 (Washington v3)
+# Updated: 2026-07-23 — v4 parameterized by state for the Arizona pilot
 # ==========================================================================
 # Merges, with cross-source dedup and per-feature `src` attribution:
 #   osm         OSM camp/RV/dump/water/trailhead via Overpass extracts
 #   overture:*  Overture Maps places (campground, rv_park), release 2026-06-17.0
-#   ridb        Recreation.gov RIDB bulk export (CC-BY 4.0) — WA campgrounds
-#   wadnr       WA DNR Campgrounds CSV (geo.wa.gov)
+#   ridb        Recreation.gov RIDB bulk export (CC-BY 4.0) — campgrounds
+#   wadnr       WA DNR Campgrounds CSV (geo.wa.gov) — loaded when present
 # Adds elev_ft per feature sampled from Mapzen terrarium DEM tiles (z10).
 # Licenses and required credits: web/public/data/ATTRIBUTION.md
 #
-# Usage: build_spots.py <staging_dir> <out.geojson>
-#   staging_dir must contain: wa-spots-raw.json, wa-trailheads-raw.json,
-#   overture_wa.json, dnr_campgrounds.csv, ridb/*.csv
+# Usage: build_spots.py <state> <staging_dir> <out.geojson>
+#   state is a key of STATES. staging_dir must contain:
+#   {state}-spots-raw.json, {state}-trailheads-raw.json,
+#   overture_{state}.json, ridb/*.csv, and (WA only) dnr_campgrounds.csv
+#   Optional: {state}-boundary.geojson — exact state polygon used to clip
+#   Overture/RIDB points where a bbox can't follow the border (AZ's diagonal
+#   Sonora line, the Colorado River). Fetch from Nominatim: search with
+#   polygon_geojson=1&polygon_threshold=0.0001, take the state relation's
+#   geojson member. OSM extracts don't need it — Overpass is area-scoped.
 
-import csv, io, json, math, re, sys, urllib.request
+import csv, io, json, math, os, re, sys, urllib.request
+from datetime import date
 from PIL import Image
+
+# RIDB state code + coordinate sanity box (S, W, N, E — catches bad geocodes)
+STATES = {
+    'wa': {'ridb': 'WA', 'bbox': (45.0, -125.5, 49.5, -116.0)},
+    'az': {'ridb': 'AZ', 'bbox': (31.0, -115.5, 37.5, -108.5)},
+}
+
+def point_in_poly(lon, lat, geom):
+    # Even-odd ray cast over all rings of a GeoJSON (Multi)Polygon
+    rings = geom['coordinates'] if geom['type'] == 'Polygon' else [r for p in geom['coordinates'] for r in p]
+    inside = False
+    for ring in rings:
+        for i in range(len(ring) - 1):
+            (x1, y1), (x2, y2) = ring[i], ring[i + 1]
+            if (y1 > lat) != (y2 > lat) and lon < x1 + (lat - y1) * (x2 - x1) / (y2 - y1):
+                inside = not inside
+    return inside
 
 def norm(s):
     return re.sub(r'[^a-z0-9]', '', (s or '').lower())
@@ -62,12 +87,13 @@ def clash(feats, kind, pos, name):
             return True
     return False
 
-def add_overture(path, feats):
+def add_overture(path, feats, keep_pt):
     ov = json.load(open(path))
     ov.sort(key=lambda r: -(r['confidence'] or 0))
     kept = []
     for r in ov:
         if not r['name']: continue
+        if not keep_pt(r['lng'], r['lat']): continue
         pos = (r['lng'], r['lat'])
         if any(norm(k['name']) == norm(r['name']) and dist_m(pos, (k['lng'], k['lat'])) < 250 for k in kept):
             continue
@@ -89,27 +115,29 @@ def read_csv(path):
     with open(path, encoding='utf-8-sig', errors='replace') as f:
         return list(csv.DictReader(f))
 
-def add_ridb(dirpath, feats):
-    wa_ids = set()
+def add_ridb(dirpath, feats, st, keep_pt):
+    state_ids = set()
     city = {}
     for row in read_csv(f'{dirpath}/FacilityAddresses_API_v1.csv'):
-        if (row.get('AddressStateCode') or '').strip().upper() == 'WA':
+        if (row.get('AddressStateCode') or '').strip().upper() == st['ridb']:
             fid = row.get('FacilityID')
-            wa_ids.add(fid)
+            state_ids.add(fid)
             city[fid] = (row.get('City') or '').strip().title()
     links = {}
     for row in read_csv(f'{dirpath}/Links_API_v1.csv'):
         if 'web' in (row.get('LinkType') or '').lower():
             links.setdefault(row.get('EntityID'), row.get('URL'))
     added = 0
+    s, w, n, e = st['bbox']
     for row in read_csv(f'{dirpath}/Facilities_API_v1.csv'):
-        if row.get('FacilityID') not in wa_ids: continue
+        if row.get('FacilityID') not in state_ids: continue
         if (row.get('FacilityTypeDescription') or '').strip() != 'Campground': continue
         try:
             lat, lon = float(row['FacilityLatitude']), float(row['FacilityLongitude'])
         except (ValueError, KeyError):
             continue
-        if not (45.0 < lat < 49.5 and -125.5 < lon < -116.0): continue
+        if not (s < lat < n and w < lon < e): continue
+        if not keep_pt(lon, lat): continue
         name = (row.get('FacilityName') or '').strip().title()
         if clash(feats, 'campsite', (lon, lat), name): continue
         p = {'kind': 'campsite', 'src': 'ridb', 'name': name}
@@ -174,17 +202,27 @@ def add_elevations(feats):
             done += 1
     print(f'elevation: {done} sampled across {len(groups)} tiles, {failed} skipped', flush=True)
 
-def main(staging, out_path):
+def main(state, staging, out_path):
+    st = STATES[state]
+    bpath = f'{staging}/{state}-boundary.geojson'
+    if os.path.exists(bpath):
+        boundary = json.load(open(bpath))
+        keep_pt = lambda lon, lat: point_in_poly(lon, lat, boundary)
+    else:
+        keep_pt = lambda lon, lat: True
     feats = []
-    load_osm(f'{staging}/wa-spots-raw.json', feats)
-    load_osm(f'{staging}/wa-trailheads-raw.json', feats)
-    n_ov = add_overture(f'{staging}/overture_wa.json', feats)
-    n_ridb = add_ridb(f'{staging}/ridb', feats)
-    n_dnr = add_dnr(f'{staging}/dnr_campgrounds.csv', feats)
+    load_osm(f'{staging}/{state}-spots-raw.json', feats)
+    load_osm(f'{staging}/{state}-trailheads-raw.json', feats)
+    n_ov = add_overture(f'{staging}/overture_{state}.json', feats, keep_pt)
+    n_ridb = add_ridb(f'{staging}/ridb', feats, st, keep_pt)
+    dnr_path = f'{staging}/dnr_campgrounds.csv'
+    n_dnr = add_dnr(dnr_path, feats) if os.path.exists(dnr_path) else 0
     add_elevations(feats)
+    attr = 'OSM (ODbL) via Overpass; Overture Maps Foundation (CDLA-P-2.0/Apache-2.0/CC0); Recreation.gov RIDB (CC-BY 4.0)'
+    if n_dnr: attr += '; WA DNR'
     fc = {
         'type': 'FeatureCollection',
-        'attribution': 'OSM (ODbL) via Overpass; Overture Maps Foundation (CDLA-P-2.0/Apache-2.0/CC0); Recreation.gov RIDB (CC-BY 4.0); WA DNR. See data/ATTRIBUTION.md. Generated 2026-07-11.',
+        'attribution': f'{attr}. See data/ATTRIBUTION.md. Generated {date.today().isoformat()}.',
         'features': feats,
     }
     json.dump(fc, open(out_path, 'w'), separators=(',', ':'))
@@ -193,4 +231,4 @@ def main(staging, out_path):
     print(f'total={len(feats)} {counts} overture+{n_ov} ridb+{n_ridb} dnr+{n_dnr}', flush=True)
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], sys.argv[3])

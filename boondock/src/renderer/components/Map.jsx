@@ -1022,14 +1022,23 @@ export default Map
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const SITES_LAYER_IDS = ['sites-clusters', 'sites-cluster-count', 'sites-points', 'sites-labels']
 
+// States with committed data files in web/public/data — one fetch per state,
+// merged into a single collection for the map
+const DATA_STATES = ['wa', 'az']
+
+function fetchStateFiles(pattern, label) {
+  return Promise.all(DATA_STATES.map(st =>
+    fetch(import.meta.env.BASE_URL + pattern.replace('{st}', st)).then(r => {
+      if (!r.ok) throw new Error(`${label} data HTTP ${r.status}`)
+      return r.json()
+    })
+  )).then(fcs => ({ type: 'FeatureCollection', features: fcs.flatMap(fc => fc.features) }))
+}
+
 let sitesDataPromise = null
 function fetchSitesData() {
   if (!sitesDataPromise) {
-    sitesDataPromise = fetch(import.meta.env.BASE_URL + 'data/spots-wa.geojson')
-      .then(r => {
-        if (!r.ok) throw new Error(`spots data HTTP ${r.status}`)
-        return r.json()
-      })
+    sitesDataPromise = fetchStateFiles('data/spots-{st}.geojson', 'spots')
       .catch(e => { sitesDataPromise = null; throw e })
   }
   return sitesDataPromise
@@ -1038,11 +1047,7 @@ function fetchSitesData() {
 let zonesDataPromise = null
 function fetchZonesData() {
   if (!zonesDataPromise) {
-    zonesDataPromise = fetch(import.meta.env.BASE_URL + 'data/boondock-zones-wa.geojson')
-      .then(r => {
-        if (!r.ok) throw new Error(`zones data HTTP ${r.status}`)
-        return r.json()
-      })
+    zonesDataPromise = fetchStateFiles('data/boondock-zones-{st}.geojson', 'zones')
       .catch(e => { zonesDataPromise = null; throw e })
   }
   return zonesDataPromise

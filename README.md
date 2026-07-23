@@ -16,13 +16,13 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 
 - **The Boondock basemap:** our own designed terrain map — vector tiles + hillshade relief in the CiDR palette, hairline roads, mountain peaks labeled with elevation in feet
 - **Satellite base** (ESRI World Imagery) with a **Topo Overlay** blend — USGS contour lines and elevation figures over the imagery
-- **Sites database:** baseline camping layer — campsites, RV parks, dump stations, water fills as tappable, clustered map points with save-as-waypoint (2,885 Washington spots from OpenStreetMap to start)
+- **Sites database:** baseline camping layer — campsites, RV parks, dump stations, water fills, and trailheads as tappable, clustered map points with save-as-waypoint (7,100+ places across Washington and Arizona from OSM, Overture, Recreation.gov, and WA DNR)
 - **MVUM Roads overlay:** the true USFS Motor Vehicle Use Map — which forest roads are legal to drive
 - **More overlays:** Hiking Trails (USFS/NPS), Names & Labels, BLM Public Land status
 - **Waypoints:** Save, edit, categorize, and color-code locations with icons (camp, trailhead, viewpoint, fuel, water, hazard, etc.)
 - **GPX import:** Load existing GPX files for tracks and waypoints
 - **Offline maps:** Download any area (drawn box or current view) at your chosen zoom range into a local pack — the map serves pack tiles automatically when you're offline. Works on desktop and web/iPhone. USGS Topo only for now; other layers await tile-service terms verification (VISION.md).
-- **Track recording (UI only):** Record/stop controls and track display exist, but no GPS points are captured yet — recording is not functional. See VISION.md.
+- **Track recording:** Record GPS tracks — live line and point count while recording, saved with distance on stop (GPS quality is best on the phone PWA)
 - **Weather:** a 16-day Open-Meteo forecast card on every point popup (sites, waypoints, map clicks, roads, trails, search results), plus a **Temperature Filter** — set "no day hotter than", "no night colder than", or an average-temperature range over the next 7–16 days; a dashed blue polygon shades where the forecast fits and sites outside it are hidden
 - **Search:** Nominatim geocoder (place names, addresses, coordinates), biased to your current map view
 - **POI search:** Nearby points of interest via Overpass/OpenStreetMap — gas, food, groceries, campgrounds, water, restrooms, trailheads, picnic sites, viewpoints, lodging
@@ -165,7 +165,8 @@ All tile and data sources are free and require no API key.
 |---|---|---|
 | MVUM Roads | USFS Motor Vehicle Use Map (export rendering) | Legal forest roads by vehicle type, z10+ |
 | Hiking Trails | USFS / NPS National Trails | |
-| Sites | OpenStreetMap (ODbL) via Overpass | Camping/RV/dump/water — Washington baseline, more states coming |
+| Sites | OSM + Overture + Recreation.gov RIDB (+ WA DNR) | Camping/RV/dump/water/trailheads — Washington + Arizona, more states coming |
+| Boondock Zones β | Derived from USFS ownership + MVUM roads (`data-pipeline/`) | Heuristic dispersed-camping likelihood polygons, slope-graded — WA + AZ |
 | Names & Labels | ESRI World Boundaries & Places | Mainly for Satellite |
 | Public Land | BLM Surface Management Agency | Who manages each parcel |
 | Topo Overlay | USGS National Map | Contours + elevation figures blended over any base |
