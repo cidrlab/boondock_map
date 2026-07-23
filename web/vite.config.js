@@ -9,7 +9,7 @@ const dep = (name) => path.resolve(__dirname, 'node_modules', name)
 
 export default defineConfig({
   // Served at cidrlab.org/boondock_map/ (GitHub Pages project site)
-  base: '/boondock_map/',
+  base: '/',
   plugins: [react()],
   resolve: {
     alias: {
