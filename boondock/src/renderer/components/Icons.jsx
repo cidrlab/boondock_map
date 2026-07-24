@@ -48,6 +48,7 @@ export const Footprints = (p) => <I {...p}><path d="M4 16v-2.38C4 11.5 2.97 10.5
 export const Camera = (p) => <I {...p}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></I>
 export const Fuel = (p) => <I {...p}><path d="M3 22V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v17"/><path d="M15 10h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2 2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 4"/><line x1="3" y1="22" x2="15" y2="22"/><line x1="6" y1="9" x2="12" y2="9"/></I>
 export const ParkingCircle = (p) => <I {...p}><circle cx="12" cy="12" r="10"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></I>
+export const DumpStation = (p) => <I {...p}><line x1="12" y1="3" x2="12" y2="12"/><polyline points="8 8 12 12 16 8"/><path d="M5 15h14v3a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/></I>
 
 // ── Actions ──────────────────────────────────────────────────────────────
 export const Play = (p) => <I {...p}><polygon points="5 3 19 12 5 21 5 3"/></I>
@@ -79,6 +80,7 @@ export const WAYPOINT_ICON_COMPONENTS = {
   generic:   MapPin,
   camp:      Tent,
   water:     Droplet,
+  dump:      DumpStation,
   hazard:    AlertTriangle,
   trailhead: Footprints,
   viewpoint: Camera,
@@ -90,6 +92,7 @@ export const WAYPOINT_COLORS = {
   generic:   '#F9322B',    /* CiDR red */
   camp:      '#22c55e',
   water:     '#38bdf8',
+  dump:      '#2dd4bf',    /* teal — distinct from water's sky blue */
   hazard:    '#fbbf24',
   trailhead: '#f472b6',
   viewpoint: '#a78bfa',

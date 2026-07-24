@@ -7,6 +7,7 @@ const ICONS = [
   { id: 'generic',   label: 'Pin' },
   { id: 'camp',      label: 'Camp' },
   { id: 'water',     label: 'Water' },
+  { id: 'dump',      label: 'Dump' },
   { id: 'hazard',    label: 'Hazard' },
   { id: 'trailhead', label: 'Trail' },
   { id: 'viewpoint', label: 'View' },

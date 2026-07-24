@@ -19,7 +19,7 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 - **Sites database:** national camping layer — campsites, RV parks, dump stations, water fills, and trailheads as tappable, clustered map points with save-as-waypoint (93,000+ places across all 50 states from OSM, Overture, Recreation.gov, and WA DNR; each state loads on demand as you pan)
 - **MVUM Roads overlay:** the true USFS Motor Vehicle Use Map — which forest roads are legal to drive
 - **More overlays:** Hiking Trails (USFS/NPS), Names & Labels, BLM Public Land status
-- **Waypoints:** Save, edit, categorize, and color-code locations with icons (camp, trailhead, viewpoint, fuel, water, hazard, etc.)
+- **Waypoints:** Save, edit, categorize, and color-code locations with icons (camp, trailhead, viewpoint, fuel, water, dump, hazard, etc.)
 - **GPX import:** Load existing GPX files for tracks and waypoints
 - **Offline maps:** Download any area (drawn box or current view) at your chosen zoom range into a local pack — the map serves pack tiles automatically when you're offline. Works on desktop and web/iPhone. USGS Topo only for now; other layers await tile-service terms verification (VISION.md).
 - **Track recording:** Record GPS tracks — live line and point count while recording, saved with distance on stop (GPS quality is best on the phone PWA)
@@ -188,6 +188,7 @@ Waypoints support colored pins and category icons:
 | Viewpoint | Purple `#a78bfa` | Scenic overlooks |
 | Fuel | Orange `#fb923c` | Gas stations |
 | Water | Blue `#38bdf8` | Water sources |
+| Dump | Teal `#2dd4bf` | RV dump stations |
 | Hazard | Yellow `#fbbf24` | Hazards, caution |
 | Parking | Light `#e8eef4` | Parking areas |
 

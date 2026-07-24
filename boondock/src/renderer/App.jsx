@@ -240,7 +240,7 @@ export default function App() {
   // Opens the same modal as a ground-click save, prefilled from the site
   const saveSpotAsWaypoint = useCallback((s) => {
     if (!s) return
-    const iconMap = { campsite: 'camp', rv_park: 'parking', dump: 'generic', water: 'water', trailhead: 'trailhead' }
+    const iconMap = { campsite: 'camp', rv_park: 'parking', dump: 'dump', water: 'water', trailhead: 'trailhead' }
     setPendingWaypoint({
       lng: s.lng,
       lat: s.lat,
