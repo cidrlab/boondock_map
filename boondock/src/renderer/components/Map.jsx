@@ -6,6 +6,7 @@ import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineT
 import { elevationAt } from '../../shared/elevation'
 import { pointForecast, wmoInfo, fetchTempGrid, gridMargins, gridToGeoJSON, marginAt, criteriaActive } from '../../shared/weather'
 import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/waypointMeta'
+import { STATE_BOUNDS } from '../../shared/stateBounds'
 import { WAYPOINT_COLORS } from './Icons'
 
 // All tile requests go through boondock:// so downloaded offline packs are
@@ -156,6 +157,15 @@ const Map = forwardRef(function Map(
 
     // Save viewport on pan/zoom
     map.current.on('moveend', () => { onViewportChange?.() })
+
+    // Lazy per-state data — load whichever states the viewport reaches,
+    // then push the grown collections through the usual filter path
+    const loadViewStates = () => ensureStatesLoaded(map.current, () => {
+      applySiteElevFilter()
+      map.current?.getSource('zones')?.setData(getZonesData())
+    })
+    map.current.on('moveend', loadViewStates)
+    map.current.on('load', loadViewStates)
 
     // Temperature filter follows the view — refresh the forecast grid after
     // panning settles (cached lattice nodes make small moves free)
@@ -377,14 +387,7 @@ const Map = forwardRef(function Map(
     const m = map.current
     if (!m) return
     if (!m.getSource('sites')) {
-      let data
-      try {
-        data = await fetchSitesData()
-      } catch {
-        return  // data file unreachable; overlay simply stays empty
-      }
-      if (map.current !== m || m.getSource('sites')) return
-      m.addSource('sites', { type: 'geojson', data, cluster: true, clusterRadius: 46, clusterMaxZoom: 11 })
+      m.addSource('sites', { type: 'geojson', data: getSitesData(), cluster: true, clusterRadius: 46, clusterMaxZoom: 11 })
     }
     const vis = overlaysRef.current.sites ? 'visible' : 'none'
     if (!m.getLayer('sites-clusters')) {
@@ -533,14 +536,7 @@ const Map = forwardRef(function Map(
     const m = map.current
     if (!m) return
     if (!m.getSource('zones')) {
-      let data
-      try {
-        data = await fetchZonesData()
-      } catch {
-        return
-      }
-      if (map.current !== m || m.getSource('zones')) return
-      m.addSource('zones', { type: 'geojson', data })
+      m.addSource('zones', { type: 'geojson', data: getZonesData() })
     }
     const vis = overlaysRef.current.zones ? 'visible' : 'none'
     if (!m.getLayer('zones-fill')) {
@@ -651,34 +647,32 @@ const Map = forwardRef(function Map(
 
   function applySiteElevFilter() {
     const m = map.current
-    if (!m?.getSource('sites')) return
-    fetchSitesData().then(full => {
-      const src = m.getSource('sites')
-      if (!src) return
-      const { min, max } = elevRangeRef.current
-      const kinds = siteKindsRef.current
-      const tGrid = tempGridRef.current
-      const tMargins = tempMarginsRef.current
-      if (min == null && max == null && kinds == null && tGrid == null) {
-        src.setData(full)
-        return
-      }
-      src.setData({
-        ...full,
-        features: full.features.filter(f => {
-          if (kinds != null && !kinds.includes(f.properties.kind)) return false
-          if (tGrid && tMargins) {
-            const [lng, lat] = f.geometry.coordinates
-            const mv = marginAt(tGrid, tMargins, lng, lat)
-            // null = outside the forecast grid → unknown, keep visible
-            if (mv != null && mv < 0) return false
-          }
-          const e = f.properties.elev_ft
-          if (e == null) return true
-          return (min == null || e >= min) && (max == null || e <= max)
-        }),
-      })
-    }).catch(() => {})
+    const src = m?.getSource('sites')
+    if (!src) return
+    const full = getSitesData()
+    const { min, max } = elevRangeRef.current
+    const kinds = siteKindsRef.current
+    const tGrid = tempGridRef.current
+    const tMargins = tempMarginsRef.current
+    if (min == null && max == null && kinds == null && tGrid == null) {
+      src.setData(full)
+      return
+    }
+    src.setData({
+      ...full,
+      features: full.features.filter(f => {
+        if (kinds != null && !kinds.includes(f.properties.kind)) return false
+        if (tGrid && tMargins) {
+          const [lng, lat] = f.geometry.coordinates
+          const mv = marginAt(tGrid, tMargins, lng, lat)
+          // null = outside the forecast grid → unknown, keep visible
+          if (mv != null && mv < 0) return false
+        }
+        const e = f.properties.elev_ft
+        if (e == null) return true
+        return (min == null || e >= min) && (max == null || e <= max)
+      }),
+    })
   }
 
   useEffect(() => {
@@ -1022,35 +1016,67 @@ export default Map
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const SITES_LAYER_IDS = ['sites-clusters', 'sites-cluster-count', 'sites-points', 'sites-labels']
 
-// States with committed data files in web/public/data — one fetch per state,
-// merged into a single collection for the map
-const DATA_STATES = ['wa', 'az']
+// Every state has a spots + zones file in web/public/data (see
+// shared/stateBounds.js). They load lazily as the viewport reaches each
+// state and merge into accumulating collections; below DATA_MIN_ZOOM
+// nothing loads, since a national view would pull all fifty at once.
+const DATA_MIN_ZOOM = 4.5
+const VIEW_PAD_DEG = 0.3
+const FETCH_RETRY_MS = 30000   // failed fetches (offline) pause before retrying
 
-function fetchStateFiles(pattern, label) {
-  return Promise.all(DATA_STATES.map(st =>
-    fetch(import.meta.env.BASE_URL + pattern.replace('{st}', st)).then(r => {
-      if (!r.ok) throw new Error(`${label} data HTTP ${r.status}`)
-      return r.json()
-    })
-  )).then(fcs => ({ type: 'FeatureCollection', features: fcs.flatMap(fc => fc.features) }))
+const stateData = {
+  loaded: new Set(),
+  inflight: new Set(),
+  failedAt: {},
+  sites: [],
+  zones: [],
 }
 
-let sitesDataPromise = null
-function fetchSitesData() {
-  if (!sitesDataPromise) {
-    sitesDataPromise = fetchStateFiles('data/spots-{st}.geojson', 'spots')
-      .catch(e => { sitesDataPromise = null; throw e })
-  }
-  return sitesDataPromise
+function getSitesData() {
+  return { type: 'FeatureCollection', features: stateData.sites }
 }
 
-let zonesDataPromise = null
-function fetchZonesData() {
-  if (!zonesDataPromise) {
-    zonesDataPromise = fetchStateFiles('data/boondock-zones-{st}.geojson', 'zones')
-      .catch(e => { zonesDataPromise = null; throw e })
+function getZonesData() {
+  return { type: 'FeatureCollection', features: stateData.zones }
+}
+
+function statesInView(m) {
+  if (m.getZoom() < DATA_MIN_ZOOM) return []
+  const b = m.getBounds()
+  const w = b.getWest() - VIEW_PAD_DEG, e = b.getEast() + VIEW_PAD_DEG
+  const s = b.getSouth() - VIEW_PAD_DEG, n = b.getNorth() + VIEW_PAD_DEG
+  return Object.keys(STATE_BOUNDS).filter(st => {
+    const [sw, ss, se, sn] = STATE_BOUNDS[st]
+    return sw <= e && se >= w && ss <= n && sn >= s
+  })
+}
+
+async function loadStateFiles(st) {
+  const get = async (name) => {
+    const r = await fetch(import.meta.env.BASE_URL + `data/${name}-${st}.geojson`)
+    if (!r.ok) throw new Error(`${name}-${st} HTTP ${r.status}`)
+    return r.json()
   }
-  return zonesDataPromise
+  const [spots, zones] = await Promise.all([get('spots'), get('boondock-zones')])
+  stateData.sites.push(...spots.features)
+  stateData.zones.push(...zones.features)
+}
+
+async function ensureStatesLoaded(m, onNewData) {
+  const now = Date.now()
+  const wanted = statesInView(m).filter(st =>
+    !stateData.loaded.has(st) && !stateData.inflight.has(st) &&
+    now - (stateData.failedAt[st] || 0) > FETCH_RETRY_MS)
+  if (!wanted.length) return
+  wanted.forEach(st => stateData.inflight.add(st))
+  const results = await Promise.allSettled(wanted.map(st => loadStateFiles(st)))
+  let fresh = false
+  results.forEach((r, i) => {
+    stateData.inflight.delete(wanted[i])
+    if (r.status === 'fulfilled') { stateData.loaded.add(wanted[i]); fresh = true }
+    else stateData.failedAt[wanted[i]] = Date.now()
+  })
+  if (fresh) onNewData?.()
 }
 
 const SITE_SRC_CREDIT = (src) => {

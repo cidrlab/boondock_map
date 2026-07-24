@@ -6,7 +6,7 @@
 
 ## What It Is
 
-Boondock Map is a desktop + web mapping application built on [MapLibre GL JS](https://maplibre.org/), [React 18](https://react.dev/), and [Electron](https://www.electronjs.org/) — the web version is a PWA at **https://cidrlab.org/boondock_map/**, installable on iPhone. It layers free and open sources — our own Boondock basemap (OpenFreeMap/OpenMapTiles + Mapzen terrain), USGS, ESRI, OpenStreetMap, Overture, USFS, and BLM — into a polished interface optimized for field use and trip planning. Roadmap: [VISION.md](VISION.md).
+Boondock Map is a desktop + web mapping application built on [MapLibre GL JS](https://maplibre.org/), [React 18](https://react.dev/), and [Electron](https://www.electronjs.org/) — the web version is a PWA at **https://boondockmap.com/**, installable on iPhone. It layers free and open sources — our own Boondock basemap (OpenFreeMap/OpenMapTiles + Mapzen terrain), USGS, ESRI, OpenStreetMap, Overture, USFS, and BLM — into a polished interface optimized for field use and trip planning. Roadmap: [VISION.md](VISION.md).
 
 Waypoints and tracks sync automatically to iCloud Drive, making your saved spots available on iPhone (via Files app or any app with iCloud access).
 
@@ -16,7 +16,7 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 
 - **The Boondock basemap:** our own designed terrain map — vector tiles + hillshade relief in the CiDR palette, hairline roads, mountain peaks labeled with elevation in feet
 - **Satellite base** (ESRI World Imagery) with a **Topo Overlay** blend — USGS contour lines and elevation figures over the imagery
-- **Sites database:** baseline camping layer — campsites, RV parks, dump stations, water fills, and trailheads as tappable, clustered map points with save-as-waypoint (7,100+ places across Washington and Arizona from OSM, Overture, Recreation.gov, and WA DNR)
+- **Sites database:** national camping layer — campsites, RV parks, dump stations, water fills, and trailheads as tappable, clustered map points with save-as-waypoint (93,000+ places across all 50 states from OSM, Overture, Recreation.gov, and WA DNR; each state loads on demand as you pan)
 - **MVUM Roads overlay:** the true USFS Motor Vehicle Use Map — which forest roads are legal to drive
 - **More overlays:** Hiking Trails (USFS/NPS), Names & Labels, BLM Public Land status
 - **Waypoints:** Save, edit, categorize, and color-code locations with icons (camp, trailhead, viewpoint, fuel, water, hazard, etc.)
@@ -133,7 +133,7 @@ deploys to GitHub Pages automatically on push to `main` (see
 `.github/workflows/deploy-pages.yml`) and is installable on iPhone via
 Safari → Share → **Add to Home Screen**.
 
-Live at: **https://cidrlab.org/boondock_map/**
+Live at: **https://boondockmap.com/**
 
 ```bash
 cd web
@@ -165,8 +165,8 @@ All tile and data sources are free and require no API key.
 |---|---|---|
 | MVUM Roads | USFS Motor Vehicle Use Map (export rendering) | Legal forest roads by vehicle type, z10+ |
 | Hiking Trails | USFS / NPS National Trails | |
-| Sites | OSM + Overture + Recreation.gov RIDB (+ WA DNR) | Camping/RV/dump/water/trailheads — Washington + Arizona, more states coming |
-| Boondock Zones β | Derived from USFS ownership + MVUM roads (`data-pipeline/`) | Heuristic dispersed-camping likelihood polygons, slope-graded — WA + AZ |
+| Sites | OSM + Overture + Recreation.gov RIDB (+ WA DNR) | Camping/RV/dump/water/trailheads — all 50 states, lazy-loaded per state |
+| Boondock Zones β | Derived from USFS ownership + MVUM roads (`data-pipeline/`) | Heuristic dispersed-camping likelihood polygons, slope-graded — national (empty where no MVUM data exists) |
 | Names & Labels | ESRI World Boundaries & Places | Mainly for Satellite |
 | Public Land | BLM Surface Management Agency | Who manages each parcel |
 | Topo Overlay | USGS National Map | Contours + elevation figures blended over any base |

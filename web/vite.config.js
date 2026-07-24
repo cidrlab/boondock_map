@@ -8,7 +8,7 @@ import react from '@vitejs/plugin-react'
 const dep = (name) => path.resolve(__dirname, 'node_modules', name)
 
 export default defineConfig({
-  // Served at cidrlab.org/boondock_map/ (GitHub Pages project site)
+  // Served at boondockmap.com (custom domain at the Pages root)
   base: '/',
   plugins: [react()],
   resolve: {

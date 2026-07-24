@@ -1,13 +1,14 @@
 # Sites data — sources & attribution
 
-`spots-wa.geojson` (generated 2026-07-11) and `spots-az.geojson` (generated
-2026-07-23) merge these sources. Each feature carries a `src` property
-identifying where it came from. Build script: `data-pipeline/build_spots.py`.
+`spots-<state>.geojson` (one file per state; WA generated 2026-07-11, AZ
+2026-07-23, all remaining states 2026-07-23/24) merge these sources. Each
+feature carries a `src` property identifying where it came from. Build
+script: `data-pipeline/build_spots.py`.
 
 ## OpenStreetMap (`src: osm`)
 Campsites, RV parks, dump stations, water points, and trailheads extracted
-via the Overpass API. The Arizona build also uses the OSM state boundary
-polygon (via Nominatim) to clip non-OSM sources to the state line.
+via the Overpass API. State boundary polygons (via Nominatim) clip the
+non-OSM sources to each state line.
 © OpenStreetMap contributors, Open Database License (ODbL) 1.0 —
 https://www.openstreetmap.org/copyright
 
@@ -31,10 +32,11 @@ Database (RIDB), Recreation.gov.
 ## Washington DNR (`src: wadnr`)
 DNR Campgrounds dataset from geo.wa.gov, provided "as is" by the Washington
 State Department of Natural Resources. Washington only — no equivalent
-state-lands source is merged for Arizona yet.
+state-lands source is merged for other states yet.
 
-## Boondock Zones β (`boondock-zones-wa.geojson`, `boondock-zones-az.geojson`)
+## Boondock Zones β (`boondock-zones-<state>.geojson`)
 Derived layer: USFS-owned land (EDW Basic Ownership) within ~300 m of a
 legal MVUM road (EDW_MVUM_01), both US Government / USFS public-domain
-services. Heuristic only — not a statement of legality. Build script:
-`data-pipeline/build_zones.py`.
+services, clipped to each state's boundary polygon. States with no MVUM
+data (most plains states, Hawaii) have empty files. Heuristic only — not a
+statement of legality. Build script: `data-pipeline/build_zones.py`.

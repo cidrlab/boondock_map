@@ -20,7 +20,7 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 
 | # | Feature | Status |
 |---|---------|--------|
-| 1 | Find free/dispersed camping (Campendium/iOverlander-style database + workflow) | 🟡 Sites layer live 2026-07-11 — WA baseline with popups + save-as-waypoint; Arizona added 2026-07-23 (row 57, 7,190 places across both states); national coverage and dispersed-spot community data next |
+| 1 | Find free/dispersed camping (Campendium/iOverlander-style database + workflow) | 🟡 Sites layer live 2026-07-11 — WA baseline, AZ 2026-07-23 (row 57), **all 50 states 2026-07-24 (row 58, 93,908 places)**; dispersed-spot community data still open |
 | 2 | Scout areas with satellite imagery around a candidate spot | ✅ ESRI satellite + hybrid layers |
 | 3 | Hiking + 4x4 trails and forest roads on the map | 🟡 true MVUM overlay live 2026-07-11 (legal roads by vehicle type, z10+) + USFS/NPS trails |
 | 4 | Downloadable offline basemaps | ✅ user-drawn packs render offline on desktop + web (2026-07-11); USGS Topo layer — others + prebuilt region packs pending terms checks |
@@ -43,12 +43,12 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 21 | Rank spots (ratings + reviews) | ⬜ |
 | 22 | Design-forward basemap with elevation markers (custom style: hillshade + labeled contours) | ✅ v1 shipped 2026-07-11 — the Boondock base: OpenFreeMap vector + Mapzen hillshade, CiDR palette, peak elevations in feet; plus Topo Overlay (USGS contours + figures) for any base. Native vector contour lines still a future refinement |
 | 23 | Clean water fill stations (free + pay) and dump stations | 🟡 Dump/RV + Water POI chips shipped 2026-07-11 (OSM `sanitary_dump_station` / `water_point`); free-vs-pay detail needs a richer data layer |
-| 24 | Baseline list of places to start from | 🟡 WA baseline shipped 2026-07-11 (OSM extract, committed to repo); AZ shipped 2026-07-23 and the pipeline is now state-parameterized (row 57) — remaining states are a rerun per state; RIDB bulk merges without an API key. FreeRoam's own data unrecoverable (verified) |
+| 24 | Baseline list of places to start from | ✅ national 2026-07-24 — WA baseline 2026-07-11, AZ 2026-07-23 (row 57), remaining 48 states in one sweep (row 58); RIDB bulk merges without an API key. FreeRoam's own data unrecoverable (verified) |
 | 25 | Everything interactive — hover/click details on roads, places, features | 🟡 v1 2026-07-11: tap MVUM roads for details, basemap roads for names, site cards; empty-ground clicks show coords + elevation with a Save button (info-first); hover elevation + zoom in the status bar |
 | 26 | Light daylight basemap | ✅ Boondock Day shipped 2026-07-11 (readability pass same day: peaks/ice/city labels, road opacity ramps) |
 | 27 | Numbered search/POI results — numbered pins on the map matching a numbered, pickable list (both directions) | ✅ shipped 2026-07-11; nearby search now anchors to map center |
 | 28 | Complete WA RV park + campground coverage | 🟡 Overture Maps merged 2026-07-11 (+756 places incl. The Cedars; Sites now 4,490 w/ 849 trailheads; per-source attribution in data/ATTRIBUTION.md). Next: RIDB bulk (CC-BY, verified no-key download) + WA DNR campgrounds, then other states |
-| 29 | Boondocking-likelihood polygons — highlight "this might be a boondocking area" | ✅ v2 shipped 2026-07-12: 455 WA zones, slope-graded from ~150k DEM samples (flat_pct on each card), 257 cliffside zones pruned. AZ added 2026-07-23: 644 zones, 70 pruned (row 57); outputs now clip to the state box so neighboring states won't overlap. v3: closures, BLM land, water setbacks, more states |
+| 29 | Boondocking-likelihood polygons — highlight "this might be a boondocking area" | ✅ national 2026-07-24 — 19,478 slope-graded zones across every state with USFS MVUM data (WA 455 on 2026-07-12, AZ 644 on 2026-07-23, the rest in row 58's sweep; CA 1,918 / CO 1,435 / ID 1,074 lead). Outputs clip to the exact state polygon. v3: closures, BLM land (most of the west's boondocking), water setbacks |
 | 30 | FreeRoam-style site filters — by elevation, weather, nearby features (water, views) | 🟡 min + max elevation sliders shipped 2026-07-12 (every site carries elev_ft; persisted); weather filter built 2026-07-14 (row 56, deploy pending); nearby-feature filters still open |
 | 31 | AllStays data | ⬜ commercial directory, no public API/licensing surface (checked 2026-07-12) — would require a business licensing conversation with AllStays LLC (Tim's call); not scrapeable under our policy |
 | 32 | Waypoint visit status — been there / not sure / want to explore, with green/orange marker badges | ✅ shipped 2026-07-12 (save modal + edit form + list + popups + GPX `<type>` round-trip) |
@@ -75,12 +75,35 @@ Status: ✅ built · 🟡 partially built · ⬜ not started
 | 53 | Filter sites by type | ✅ shipped 2026-07-13 — checkbox chips (All + the 5 kinds, dot-colored) in the Layers tab's Site Filter section; persisted in prefs; filters via the same setData path as the elevation filter so cluster counts stay honest. Went with always-visible inline chips instead of the suggested click-popup — one less click and discoverable; say the word to change it |
 | 54 | Track recording actually records | ✅ fixed 2026-07-13 — Record had never produced a point: all the downstream plumbing existed but nothing called `watchPosition`. GPS watch added (high-accuracy, error toast). Probe with mocked GPS: 4 points → live red line + status-bar count → Stop → named track saved with 0.22 mi distance. Guide's Map tab now documents it |
 | 55 | Far-out topo actually renders | ✅ fixed 2026-07-13 — the z9 far tiles were silently blank: a 512px export of a z9 tile is 1:577,790, 4% outside the small-scale set's 1:600k scale band, so ArcGIS returned empty PNGs. Tiles capped at z8 (in-band, overscaled through the fade). Full-strength test rendered the Cascades as a brown blanket → opacity 0.22: subtle etched relief ~z9–10.3, then index lines. Tim: judge the look live |
-| 57 | Arizona pilot — second state in the Sites + Zones data, on the existing map | ✅ shipped 2026-07-23 — `spots-az.geojson`: 2,649 places (1,430 campsites, 794 RV parks, 51 dumps, 27 water, 347 trailheads; src: OSM 1,784 / Overture 813 / RIDB 52 fed campgrounds — counts from the build log) + `boondock-zones-az.geojson`: 644 slope-graded zones across the 6 AZ national forests. Pipeline now state-parameterized (`build_spots.py az …`, `build_zones.py az …`) with a new exact state-boundary clip (OSM polygon via Nominatim) — a bare bbox let in 86 out-of-state spots (Laughlin NV casinos, Needles/Blythe CA, Lake Mead, Monument Valley UT, Puerto Peñasco MX), all dropped and spot-checked. Map.jsx merges per-state files (`DATA_STATES`). Known gaps: no AZ state-lands source yet (AZ State Parks has no bulk dataset found; state trust land needs a permit — different rules than WA DNR), zones still USFS-only (most western-AZ boondocking is BLM → zones v3) |
 | 56 | Temperature trip filter — "no day above / no night below X°" + average-temp range over the next 7–16 days, drawn as a polygon of qualifying area, to pick where to head next; weather info on all features | ✅ built & probe-verified 2026-07-14, committed + deployed 2026-07-15 (Pages run succeeded) — Layers → Temperature Filter: days-ahead slider (7–16, Open-Meteo's max horizon), no-day-hotter-than / no-night-colder-than / average-at-least / average-at-most sliders (°F, extreme end = Any). Viewport is sampled on a cached forecast lattice (~≤520 pts, 0.05°–6.4° cells by zoom), margins contoured by marching squares into a dashed blue polygon; site dots failing the criteria hide via the same setData path as the other filters (sites outside the sampled area stay visible — unknown ≠ failing); re-checks on pan, slider changes recompute instantly from cache. Plus a weather card on every point popup — site, waypoint, ground click, search pin, MVUM road, trail: now-conditions, 8-day strip (hover a day for detail), days-9–16 extremes + model elevation. In Guide (Map/Layers/Find/Credits), Legend, README |
+| 57 | Arizona pilot — second state in the Sites + Zones data, on the existing map | ✅ shipped 2026-07-23 — `spots-az.geojson`: 2,649 places (1,430 campsites, 794 RV parks, 51 dumps, 27 water, 347 trailheads; src: OSM 1,784 / Overture 813 / RIDB 52 fed campgrounds — counts from the build log) + `boondock-zones-az.geojson`: 644 slope-graded zones across the 6 AZ national forests. Pipeline now state-parameterized (`build_spots.py az …`, `build_zones.py az …`) with a new exact state-boundary clip (OSM polygon via Nominatim) — a bare bbox let in 86 out-of-state spots (Laughlin NV casinos, Needles/Blythe CA, Lake Mead, Monument Valley UT, Puerto Peñasco MX), all dropped and spot-checked. Map.jsx merges per-state files (`DATA_STATES`). Known gaps: no AZ state-lands source yet (AZ State Parks has no bulk dataset found; state trust land needs a permit — different rules than WA DNR), zones still USFS-only (most western-AZ boondocking is BLM → zones v3) |
+| 58 | Populate the rest of the country — all 50 states on the existing map | ✅ shipped 2026-07-24 — **93,908 places** (61,695 campsites, 19,291 RV parks, 10,563 trailheads, 1,616 dumps, 743 water; src: OSM 59,375 / Overture 32,408 / RIDB 2,098 / WA DNR 27) + **19,478 boondock zones**, one spots + one zones file per state, 49 MB total. Data loads lazily per state as the viewport reaches it past ~z4.5 (`shared/stateBounds.js`) — initial page load unchanged, national zoom loads nothing. Pipeline: boundary polygons drive both scripts (Nominatim per state), one national Overture scan split by polygon, RIDB bulk reused, 96 sequential Overpass queries with mirror rotation (1 manual retry: MO trailheads), zones swept state-by-state over ~6 h of polite USFS queries with a per-state MVUM presence probe (IA/CT/RI/NJ/DE/HI + AL/MA/MD legitimately empty — AL's forests have only 221 published MVUM features vs MS's 1,181, checked). Every file validated (parse, bounds, geometry types; CA/CO/ID caught with a GeometryCollection clip defect and rebuilt). Known gaps: no state-lands sources beyond WA DNR, zones still USFS-only (BLM = v3), Aleutians west of the antimeridian excluded |
 
 Guiding scope (Tim, 2026-07-11): replicate the useful features of Campendium +
 iOverlander (spot database, amenities, reviews) and Gaia GPS (maps, tracks,
 offline) — as one free app.
+
+## Where we left off — session handoff 2026-07-24 (national build)
+
+**Row 58 (national coverage) built on branch `national`** (off main after the
+AZ merge + boondockmap.com move): 93,908 places + 19,478 zones, 100
+per-state files, 49 MB, every file validated (0 missing, 0 bad). Built by
+the state-parameterized pipeline over ~a day of polite sequential queries
+(Overpass mirrors, USFS ArcGIS one state at a time, one national Overture
+scan split by boundary polygon, RIDB reused). The app no longer
+eager-loads data: each state's two files lazy-load when the viewport
+reaches them past ~z4.5 (`shared/stateBounds.js`), so the national dataset
+adds zero bytes to initial page load and a marathon cross-country session
+is the only way to accumulate it all. Probe recipe change: the site now
+lives at the Pages root (boondockmap.com) — serve `web/dist` directly on
+:4173, no `boondock_map` symlink.
+
+Pipeline hardening found by building at scale: state-polygon clipping
+(bbox-rect clips double-draw shared forest between interlocking states),
+GeometryCollection fallout from polygon clips (CA/CO first builds collapsed
+to one feature each — caught by the polygons-count log line, fixed, rebuilt,
+and every output validated), per-state MVUM presence probe (plains states
+and HI skip their whole cell sweep).
 
 ## Where we left off — session handoff 2026-07-23
 

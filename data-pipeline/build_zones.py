@@ -18,9 +18,13 @@
 #   https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1
 #   https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_BasicOwnership_01/MapServer/0
 #
-# Usage: python3 build_zones.py <state> <out.geojson>
+# Usage: python3 build_zones.py <state> <staging_dir> <out.geojson>
+#   With {state}-boundary.geojson in staging_dir, cells are queried only where
+#   they intersect the state polygon and the output is clipped to it exactly
+#   (a bbox clip double-draws USFS land shared between interlocking states).
+#   Without one, falls back to the legacy BBOXES rectangle.
 
-import io, json, math, sys, time, urllib.parse, urllib.request
+import io, json, math, os, sys, time, urllib.parse, urllib.request
 from datetime import date
 
 MVUM = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/1/query'
@@ -74,15 +78,40 @@ def query_all(url, extra):
         if offset > 60000: break   # runaway guard
     return feats
 
-def main(state, out_path):
-    x0, y0, x1, y1 = BBOXES[state]
+def load_state_poly(path, state):
+    poly = make_valid(shape(json.load(open(path))))
+    if state == 'ak':
+        # Drop the Aleutian islands west of the antimeridian (lon > 0) —
+        # they'd stretch the bbox around the globe, and hold no MVUM roads
+        parts = list(poly.geoms) if poly.geom_type == 'MultiPolygon' else [poly]
+        poly = unary_union([p for p in parts if p.representative_point().x < 0])
+    return poly
+
+def main(state, staging, out_path):
+    bpath = f'{staging}/{state}-boundary.geojson'
+    if os.path.exists(bpath):
+        clip = load_state_poly(bpath, state)
+    else:
+        clip = box(*BBOXES[state])
+    clip_prep = prep(clip)
+    x0, y0, x1, y1 = clip.bounds
     zones = []
     nx = math.ceil((x1 - x0) / CELL)
     ny = math.ceil((y1 - y0) / CELL)
     cells = 0
+    # One count probe for the whole state: states with no MVUM data at all
+    # (most plains states, Hawaii) skip the cell sweep entirely
+    probe = fetch(MVUM, {'f': 'json', 'where': '1=1', 'returnCountOnly': 'true',
+                         'geometry': f'{x0},{y0},{x1},{y1}',
+                         'geometryType': 'esriGeometryEnvelope', 'inSR': '4326'})
+    if not probe.get('count'):
+        print('state bbox has no MVUM features — writing empty output', flush=True)
+        nx = ny = 0
     for i in range(nx):
         for j in range(ny):
             cx0, cy0 = x0 + i * CELL, y0 + j * CELL
+            if not clip_prep.intersects(box(cx0, cy0, min(cx0 + CELL, x1), min(cy0 + CELL, y1))):
+                continue
             bbox = f'{cx0},{cy0},{min(cx0+CELL,x1)},{min(cy0+CELL,y1)}'
             roads = query_all(MVUM, {'bbox': bbox})
             if not roads:
@@ -106,8 +135,14 @@ def main(state, out_path):
             print(f'cell {i},{j}: roads={len(roads)} own={len(own)} zones-so-far={len(zones)}', flush=True)
 
     # Queried geometries extend past the envelope (whole polygons come back),
-    # so clip to the state box — keeps neighboring state builds from overlapping
-    merged = unary_union(zones).intersection(box(x0, y0, x1, y1)).simplify(SIMPLIFY_DEG)
+    # so clip to the state shape — keeps neighboring state builds from overlapping.
+    # Clipping against a polygon border can yield a GeometryCollection (line and
+    # point touch artifacts); keep only the polygonal parts or the whole state
+    # collapses into a single feature.
+    inter = unary_union(zones).intersection(clip)
+    if inter.geom_type == 'GeometryCollection':
+        inter = unary_union([g for g in inter.geoms if g.geom_type in ('Polygon', 'MultiPolygon')])
+    merged = inter.simplify(SIMPLIFY_DEG)
     polys = [p for p in (merged.geoms if merged.geom_type == 'MultiPolygon' else [merged]) if p.area > 1e-6]
 
     # ── v2: terrain annotation ────────────────────────────────────────────
@@ -180,4 +215,4 @@ def main(state, out_path):
     print(f'DONE cells={cells} polygons={len(features)} pruned={pruned} dem_tiles={len(tile_cache)} bytes={len(txt)}', flush=True)
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], sys.argv[3])

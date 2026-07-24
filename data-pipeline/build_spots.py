@@ -28,11 +28,25 @@ import csv, io, json, math, os, re, sys, urllib.request
 from datetime import date
 from PIL import Image
 
-# RIDB state code + coordinate sanity box (S, W, N, E — catches bad geocodes)
+# Legacy fallback for states built before boundary files (RIDB state code +
+# coordinate sanity box, S/W/N/E). With a {state}-boundary.geojson present,
+# both are derived from the polygon instead.
 STATES = {
     'wa': {'ridb': 'WA', 'bbox': (45.0, -125.5, 49.5, -116.0)},
     'az': {'ridb': 'AZ', 'bbox': (31.0, -115.5, 37.5, -108.5)},
 }
+
+def poly_xy(geom, state):
+    xs, ys = [], []
+    rings = geom['coordinates'] if geom['type'] == 'Polygon' else [r for p in geom['coordinates'] for r in p]
+    for ring in rings:
+        for lon, lat in ring:
+            # Alaska's far Aleutians sit west of the antimeridian (lon > 0);
+            # including them makes the bbox span the globe
+            if state == 'ak' and lon > 0:
+                continue
+            xs.append(lon); ys.append(lat)
+    return xs, ys
 
 def point_in_poly(lon, lat, geom):
     # Even-odd ray cast over all rings of a GeoJSON (Multi)Polygon
@@ -203,12 +217,15 @@ def add_elevations(feats):
     print(f'elevation: {done} sampled across {len(groups)} tiles, {failed} skipped', flush=True)
 
 def main(state, staging, out_path):
-    st = STATES[state]
     bpath = f'{staging}/{state}-boundary.geojson'
     if os.path.exists(bpath):
         boundary = json.load(open(bpath))
         keep_pt = lambda lon, lat: point_in_poly(lon, lat, boundary)
+        xs, ys = poly_xy(boundary, state)
+        st = {'ridb': state.upper(),
+              'bbox': (min(ys) - 0.5, min(xs) - 0.5, max(ys) + 0.5, max(xs) + 0.5)}
     else:
+        st = STATES[state]
         keep_pt = lambda lon, lat: True
     feats = []
     load_osm(f'{staging}/{state}-spots-raw.json', feats)
