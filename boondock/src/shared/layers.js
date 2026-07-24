@@ -39,6 +39,11 @@ export const BASE_LAYERS = {
     attribution: 'ESRI, Maxar, GeoEye',
     maxZoom: 19,
     minZoom: 0,
+    // ESRI serves "Map data not yet available" placeholders as real tiles
+    // past its coverage, which defeats MapLibre's overzoom fallback. Stop
+    // requesting past z18 (reliable CONUS coverage) and scale up instead —
+    // fuzzy close-up beats a blank map in the backcountry.
+    sourceMaxzoom: 18,
   },
 }
 

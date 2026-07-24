@@ -38,7 +38,8 @@ const TABS = [
         <p><strong>Basemaps</strong> (Layers tab): <em>Boondock</em> — our own
         terrain-shaded night map; <em>Boondock Day</em> — the same map in
         daylight colors; <em>Satellite</em> — aerial imagery for scouting
-        clearings and road surfaces.</p>
+        clearings and road surfaces (zooming in very close scales the last
+        available imagery, so remote areas go soft instead of blank).</p>
         <p><strong>Reading the map:</strong></p>
         <ul>
           <li>Move the mouse and the bottom bar shows the cursor&apos;s
@@ -82,7 +83,9 @@ const TABS = [
           <li><strong>Sites</strong> — the campsite database: green campsites,
           purple RV parks, orange dump stations, blue water fills, pink
           trailheads. Numbered circles are clusters — click to zoom in. Click
-          any dot for details, its data source, and directions. The
+          any dot for details, its data source, and directions —
+          <em> Save as waypoint</em> opens the usual waypoint dialog with the
+          site&apos;s name filled in, ready to edit. The
           <em> Site Filter</em> checkboxes below the overlays choose which
           types show (<em>All</em> resets), and the elevation sliders under
           them bound the sites by height. Coverage: all 50 states — each

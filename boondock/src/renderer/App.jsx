@@ -176,7 +176,7 @@ export default function App() {
     setPendingWaypoint(null)
     setActiveTab('waypoints')
     setSidebarOpen(true)
-    attachElevation(wp.id, wp.lat, wp.lng)
+    if (wp.elev_ft == null) attachElevation(wp.id, wp.lat, wp.lng)
   }, [attachElevation])
 
   const deleteWaypoint = useCallback((id) => {
@@ -237,22 +237,21 @@ export default function App() {
   }, [currentTrackPoints])
 
   // ── Save a Sites-layer spot as a waypoint (from map popup) ───────────────
+  // Opens the same modal as a ground-click save, prefilled from the site
   const saveSpotAsWaypoint = useCallback((s) => {
     if (!s) return
     const iconMap = { campsite: 'camp', rv_park: 'parking', dump: 'generic', water: 'water', trailhead: 'trailhead' }
-    const id = crypto.randomUUID()
-    setWaypoints(prev => [...prev, {
-      id,
-      name: s.name || 'Site',
-      notes: s.desc || '',
-      icon: iconMap[s.kind] || 'generic',
-      lat: s.lat,
+    setPendingWaypoint({
       lng: s.lng,
+      lat: s.lat,
       ...(s.elev_ft != null && { elev_ft: Number(s.elev_ft) }),
-      createdAt: new Date().toISOString(),
-    }])
-    if (s.elev_ft == null) attachElevation(id, s.lat, s.lng)
-  }, [attachElevation])
+      prefill: {
+        name: s.name || 'Site',
+        notes: s.desc || '',
+        icon: iconMap[s.kind] || 'generic',
+      },
+    })
+  }, [])
 
   // ── Fly to waypoint ──────────────────────────────────────────────────────
   const flyToWaypoint = useCallback((wp) => {
@@ -405,6 +404,7 @@ export default function App() {
       {pendingWaypoint && (
         <WaypointModal
           lngLat={pendingWaypoint}
+          prefill={pendingWaypoint.prefill}
           onSave={saveWaypoint}
           onCancel={() => setPendingWaypoint(null)}
           labelVocab={[...new Set(waypoints.flatMap(w => w.labels || []))].sort()}

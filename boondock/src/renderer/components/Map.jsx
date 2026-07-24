@@ -107,6 +107,7 @@ const Map = forwardRef(function Map(
           tiles: [toProtocolUrl(base.id)],
           tileSize: 256,
           attribution: base.attribution || '',
+          ...(base.sourceMaxzoom && { maxzoom: base.sourceMaxzoom }),
         },
       },
       layers: [{ id: 'base-layer', type: 'raster', source: 'base' }],

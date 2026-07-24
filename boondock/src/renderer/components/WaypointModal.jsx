@@ -16,10 +16,10 @@ const ICONS = [
 
 import { WP_STATUS_META, WP_STATUS_OPTIONS } from '../../shared/waypointMeta'
 
-export default function WaypointModal({ lngLat, onSave, onCancel, labelVocab = [] }) {
-  const [name, setName] = useState('')
-  const [notes, setNotes] = useState('')
-  const [icon, setIcon] = useState('generic')
+export default function WaypointModal({ lngLat, onSave, onCancel, labelVocab = [], prefill = null }) {
+  const [name, setName] = useState(prefill?.name || '')
+  const [notes, setNotes] = useState(prefill?.notes || '')
+  const [icon, setIcon] = useState(prefill?.icon || 'generic')
   const [status, setStatus] = useState('unknown')
   const [favorite, setFavorite] = useState(false)
   const [color, setColor] = useState(null)   // null = category default
@@ -36,7 +36,8 @@ export default function WaypointModal({ lngLat, onSave, onCancel, labelVocab = [
   }
 
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 50)
+    // Select any prefilled name so typing replaces it in one keystroke
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 50)
   }, [])
 
   const handleSave = () => {
@@ -44,6 +45,7 @@ export default function WaypointModal({ lngLat, onSave, onCancel, labelVocab = [
     onSave({
       name: name.trim(), notes: notes.trim(), icon,
       lat: lngLat.lat, lng: lngLat.lng,
+      ...(lngLat.elev_ft != null && { elev_ft: lngLat.elev_ft }),
       ...(status !== 'unknown' && { status }),
       ...(favorite && { favorite: true }),
       ...(color && color !== WAYPOINT_COLORS[icon] && { color }),
