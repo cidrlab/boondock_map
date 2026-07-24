@@ -1,0 +1,13 @@
+{
+  "name": "boondock-community-worker",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker receiving Boondock Map community reports",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.114.0"
+  }
+}

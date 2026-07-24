@@ -8,6 +8,7 @@ import { pointForecast, wmoInfo, fetchTempGrid, gridMargins, gridToGeoJSON, marg
 import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/waypointMeta'
 import { STATE_BOUNDS } from '../../shared/stateBounds'
 import { WAYPOINT_COLORS } from './Icons'
+import { communityEnabled, submitCheckin, flagSpot, loadCommunityFeatures, prunePendingReports } from '../../shared/community'
 
 // All tile requests go through boondock:// so downloaded offline packs are
 // used first and the network is the fallback (see shared/offlineTiles.js)
@@ -34,7 +35,7 @@ const Map = forwardRef(function Map(
     initialViewport, onViewportChange, showPackAreas, onSaveSpot,
     searchPins, hoverPin, onPinHover, onZoomChange, onCenterChange,
     siteMinElev, siteMaxElev, siteKinds, tempFilter, onTempStatus,
-    wpColors, onWaypointEdit, onWaypointDelete,
+    wpColors, onWaypointEdit, onWaypointDelete, onReportSpot,
   },
   ref
 ) {
@@ -93,6 +94,11 @@ const Map = forwardRef(function Map(
     flyTo: (opts) => map.current?.flyTo(opts),
     fitBounds: (bounds, opts) => map.current?.fitBounds(bounds, opts),
     getMap: () => map.current,
+    // A just-submitted community report appears immediately as a pending pin
+    addCommunityFeature: (feature) => {
+      stateData.community.push(feature)
+      applySiteElevFilter()
+    },
   }))
 
   // ── Build MapLibre style from current base layer ─────────────────────────
@@ -168,6 +174,9 @@ const Map = forwardRef(function Map(
     })
     map.current.on('moveend', loadViewStates)
     map.current.on('load', loadViewStates)
+    map.current.on('load', () => {
+      loadCommunityLayer().then(any => { if (any) applySiteElevFilter() })
+    })
 
     // Temperature filter follows the view — refresh the forecast grid after
     // panning settles (cached lattice nodes make small moves free)
@@ -258,7 +267,7 @@ const Map = forwardRef(function Map(
         const zhits = m.queryRenderedFeatures(e.point, { layers: ['zones-fill'] })
         if (zhits.length) zoneProps = zhits[0].properties || {}
       }
-      infoPopupRef.current = openPointInfoPopup(m, e.lngLat, onMapClick, zoneProps)
+      infoPopupRef.current = openPointInfoPopup(m, e.lngLat, onMapClick, zoneProps, onReportSpot)
     })
 
     map.current.on('mouseenter', 'search-pins-circle', () => { map.current.getCanvas().style.cursor = 'pointer' })
@@ -432,8 +441,9 @@ const Map = forwardRef(function Map(
             'trailhead', '#f472b6',
             '#e8eef4'],
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 13, 6],
-          'circle-stroke-color': '#10151c',
-          'circle-stroke-width': 1.4,
+          // Amber ring = community-reported (pending ones from this device too)
+          'circle-stroke-color': ['case', ['==', ['get', 'src'], 'community'], '#fbbf24', '#10151c'],
+          'circle-stroke-width': ['case', ['==', ['get', 'src'], 'community'], 1.8, 1.4],
         },
       })
     }
@@ -1032,10 +1042,24 @@ const stateData = {
   failedAt: {},
   sites: [],
   zones: [],
+  community: [],   // published community spots + this device's pending ones
 }
 
 function getSitesData() {
-  return { type: 'FeatureCollection', features: stateData.sites }
+  return { type: 'FeatureCollection', features: [...stateData.sites, ...stateData.community] }
+}
+
+// Community layer: one small national file, fetched once with the map (plus
+// any pending reports saved on this device — see shared/community.js)
+let communityLoadStarted = false
+async function loadCommunityLayer() {
+  if (communityLoadStarted) return false
+  communityLoadStarted = true
+  const published = await loadCommunityFeatures(import.meta.env.BASE_URL)
+  const ids = new Set(published.map(f => f.properties?.id))
+  const pending = prunePendingReports(ids)
+  stateData.community = [...published, ...pending]
+  return published.length + pending.length > 0
 }
 
 function getZonesData() {
@@ -1319,7 +1343,7 @@ function openMvumPopup(m, lngLat, result) {
   attachWeather(popup, lngLat.lat, lngLat.lng)
 }
 
-function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
+function openPointInfoPopup(m, lngLat, onSave, zoneProps = null, onReport = null) {
   const inZone = zoneProps != null
   const flat = inZone && zoneProps.flat_pct != null ? Number(zoneProps.flat_pct) : null
   const html = `
@@ -1335,6 +1359,10 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         Save waypoint
       </button>
+      ${onReport && communityEnabled() ? `
+      <button data-report-spot class="btn-secondary" style="margin-top:6px;width:100%;padding:5px 10px;font-size:11.5px;justify-content:center" title="Tell other boondockers — dump, water, campsite…">
+        Report a spot here for everyone
+      </button>` : ''}
     </div>`
   const popup = new maplibregl.Popup({ offset: 8, maxWidth: '250px' })
     .setLngLat(lngLat)
@@ -1351,6 +1379,10 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null) {
   root.querySelector('[data-save-wp]')?.addEventListener('click', () => {
     popup.remove()
     onSave?.(lngLat)
+  })
+  root.querySelector('[data-report-spot]')?.addEventListener('click', () => {
+    popup.remove()
+    onReport?.(lngLat)
   })
   return popup
 }
@@ -1393,6 +1425,7 @@ function openRoadPopup(m, lngLat, feature) {
 
 function openSitePopup(m, f, onSaveSpot) {
   const p = f.properties
+  if (p.src === 'community') return openCommunitySitePopup(m, f, onSaveSpot)
   const [lng, lat] = f.geometry.coordinates
   const kindLabel = SITE_KIND_LABELS[p.kind] || 'Site'
   const rows = []
@@ -1421,6 +1454,127 @@ function openSitePopup(m, f, onSaveSpot) {
   popup.getElement().querySelector('[data-save-wp]')?.addEventListener('click', () => {
     onSaveSpot?.({ ...p, lat, lng })
     popup.remove()
+  })
+}
+
+// ── Community spot card — status, dated check-ins, check-in + flag actions ──
+// Validation is social: unverified until 2+ independent confirmations, and
+// the card always shows how fresh the last confirmation is (VISION row 12)
+
+const COMMUNITY_STATUS_LINE = {
+  pending:    { color: '#9fb4c8', text: 'Pending — on your map now, publishes with the next sync' },
+  unverified: { color: '#fbbf24', text: 'Unverified — reported by a traveler, not yet confirmed' },
+  verified:   { color: '#22c55e', text: 'Verified by other travelers' },
+}
+
+// queryRenderedFeatures JSON-stringifies nested properties; parse defensively
+function parseCheckins(p) {
+  try {
+    const raw = typeof p.checkins === 'string' ? JSON.parse(p.checkins) : p.checkins
+    return Array.isArray(raw) ? raw : []
+  } catch {
+    return []
+  }
+}
+
+function checkinRowHtml(c) {
+  const mark = c.ok
+    ? '<span style="color:#22c55e">✓</span>'
+    : '<span style="color:#f87171">✗</span>'
+  const note = c.comment ? esc(c.comment) : c.ok ? 'still there' : 'gone / closed'
+  return `<div style="font-size:11px;color:rgba(232,238,244,.75);margin-top:3px;line-height:1.45">${mark} <span style="color:rgba(232,238,244,.5);font-variant-numeric:tabular-nums">${esc(c.date)}</span> — ${note}</div>`
+}
+
+function openCommunitySitePopup(m, f, onSaveSpot) {
+  const p = f.properties
+  const [lng, lat] = f.geometry.coordinates
+  const kindLabel = SITE_KIND_LABELS[p.kind] || 'Spot'
+  const status = COMMUNITY_STATUS_LINE[p.status] || COMMUNITY_STATUS_LINE.unverified
+  const checkins = parseCheckins(p)
+  const shown = checkins.slice(0, 4)
+  const maybeGone = p.maybe_gone === true || p.maybe_gone === 'true'
+  const canAct = communityEnabled() && p.status !== 'pending'
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:210px">
+      <div style="font-size:13.5px;font-weight:600">${esc(p.name || kindLabel)}</div>
+      <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 5px">${kindLabel} · community</div>
+      <div style="font-size:11px;color:${status.color};line-height:1.4"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${status.color};margin-right:5px"></span>${status.text}</div>
+      ${maybeGone ? '<div style="font-size:11px;color:#f87171;margin-top:4px;line-height:1.45">Recent check-ins say this may be gone — verify before counting on it</div>' : ''}
+      ${p.confirmed ? `<div style="font-size:10.5px;color:rgba(232,238,244,.55);margin-top:3px">Last confirmed ${esc(p.confirmed)}</div>` : ''}
+      ${p.desc ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);margin-top:5px;line-height:1.5">${esc(p.desc)}</div>` : ''}
+      <div data-checkin-list style="margin-top:5px">${shown.map(checkinRowHtml).join('')}</div>
+      ${checkins.length > shown.length ? `<div style="font-size:10px;color:rgba(232,238,244,.4);margin-top:3px">+ ${checkins.length - shown.length} older check-ins</div>` : ''}
+      ${canAct ? `
+      <div data-checkin-controls style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin-bottom:5px">Been here? Check in</div>
+        <input data-ci-comment placeholder="Optional comment — cost, access, condition…" maxlength="280"
+          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:6px;color:#e8eef4;font-size:11px;padding:5px 7px;outline:none">
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button data-ci-yes class="btn-secondary" style="flex:1;padding:5px 8px;font-size:11px;justify-content:center">✓ Still there</button>
+          <button data-ci-no class="btn-secondary" style="flex:1;padding:5px 8px;font-size:11px;justify-content:center">✗ Gone / closed</button>
+        </div>
+      </div>` : ''}
+      ${weatherHtml()}
+      ${directionsHtml(lat, lng)}
+      <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px">
+        <span style="font-size:9.5px;color:rgba(232,238,244,.35)">Community-reported — verify before relying on it</span>
+        ${canAct ? '<button data-flag-spot style="all:unset;cursor:pointer;font-size:9.5px;color:#8babd0;white-space:nowrap">Report a problem</button>' : ''}
+      </div>
+    </div>`
+  const popup = new maplibregl.Popup({ offset: 10, maxWidth: '280px' })
+    .setLngLat([lng, lat])
+    .setHTML(html)
+    .addTo(m)
+  attachWeather(popup, lat, lng)
+  const root = popup.getElement()
+  root.querySelector('[data-save-wp]')?.addEventListener('click', () => {
+    onSaveSpot?.({ ...p, lat, lng })
+    popup.remove()
+  })
+  if (!canAct) return
+
+  const sendCheckin = async (ok) => {
+    const comment = root.querySelector('[data-ci-comment]')?.value?.trim() || ''
+    const controls = root.querySelector('[data-checkin-controls]')
+    controls.style.opacity = '0.55'
+    controls.style.pointerEvents = 'none'
+    try {
+      const res = await submitCheckin(p.id, ok, comment)
+      controls.style.opacity = ''
+      controls.innerHTML = `<div style="font-size:11.5px;color:#22c55e;line-height:1.5">${res.held ? 'Thanks — recorded. Your comment shows after a quick review.' : 'Thanks — check-in recorded.'}</div>`
+      if (!res.held) {
+        root.querySelector('[data-checkin-list]')?.insertAdjacentHTML(
+          'afterbegin',
+          checkinRowHtml({ date: new Date().toISOString().slice(0, 10), ok, comment })
+        )
+      }
+    } catch (e) {
+      controls.style.opacity = ''
+      controls.style.pointerEvents = ''
+      showToast(m.getContainer(), `Check-in failed: ${e.message}`)
+    }
+  }
+  root.querySelector('[data-ci-yes]')?.addEventListener('click', () => sendCheckin(true))
+  root.querySelector('[data-ci-no]')?.addEventListener('click', () => sendCheckin(false))
+
+  const flagBtn = root.querySelector('[data-flag-spot]')
+  flagBtn?.addEventListener('click', async () => {
+    // two-tap confirm, same as waypoint delete — no blocking dialogs
+    if (!flagBtn.dataset.armed) {
+      flagBtn.dataset.armed = '1'
+      flagBtn.textContent = 'Confirm — report this listing?'
+      flagBtn.style.color = '#f87171'
+      return
+    }
+    try {
+      await flagSpot(p.id, 'user flag')
+      flagBtn.textContent = 'Reported for review'
+      flagBtn.style.color = ''
+      flagBtn.style.pointerEvents = 'none'
+    } catch (e) {
+      showToast(m.getContainer(), `Report failed: ${e.message}`)
+    }
   })
 }
 

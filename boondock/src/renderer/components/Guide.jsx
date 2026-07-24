@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X } from './Icons'
+import { communityEnabled } from '../../shared/community'
 import './Guide.css'
 
 // User guide. Standing rule (CLAUDE.md): when a user-facing feature changes,
@@ -92,6 +93,22 @@ const TABS = [
           state&apos;s sites and zones download the first time you view it
           (zoom in past about z5), so visit an area once while online if you
           plan to browse it offline later.</li>
+          {communityEnabled() && (
+          <li><strong>Community spots</strong> — traveler-reported dumps, water
+          fills, campsites, RV parks, and trailheads, drawn as site dots with
+          an <em>amber ring</em>. Click empty ground and choose <em>Report a
+          spot here for everyone</em> to add one: it appears on your map
+          immediately and publishes to everyone after the nightly sync, marked
+          <em> unverified</em> until other travelers confirm it. Every
+          community card takes <strong>check-ins</strong> — <em>Still
+          there</em> or <em>Gone / closed</em> with an optional comment, dated
+          — and shows them newest-first. Two independent confirmations promote
+          a spot to <em>verified</em>; recent “gone” check-ins add a warning;
+          the card always shows when it was last confirmed, so stale info
+          reads as stale. Reports are anonymous and filtered for spam;
+          <em> Report a problem</em> on any community card flags it for
+          review.</li>
+          )}
           <li><strong>Boondock zones</strong> — dashed green polygons marking
           Forest Service land within reach of an MVUM road: places where
           dispersed camping is <em>likely</em> allowed. Each shows how much of

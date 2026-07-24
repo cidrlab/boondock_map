@@ -1,0 +1,42 @@
+# Publishes community reports nightly: pulls the Worker's /export, rebuilds
+# community.geojson (data-pipeline/merge_community.py), and commits it —
+# which triggers the deploy-pages workflow via its web/** path filter.
+#
+# Inert until the repo secrets COMMUNITY_API and COMMUNITY_ADMIN_TOKEN exist
+# (worker/README.md, step 2). Note GitHub suspends cron schedules after ~60
+# days without repo activity; a manual "Run workflow" revives it.
+name: Merge community reports
+
+on:
+  schedule:
+    - cron: '17 9 * * *'   # 09:17 UTC ≈ 2:17 AM Pacific
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: community-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild community.geojson from the Worker export
+        env:
+          COMMUNITY_API: ${{ secrets.COMMUNITY_API }}
+          COMMUNITY_ADMIN_TOKEN: ${{ secrets.COMMUNITY_ADMIN_TOKEN }}
+        run: python3 data-pipeline/merge_community.py web/public/data/community.geojson
+      - name: Commit if changed
+        run: |
+          if git diff --quiet web/public/data/community.geojson; then
+            echo "No community changes tonight"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/public/data/community.geojson
+          git commit -m "Community reports: nightly merge"
+          git push

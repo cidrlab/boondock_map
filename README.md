@@ -17,6 +17,7 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 - **The Boondock basemap:** our own designed terrain map — vector tiles + hillshade relief in the CiDR palette, hairline roads, mountain peaks labeled with elevation in feet
 - **Satellite base** (ESRI World Imagery) with a **Topo Overlay** blend — USGS contour lines and elevation figures over the imagery
 - **Sites database:** national camping layer — campsites, RV parks, dump stations, water fills, and trailheads as tappable, clustered map points with save-as-waypoint (93,000+ places across all 50 states from OSM, Overture, Recreation.gov, and WA DNR; each state loads on demand as you pan)
+- **Community spots:** traveler-reported places (dump, water, camp…) with amber-ringed dots — anonymous in-app reports pass a spam/profanity filter, publish nightly as *unverified*, and dated check-ins ("still there" / "gone", with comments) promote them to *verified* after two independent confirmations; every card shows when a spot was last confirmed (submission API: `worker/`, publish: `data-pipeline/merge_community.py` + the `community-merge` Action)
 - **MVUM Roads overlay:** the true USFS Motor Vehicle Use Map — which forest roads are legal to drive
 - **More overlays:** Hiking Trails (USFS/NPS), Names & Labels, BLM Public Land status
 - **Waypoints:** Save, edit, categorize, and color-code locations with icons (camp, trailhead, viewpoint, fuel, water, dump, hazard, etc.)
@@ -87,6 +88,8 @@ boondock/
 └── package.json
 
 web/                        # GitHub Pages PWA (live) — window.boondock shim over IndexedDB
+worker/                     # Cloudflare Worker: anonymous community reports → KV (see worker/README.md)
+data-pipeline/              # Python builds: sites, zones, nightly community merge
 ```
 
 ---
@@ -166,6 +169,7 @@ All tile and data sources are free and require no API key.
 | MVUM Roads | USFS Motor Vehicle Use Map (export rendering) | Legal forest roads by vehicle type, z10+ |
 | Hiking Trails | USFS / NPS National Trails | |
 | Sites | OSM + Overture + Recreation.gov RIDB (+ WA DNR) | Camping/RV/dump/water/trailheads — all 50 states, lazy-loaded per state |
+| Community spots | In-app traveler reports (`worker/` → nightly merge) | Amber-ringed dots in the Sites layer; check-in validated, unverified → verified |
 | Boondock Zones β | Derived from USFS ownership + MVUM roads (`data-pipeline/`) | Heuristic dispersed-camping likelihood polygons, slope-graded — national (empty where no MVUM data exists) |
 | Names & Labels | ESRI World Boundaries & Places | Mainly for Satellite |
 | Public Land | BLM Surface Management Agency | Who manages each parcel |
@@ -238,7 +242,9 @@ The full product vision and phased build plan live in [VISION.md](VISION.md).
 
 Inspired by [FreeRoam](https://github.com/FreeRoamApp) by Austin & Rachel — an
 open-source boondocking app whose feature set and architecture inform this
-project's roadmap.
+project's roadmap. The community-spots trust model — dated check-ins as their
+own record type, freshness always visible — follows FreeRoam's design and the
+community-validation spirit of [iOverlander](https://www.ioverlander.com/).
 
 Built with free and open data:
 - [OpenStreetMap](https://www.openstreetmap.org/) contributors

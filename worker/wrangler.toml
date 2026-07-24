@@ -1,0 +1,20 @@
+# Boondock Map community-reports Worker.
+# Deploy steps in worker/README.md — the kv id below must be replaced with
+# the one `wrangler kv namespace create` prints for your account.
+name = "boondock-community"
+main = "src/worker.js"
+compatibility_date = "2026-06-01"
+
+kv_namespaces = [
+  { binding = "COMMUNITY_KV", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
+]
+
+[vars]
+# "true" = every submission waits for approval (spam emergency dial).
+# "false" = clean submissions publish on the next merge; only filter-flagged
+# ones wait for review.
+REQUIRE_APPROVAL = "false"
+
+# Secrets (set with `wrangler secret put <NAME>`, never committed):
+#   ADMIN_TOKEN  long random string; protects /export /queue /moderate
+#   IP_SALT      long random string; salts the rate-limit IP hashes

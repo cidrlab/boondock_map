@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { communityEnabled } from '../../shared/community'
 import './Legend.css'
 
 // Official MVUM swatches come from the service's own legend endpoint
@@ -54,6 +55,12 @@ export default function Legend({ open, onClose }) {
           <div className="legend-row">
             <span className="legend-cluster">7</span>Several sites — tap to zoom in
           </div>
+          {communityEnabled() && (
+            <div className="legend-row">
+              <span className="legend-dot" style={{ background: '#19222C', border: '2px solid #fbbf24' }} />
+              Amber ring — community-reported
+            </div>
+          )}
 
           <div className="legend-section">Waypoint badges</div>
           <div className="legend-row"><span className="legend-dot" style={{ background: '#22c55e' }} />Been &amp; stayed</div>

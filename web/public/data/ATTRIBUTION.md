@@ -40,3 +40,13 @@ legal MVUM road (EDW_MVUM_01), both US Government / USFS public-domain
 services, clipped to each state's boundary polygon. States with no MVUM
 data (most plains states, Hawaii) have empty files. Heuristic only — not a
 statement of legality. Build script: `data-pipeline/build_zones.py`.
+
+## Community spots (`community.geojson`, `src: community`)
+Anonymous in-app traveler reports (dumps, water fills, campsites, RV parks,
+trailheads) with dated check-in comments. Unverified user content — no
+external source or license; spam-filtered on submission and republished
+nightly by `data-pipeline/merge_community.py` from the `worker/` submission
+queue. Spots are marked *verified* only after two independent check-in
+confirmations, and each carries its last-confirmed date. No IP data,
+account, or identity is collected or published. Trust model after FreeRoam's
+check-in records and iOverlander's community validation.

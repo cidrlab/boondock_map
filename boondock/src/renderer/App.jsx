@@ -5,6 +5,7 @@ import Guide from './components/Guide'
 import Sidebar from './components/Sidebar'
 import Toolbar from './components/Toolbar'
 import WaypointModal from './components/WaypointModal'
+import ReportSpotModal from './components/ReportSpotModal'
 import DownloadModal from './components/DownloadModal'
 import StatusBar from './components/StatusBar'
 import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
@@ -20,6 +21,7 @@ export default function App() {
   const [baseLayer, setBaseLayer] = useState(DEFAULT_BASE)
   const [overlays, setOverlays] = useState(DEFAULT_OVERLAYS)
   const [pendingWaypoint, setPendingWaypoint] = useState(null)
+  const [reportSpotAt, setReportSpotAt] = useState(null)   // lngLat for the community report dialog
   const [selectedWaypoint, setSelectedWaypoint] = useState(null)
   const [isRecordingTrack, setIsRecordingTrack] = useState(false)
   const [currentTrackPoints, setCurrentTrackPoints] = useState([])
@@ -388,6 +390,7 @@ export default function App() {
             setEditRequestId(id)
           }}
           onWaypointDelete={deleteWaypoint}
+          onReportSpot={setReportSpotAt}
         />
         <Legend open={helpPanel === 'legend'} onClose={() => setHelpPanel(null)} />
         <Guide open={helpPanel === 'guide'} onClose={() => setHelpPanel(null)} />
@@ -408,6 +411,14 @@ export default function App() {
           onSave={saveWaypoint}
           onCancel={() => setPendingWaypoint(null)}
           labelVocab={[...new Set(waypoints.flatMap(w => w.labels || []))].sort()}
+        />
+      )}
+
+      {reportSpotAt && (
+        <ReportSpotModal
+          lngLat={reportSpotAt}
+          onClose={() => setReportSpotAt(null)}
+          onSubmitted={(feature) => mapRef.current?.addCommunityFeature?.(feature)}
         />
       )}
 
