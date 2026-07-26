@@ -32,6 +32,15 @@ button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: tran
   position: relative;
 }
 
+/* Night Red tints the map itself, not the chrome. Filtering the WebGL canvas
+   alone leaves DOM overlays — waypoint markers, popups, controls — untouched,
+   so they keep the theme colors they already have instead of being filtered
+   twice. Site dots are canvas circle layers, so they DO go red along with the
+   map; the saved-waypoint pins are DOM markers and keep their own colors. */
+.maplibregl-canvas {
+  filter: var(--map-filter);
+}
+
 /* MapLibre control overrides — glassy dark ──────────────────────────────── */
 .maplibregl-ctrl-top-right { margin-top: 10px; margin-right: 10px; }
 .maplibregl-ctrl-bottom-right { margin-bottom: 36px; margin-right: 10px; }
@@ -53,10 +62,10 @@ button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: tran
   transition: background 0.1s !important;
   cursor: pointer;
 }
-/* MapLibre's default icons are dark — invert them so they read as live
-   controls on the glass background */
+/* MapLibre's default icons are dark. Each theme re-tints them so they read
+   against its own glass — a fixed invert vanished on the light background. */
 .maplibregl-ctrl button .maplibregl-ctrl-icon {
-  filter: brightness(0) invert(0.92);
+  filter: var(--ctrl-icon-filter);
 }
 .maplibregl-ctrl-group button:hover {
   background: var(--glass-hover) !important;
@@ -106,7 +115,7 @@ button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: tran
   font-size: 13px;
 }
 
-.maplibregl-popup-tip { border-top-color: rgba(25, 34, 44, 0.90) !important; }
+.maplibregl-popup-tip { border-top-color: var(--glass) !important; }
 .maplibregl-popup-close-button { color: var(--text-muted) !important; font-size: 18px; padding: 4px 8px; }
 .maplibregl-popup-close-button:hover { color: var(--text-primary) !important; background: transparent !important; }
 

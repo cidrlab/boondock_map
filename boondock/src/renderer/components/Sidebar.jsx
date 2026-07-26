@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { BASE_LAYERS, OVERLAY_LAYERS, SITE_KINDS } from '../../shared/layers'
+import { THEMES } from '../../shared/theme'
 import { listPacks, deletePack, storageEstimate } from '../../shared/offlineTiles'
 import { WP_STATUS_META, WP_STATUS_OPTIONS, WP_RATING_KEYS, statusBadgeColor, matchesWpFilter } from '../../shared/waypointMeta'
 import { parseCoords, formatCoords } from '../../shared/parseCoords'
@@ -18,7 +19,7 @@ const SHEET_STATES = ['peek', 'half', 'full']
 
 export default function Sidebar({
   activeTab, setActiveTab, waypoints, tracks,
-  overlays, setOverlays, baseLayer, setBaseLayer,
+  overlays, setOverlays, baseLayer, setBaseLayer, theme, setTheme,
   onWaypointClick, onWaypointDelete, onWaypointUpdate,
   selectedWaypoint, onShowDownloadModal, downloadBbox,
   onFlyTo, searchHistory, onAddSearchHistory, mapCenter,
@@ -624,6 +625,21 @@ export default function Sidebar({
                   title={l.description}
                 >
                   <span className="layer-card-label">{l.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="section-hdr" style={{ marginTop: 20 }}>Appearance</div>
+            <div className="theme-grid">
+              {THEMES.map(t => (
+                <button
+                  key={t.id}
+                  className={`layer-card theme-card ${theme === t.id ? 'active' : ''}`}
+                  onClick={() => setTheme(t.id)}
+                  title={t.description}
+                >
+                  <span className={`theme-swatch theme-swatch-${t.id}`} />
+                  <span className="layer-card-label">{t.label}</span>
                 </button>
               ))}
             </div>

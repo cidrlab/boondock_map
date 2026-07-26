@@ -38,6 +38,18 @@
   --text-secondary: rgba(232, 238, 244, 0.58);
   --text-muted:     rgba(232, 238, 244, 0.34);
 
+  /* Raw channels for the map popups, which mix their own opacities inline.
+     --fg-rgb is the text color, --overlay-rgb the wash used for subtle
+     fills, borders and scrollbars (light on dark; dark on light). */
+  --fg-rgb:         232, 238, 244;
+  --overlay-rgb:    255, 255, 255;
+
+  /* Filter applied to the map canvas — only Night Red uses it */
+  --map-filter:     none;
+
+  /* MapLibre ships dark control icons; each theme re-tints them */
+  --ctrl-icon-filter: brightness(0) invert(0.92);
+
   /* Sizing */
   --sidebar-w:      300px;
   --toolbar-h:      42px;
@@ -50,6 +62,105 @@
   --shadow-sm:      0 1px 3px rgba(0,0,0,0.3);
   --shadow-md:      0 4px 16px rgba(0,0,0,0.4);
   --shadow-lg:      0 8px 40px rgba(0,0,0,0.5);
+}
+
+/* ── Light theme ───────────────────────────────────────────────────────────
+   Pairs with the Boondock Day basemap. Same layout, inverted surfaces: the
+   CiDR red is darkened to #C1211A so it clears 4.5:1 against white for
+   text and small icons — the brand red on white is only 3.8:1. */
+:root[data-theme='light'] {
+  --bg-primary:     #eef2f7;
+  --bg-secondary:   #ffffff;
+  --bg-tertiary:    #e6ecf4;
+  --bg-elevated:    #dbe4ef;
+  --bg-hover:       #d2dced;
+  --bg-active:      #c3d2e8;
+
+  --glass:          rgba(255, 255, 255, 0.92);
+  --glass-border:   rgba(16, 21, 28, 0.10);
+  --glass-hover:    rgba(16, 21, 28, 0.05);
+
+  --border:         rgba(16, 21, 28, 0.12);
+  --border-strong:  rgba(16, 21, 28, 0.22);
+
+  --accent:         #C1211A;
+  --accent-hover:   #a41a14;
+  --accent-dim:     rgba(193, 33, 26, 0.10);
+  --accent-muted:   rgba(193, 33, 26, 0.28);
+
+  --accent-blue:    #223754;
+  --accent-blue-light: #223754;
+
+  /* Darkened so they read on white — the dark-theme values wash out */
+  --success:        #0f8a5f;
+  --danger:         #c0392f;
+  --warning:        #a26a04;
+
+  --text-primary:   #10151c;
+  --text-secondary: rgba(16, 21, 28, 0.62);
+  --text-muted:     rgba(16, 21, 28, 0.42);
+
+  --fg-rgb:         16, 21, 28;
+  --overlay-rgb:    16, 21, 28;
+
+  --ctrl-icon-filter: brightness(0) invert(0.18);
+
+  --shadow-sm:      0 1px 3px rgba(16, 21, 28, 0.10);
+  --shadow-md:      0 4px 16px rgba(16, 21, 28, 0.14);
+  --shadow-lg:      0 8px 40px rgba(16, 21, 28, 0.18);
+}
+
+/* ── Night Red ─────────────────────────────────────────────────────────────
+   Night-vision mode. Backgrounds go to near-black, every foreground sits in
+   the red band, and --map-filter pushes the map canvas itself to dim red
+   monochrome so the largest lit surface on screen stops emitting blue and
+   green. Colour-coding is deliberately sacrificed here: at night, keeping
+   dark adaptation matters more than telling green from amber, and every
+   status that uses colour also carries a word or icon. */
+:root[data-theme='red'] {
+  --bg-primary:     #0a0302;
+  --bg-secondary:   #140503;
+  --bg-tertiary:    #1d0805;
+  --bg-elevated:    #280b07;
+  --bg-hover:       #360f09;
+  --bg-active:      #45140c;
+
+  --glass:          rgba(18, 5, 3, 0.93);
+  --glass-border:   rgba(255, 106, 74, 0.16);
+  --glass-hover:    rgba(255, 106, 74, 0.07);
+
+  --border:         rgba(255, 106, 74, 0.20);
+  --border-strong:  rgba(255, 106, 74, 0.36);
+
+  --accent:         #ff6a4a;
+  --accent-hover:   #ff8566;
+  --accent-dim:     rgba(255, 106, 74, 0.14);
+  --accent-muted:   rgba(255, 106, 74, 0.30);
+
+  --accent-blue:    #45140c;
+  --accent-blue-light: #ff8a65;
+
+  /* Separated by brightness rather than hue, to stay inside the red band */
+  --success:        #ff9e7a;
+  --danger:         #ff3b30;
+  --warning:        #ff7043;
+
+  --text-primary:   #ff8a65;
+  --text-secondary: rgba(255, 138, 101, 0.62);
+  --text-muted:     rgba(255, 138, 101, 0.38);
+
+  --fg-rgb:         255, 138, 101;
+  --overlay-rgb:    255, 106, 74;
+
+  --ctrl-icon-filter: brightness(0) invert(0.62) sepia(1) saturate(8) hue-rotate(-25deg);
+
+  --shadow-sm:      0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md:      0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-lg:      0 8px 40px rgba(0, 0, 0, 0.7);
+
+  /* grayscale → sepia lands around amber; the hue-rotate walks it to red,
+     saturate deepens it, brightness takes the whole map down */
+  --map-filter: grayscale(1) sepia(1) saturate(3.4) hue-rotate(-28deg) brightness(0.62);
 }
 
 html, body, #root {
@@ -102,8 +213,8 @@ select { cursor: pointer; }
 /* ── Scrollbars ────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+::-webkit-scrollbar-thumb { background: rgba(var(--overlay-rgb),0.16); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(var(--overlay-rgb),0.28); }
 
 /* ── Transition utility ────────────────────────────────────────────────── */
 .transition { transition: all 0.15s ease; }
