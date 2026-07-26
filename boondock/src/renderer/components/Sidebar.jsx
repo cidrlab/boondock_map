@@ -7,11 +7,38 @@ import { parseCoords, formatCoords } from '../../shared/parseCoords'
 import { useGeocoder } from '../../shared/useGeocoder'
 import { usePoiSearch, POI_CATEGORIES } from '../../shared/usePoiSearch'
 import {
-  MapPin, Layers, Route, Download, Search, X, Edit3, Trash2,
+  MapPin, Layers, Route, Download, Search, X, Edit3, Trash2, ChevronDown,
   Loader, Navigation, MapPinPlus, Crosshair,
   WAYPOINT_ICON_COMPONENTS, WAYPOINT_COLORS,
 } from './Icons'
 import './Sidebar.css'
+
+// Collapsible sidebar section (VISION row 74). The Layers tab kept growing —
+// Appearance pushed the filters below the fold — so each block folds away and
+// remembers that per device.
+const COLLAPSE_KEY = 'boondock-collapsed-sections'
+
+// Elevation filter ceiling. Denali is 20,310 ft — the highest point in the US
+// per the 2015 USGS GPS resurvey — so 20,500 clears it and the top of the
+// slider genuinely means "no upper limit" (VISION row 68). It used to stop at
+// 8,250, which silently hid every site above that.
+const MAX_ELEV_FT = 20500
+
+function Section({ id, title, collapsed, onToggle, first, children }) {
+  return (
+    <div style={first ? undefined : { marginTop: 20 }}>
+      <button
+        className={`section-hdr section-toggle ${collapsed ? 'collapsed' : ''}`}
+        onClick={() => onToggle(id)}
+        aria-expanded={!collapsed}
+      >
+        <span>{title}</span>
+        <ChevronDown size={12} className="section-caret" />
+      </button>
+      {!collapsed && children}
+    </div>
+  )
+}
 
 const WAYPOINT_ICONS = ['generic','camp','water','hazard','trailhead','viewpoint','fuel','parking']
 
@@ -29,6 +56,14 @@ export default function Sidebar({
   tempFilter, setTempFilter, tempStatus,
   wpFilter, setWpFilter, wpColors, setWpColors, editRequestId, onEditHandled,
 }) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || {} } catch { return {} }
+  })
+  const toggleSection = (id) => setCollapsed(prev => {
+    const next = { ...prev, [id]: !prev[id] }
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)) } catch { /* private mode */ }
+    return next
+  })
   const [query, setQuery] = useState('')
   const [sheet, setSheet] = useState('peek')
   const sheetDragY = useRef(null)
@@ -615,7 +650,7 @@ export default function Sidebar({
         {/* LAYERS */}
         {activeTab === 'layers' && (
           <div>
-            <div className="section-hdr">Base Map</div>
+            <Section id="base" title="Base Map" first={true} collapsed={collapsed.base} onToggle={toggleSection}>
             <div className="layer-grid">
               {Object.values(BASE_LAYERS).map(l => (
                 <button
@@ -628,8 +663,9 @@ export default function Sidebar({
                 </button>
               ))}
             </div>
+            </Section>
 
-            <div className="section-hdr" style={{ marginTop: 20 }}>Appearance</div>
+            <Section id="theme" title="Appearance" first={false} collapsed={collapsed.theme} onToggle={toggleSection}>
             <div className="theme-grid">
               {THEMES.map(t => (
                 <button
@@ -643,8 +679,9 @@ export default function Sidebar({
                 </button>
               ))}
             </div>
+            </Section>
 
-            <div className="section-hdr" style={{ marginTop: 20 }}>Overlays</div>
+            <Section id="overlay" title="Overlays" first={false} collapsed={collapsed.overlay} onToggle={toggleSection}>
             <div className="overlay-grid">
               {Object.entries(OVERLAY_LAYERS).map(([id, layer]) => (
                 <button
@@ -657,8 +694,9 @@ export default function Sidebar({
                 </button>
               ))}
             </div>
+            </Section>
 
-            <div className="section-hdr" style={{ marginTop: 20 }}>Site Filter</div>
+            <Section id="sites" title="Site Filter" first={false} collapsed={collapsed.sites} onToggle={toggleSection}>
             <div className="site-kind-row">
               <button
                 className={`poi-chip ${siteKinds == null ? 'active' : ''}`}
@@ -686,7 +724,7 @@ export default function Sidebar({
                 <span>{siteMinElev == null ? 'Any' : `${siteMinElev.toLocaleString()} ft`}</span>
               </label>
               <input
-                type="range" min={0} max={7500} step={250}
+                type="range" min={0} max={20000} step={250}
                 value={siteMinElev ?? 0}
                 onChange={e => {
                   const v = +e.target.value
@@ -700,24 +738,26 @@ export default function Sidebar({
                 <span>{siteMaxElev == null ? 'Any' : `${siteMaxElev.toLocaleString()} ft`}</span>
               </label>
               <input
-                type="range" min={1000} max={8500} step={250}
-                value={siteMaxElev ?? 8500}
+                type="range" min={1000} max={MAX_ELEV_FT} step={250}
+                value={siteMaxElev ?? MAX_ELEV_FT}
                 onChange={e => {
                   const v = +e.target.value
-                  const next = v >= 8500 ? null : v
+                  const next = v >= MAX_ELEV_FT ? null : v
                   setSiteMaxElev(next)
                   if (next != null && siteMinElev != null && siteMinElev > next) setSiteMinElev(null)
                 }}
               />
             </div>
+            </Section>
 
-            <div className="section-hdr" style={{ marginTop: 20 }}>Temperature Filter</div>
+            <Section id="temp" title="Temperature Filter" first={false} collapsed={collapsed.temp} onToggle={toggleSection}>
             <p className="dl-info">
               Filter by the forecast: where the coming days fit your limits, the
               map shades blue and sites outside it are hidden. Slide an end to
               its edge for “Any”. Forecasts: Open-Meteo, up to 16 days out.
             </p>
             <TempFilter tempFilter={tempFilter} setTempFilter={setTempFilter} tempStatus={tempStatus} />
+            </Section>
 
           </div>
         )}

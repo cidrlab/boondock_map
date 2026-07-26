@@ -133,9 +133,19 @@ const Map = forwardRef(function Map(
       zoom: initialViewport.zoom ?? DEFAULT_ZOOM,
       maxZoom: 19,
       attributionControl: { compact: window.matchMedia('(max-width: 768px)').matches },
+      // Tilt and rotate stay available, but only deliberately (VISION row 88).
+      // A two-finger trackpad drag is far too easy to fire by accident, and
+      // landing in a pitched 3D view while scouting a road is disorienting on
+      // a north-up planning map. Right-drag / ctrl-drag still rotates.
+      touchPitch: false,
     })
+    map.current.touchZoomRotate.disableRotation()
 
-    map.current.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right')
+    // visualizePitch tilts the needle, so the compass shows you're off-flat
+    map.current.addControl(
+      new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }),
+      'top-right'
+    )
     map.current.addControl(new maplibregl.ScaleControl({ maxWidth: 200, unit: 'imperial' }), 'bottom-right')
     const geolocate = new maplibregl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true },
@@ -143,6 +153,13 @@ const Map = forwardRef(function Map(
       showUserHeading: true,
     })
     map.current.addControl(geolocate, 'bottom-right')
+
+    // MapLibre's compass only resets bearing, so a pitched map stays pitched
+    // and there's no obvious way back to flat. Reset both.
+    const compass = mapContainer.current?.querySelector('.maplibregl-ctrl-compass')
+    compass?.addEventListener('click', () => {
+      map.current?.easeTo({ bearing: 0, pitch: 0, duration: 300 })
+    })
 
     // Several overlays are rendered on demand by third-party servers — the
     // USFS ArcGIS host in particular does go down (verified 2026-07-25:

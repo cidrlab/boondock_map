@@ -25,6 +25,12 @@ export const POI_CATEGORIES = [
   { id: 'picnic',      label: 'Picnic',       tags: '"tourism"="picnic_site"',              radius: 15000 },
   { id: 'viewpoint',   label: 'Viewpoint',    tags: '"tourism"="viewpoint"',                radius: 20000 },
   { id: 'lodging',     label: 'Lodging',      tags: '"tourism"~"hotel|motel|hostel|guest_house"', radius: 15000 },
+  // Two exact selectors, not one regex: Overpass returns nothing for *any*
+  // value regex on the `highway` key — verified 2026-07-26 near I-80 Wyoming,
+  // where ["highway"="rest_area"] found Bitter Creek Rest Area but
+  // ["highway"~"rest_area"] found nothing. Rest stops are rural and sparse,
+  // hence the wide radius.
+  { id: 'rest_area',   label: 'Rest stop',    tags: ['"highway"="rest_area"', '"highway"="services"'], radius: 60000 },
 ]
 
 // Map OSM tags to display info
@@ -37,6 +43,7 @@ function categorize(tags) {
   if (tags.amenity === 'sanitary_dump_station') return { category: 'dump', icon: 'generic' }
   if (tags.amenity === 'toilets') return { category: 'water', icon: 'generic' }
   if (tags.highway === 'trailhead') return { category: 'trailhead', icon: 'trailhead' }
+  if (tags.highway === 'rest_area' || tags.highway === 'services') return { category: 'rest_area', icon: 'parking' }
   if (tags.tourism === 'picnic_site') return { category: 'picnic', icon: 'viewpoint' }
   if (tags.tourism === 'viewpoint') return { category: 'viewpoint', icon: 'viewpoint' }
   if (tags.tourism === 'hotel' || tags.tourism === 'motel') return { category: 'lodging', icon: 'generic' }
@@ -65,7 +72,14 @@ export function usePoiSearch() {
     setActiveCategory(categoryId)
 
     try {
-      const query = `[out:json][timeout:15];(node[${cat.tags}](around:${cat.radius},${center.lat},${center.lng});way[${cat.tags}](around:${cat.radius},${center.lat},${center.lng}););out center body;`
+      // A category may carry several selectors; each needs its own node+way
+      // pair, since Overpass can't regex some keys (see rest_area above)
+      const selectors = Array.isArray(cat.tags) ? cat.tags : [cat.tags]
+      const around = `(around:${cat.radius},${center.lat},${center.lng})`
+      const parts = selectors
+        .map(sel => `node[${sel}]${around};way[${sel}]${around};`)
+        .join('')
+      const query = `[out:json][timeout:25];(${parts});out center body;`
 
       const res = await fetch(OVERPASS_URL, {
         method: 'POST',

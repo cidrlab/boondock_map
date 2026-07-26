@@ -288,10 +288,17 @@
   padding: 12px;
 }
 
+/* Section headers double as fold toggles on the Layers tab (VISION row 74) */
+.section-toggle { cursor: pointer; text-align: left; }
+.section-toggle:hover { color: var(--text-secondary); }
+.section-caret { transition: transform 0.15s; opacity: 0.7; }
+.section-toggle.collapsed .section-caret { transform: rotate(-90deg); }
+
 .section-hdr {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
