@@ -12,9 +12,10 @@
  * or after 45 days, in case it was rejected in review.
  */
 
-// Paste the deployed Worker URL here (worker/README.md prints it). Empty
-// hides every community write control; the published layer still renders.
-const DEFAULT_COMMUNITY_API = ''
+// The deployed Worker (worker/README.md prints this on `wrangler deploy`).
+// Empty hides every community write control; the published layer still
+// renders. Deployed 2026-07-25; /health verified live.
+const DEFAULT_COMMUNITY_API = 'https://boondock-community.cidr-lab.workers.dev'
 
 export const COMMUNITY_API =
   (import.meta.env?.VITE_COMMUNITY_API || DEFAULT_COMMUNITY_API).replace(/\/+$/, '')

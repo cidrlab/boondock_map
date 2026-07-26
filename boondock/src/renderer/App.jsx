@@ -6,11 +6,14 @@ import Sidebar from './components/Sidebar'
 import Toolbar from './components/Toolbar'
 import WaypointModal from './components/WaypointModal'
 import ReportSpotModal from './components/ReportSpotModal'
+import FeedbackModal from './components/FeedbackModal'
 import DownloadModal from './components/DownloadModal'
 import StatusBar from './components/StatusBar'
 import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
 import { elevationAt } from '../shared/elevation'
 import { matchesWpFilter } from '../shared/waypointMeta'
+import { DEFAULT_THEME, THEME_IDS, applyTheme } from '../shared/theme'
+import { feedbackEnabled } from '../shared/feedback'
 import './styles/app.css'
 
 export default function App() {
@@ -19,6 +22,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState('layers')
   const [baseLayer, setBaseLayer] = useState(DEFAULT_BASE)
+  const [theme, setTheme] = useState(DEFAULT_THEME)   // 'auto' follows the basemap
   const [overlays, setOverlays] = useState(DEFAULT_OVERLAYS)
   const [pendingWaypoint, setPendingWaypoint] = useState(null)
   const [reportSpotAt, setReportSpotAt] = useState(null)   // lngLat for the community report dialog
@@ -41,6 +45,7 @@ export default function App() {
   const [wpFilter, setWpFilter] = useState({ status: null, favorite: false, labels: [] })
   const [wpColors, setWpColors] = useState({})       // per-category pin color overrides
   const [editRequestId, setEditRequestId] = useState(null)   // popup "Edit waypoint" → sidebar
+  const [showFeedback, setShowFeedback] = useState(false)
   const [downloadMode, setDownloadMode] = useState(false)
   const [downloadBbox, setDownloadBbox] = useState(null)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
@@ -78,6 +83,7 @@ export default function App() {
       }
       // Migrate prefs from older layer models: unknown ids fall back
       if (prefs.baseLayer && BASE_LAYERS[prefs.baseLayer]) setBaseLayer(prefs.baseLayer)
+      if (prefs.theme && THEME_IDS.includes(prefs.theme)) setTheme(prefs.theme)
       if (prefs.overlays) {
         const known = Object.fromEntries(
           Object.entries(prefs.overlays).filter(([k]) => k in DEFAULT_OVERLAYS)
@@ -103,6 +109,10 @@ export default function App() {
     })
   }, [])
 
+  // Chrome theme: 'auto' resolves against the basemap, so picking Boondock
+  // Day lightens the sidebar too (VISION rows 63/64)
+  useEffect(() => { applyTheme(theme, baseLayer) }, [theme, baseLayer])
+
   // ── Auto-save waypoints whenever they change ─────────────────────────────
   useEffect(() => {
     if (!api || !wpLoadedRef.current) return
@@ -124,6 +134,7 @@ export default function App() {
       center: [c.lng, c.lat],
       zoom: m.getZoom(),
       baseLayer,
+      theme,
       overlays,
       siteMinElev,
       siteMaxElev,
@@ -131,10 +142,10 @@ export default function App() {
       tempFilter,
       wpColors,
     })
-  }, [baseLayer, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors])
+  }, [baseLayer, theme, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors])
 
   // Save prefs when base layer, overlays, filters, or colors change
-  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors])
+  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, theme, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors])
 
   // Expose a handler for Map to call on moveend (debounced)
   const handleViewportChange = useCallback(() => {
@@ -288,6 +299,8 @@ export default function App() {
       <Toolbar
         helpPanel={helpPanel}
         onToggleHelp={(which) => setHelpPanel(p => p === which ? null : which)}
+        onFeedback={() => setShowFeedback(true)}
+        feedbackEnabled={feedbackEnabled()}
         isRecordingTrack={isRecordingTrack}
         onStartTrack={startTrack}
         onStopTrack={stopTrack}
@@ -314,6 +327,8 @@ export default function App() {
             setOverlays={setOverlays}
             baseLayer={baseLayer}
             setBaseLayer={setBaseLayer}
+            theme={theme}
+            setTheme={setTheme}
             onWaypointClick={flyToWaypoint}
             onWaypointDelete={deleteWaypoint}
             onWaypointUpdate={updateWaypoint}
@@ -394,6 +409,7 @@ export default function App() {
         />
         <Legend open={helpPanel === 'legend'} onClose={() => setHelpPanel(null)} />
         <Guide open={helpPanel === 'guide'} onClose={() => setHelpPanel(null)} />
+        {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
         {searchArea && (
           <button className="search-area-btn" onClick={() => searchArea.run()}>
             Search this area

@@ -30,7 +30,19 @@ style, keep the surface plain, double-check before shipping, and skip chatty
   `boondock/src/renderer/components/Guide.jsx` in the same commit. The Guide
   must only describe features that actually exist and work.
 - **Every feature request goes into `VISION.md`'s backlog table** — nothing
-  gets dropped; mark rows shipped with date + evidence.
+  gets dropped; mark rows shipped with date + evidence. Log it *when it is
+  asked*, with the date, before starting work (Tim, 2026-07-25).
+- **Treat public datasets as at risk** (Tim, 2026-07-25): assume US federal
+  sources can be withdrawn, paywalled, or quietly stop updating. Keep using the
+  official server while it is there, but register every bulk dependency in
+  `data-pipeline/upstream_sources.json` and mirror a backup copy when we first
+  depend on it (`mirror_upstream.py`). `check_upstream.py` runs weekly and
+  flags anything that changed, went stale, or has no backup. Backups of
+  **20 MB or less get committed to the repo**; larger ones go to
+  `~/data/[org]/[repo]/` — here `~/data/cidrlab/boondock_map/` — which is
+  the convention for any saved data across projects (GitHub refuses files
+  past 100 MB). Held as of 2026-07-25: MVUM, trails, RoadCore (868 MB). When proposing a
+  new data source, say what the backup plan is in the same breath.
 
 ## Repo orientation
 

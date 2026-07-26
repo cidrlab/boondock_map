@@ -6,7 +6,7 @@ main = "src/worker.js"
 compatibility_date = "2026-06-01"
 
 kv_namespaces = [
-  { binding = "COMMUNITY_KV", id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
+  { binding = "COMMUNITY_KV", id = "82bcfa123dcc4690952905c9f52ce16e" }
 ]
 
 [vars]

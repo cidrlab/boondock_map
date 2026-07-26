@@ -23,12 +23,22 @@
  *                        st: auto | held | ok (approved) | no (rejected)
  *   ci:<spot>:<ip>:<day> {spot, date, ok, comment, ip, held}   one per person/day
  *   fl:<spot>:<ip>:<day> {spot, date, reason, ip}
- *   rl:<ip>:<day>        {spots, actions}                      TTL 2 days
+ *   rl:<ip>:<day>        {spots, actions, feedback}            TTL 2 days
+ *   fb:<id>              {id, kind, message, contact, created, ip, st, flags}
+ *                        st: new | filed | no
+ *
+ * Feedback (VISION row 66) rides the same channel so anyone can report a bug
+ * or ask for a feature without a GitHub account. The Worker only stores it;
+ * a nightly GitHub Action opens the issues using the repo's own GITHUB_TOKEN,
+ * so no GitHub credential is ever held here.
  */
 
 import { BLOCKED_WORDS } from './wordlist.js'
 
 const KINDS = new Set(['campsite', 'rv_park', 'dump', 'water', 'trailhead'])
+const FEEDBACK_KINDS = new Set(['bug', 'idea', 'data', 'other'])
+const MAX_FEEDBACK = 2000
+const FEEDBACK_PER_DAY = 5
 const MAX_NAME = 80
 const MAX_TEXT = 280
 const MAX_BODY_BYTES = 8192
@@ -56,6 +66,9 @@ export default {
       if (request.method === 'POST' && path === '/submit') return await handleSubmit(request, env)
       if (request.method === 'POST' && path === '/checkin') return await handleCheckin(request, env)
       if (request.method === 'POST' && path === '/flag') return await handleFlag(request, env)
+      if (request.method === 'POST' && path === '/feedback') return await handleFeedback(request, env)
+      if (path === '/feedback-export') return await requireAdmin(request, env, handleFeedbackExport)
+      if (request.method === 'POST' && path === '/feedback-filed') return await requireAdmin(request, env, handleFeedbackFiled)
       if (path === '/export') return await requireAdmin(request, env, handleExport)
       if (path === '/queue') return await requireAdmin(request, env, handleQueue)
       if (request.method === 'POST' && path === '/moderate') return await requireAdmin(request, env, handleModerate)
@@ -156,9 +169,14 @@ function today() {
 
 async function bumpRateLimit(env, ip, field, limit) {
   const key = `rl:${ip}:${today()}`
-  const cur = (await env.COMMUNITY_KV.get(key, 'json')) || { spots: 0, actions: 0 }
-  if (cur[field] >= limit) throw new ApiError(429, 'Daily limit reached — try again tomorrow')
-  cur[field]++
+  const cur = (await env.COMMUNITY_KV.get(key, 'json')) || {}
+  // Read the counter defensively: a field absent from an older record (or a
+  // newly added one like `feedback`) must start at 0. `cur[field]++` on
+  // undefined yields NaN, and NaN >= limit is always false, which silently
+  // disables the limit for that field.
+  const used = Number(cur[field]) || 0
+  if (used >= limit) throw new ApiError(429, 'Daily limit reached — try again tomorrow')
+  cur[field] = used + 1
   await env.COMMUNITY_KV.put(key, JSON.stringify(cur), { expirationTtl: 172800 })
 }
 
@@ -276,6 +294,68 @@ async function handleFlag(request, env) {
   return json({ ok: true }, 201)
 }
 
+// ── Feedback ────────────────────────────────────────────────────────────────
+//
+// Deliberately not a spot: free text, no coordinates, and it becomes a GitHub
+// issue rather than map data. Contact is optional — the whole point is that
+// someone with no account can still be heard — and it is the one field that
+// can carry an email, so the link/email filters must not reject on it.
+
+async function handleFeedback(request, env) {
+  const body = await readBody(request)
+  const kind = String(body.kind || '')
+  if (!FEEDBACK_KINDS.has(kind)) throw new ApiError(400, 'Unknown feedback kind')
+  const message = cleanText(body.message, MAX_FEEDBACK)
+  if (message.length < 10) throw new ApiError(400, 'Please add a little more detail')
+  const contact = cleanText(body.contact, 120)
+
+  // Profanity still rejects; the softer signals only hold for review, and are
+  // checked on the message alone so a contact address can't trip them
+  if (hasBlockedWord(message)) throw new ApiError(422, 'Submission rejected')
+  const holds = []
+  const v = inspectText(message)
+  if (v?.hold) holds.push(v.hold)
+  if (contact && hasBlockedWord(contact)) throw new ApiError(422, 'Submission rejected')
+
+  const ip = await ipHash(request, env)
+  await bumpRateLimit(env, ip, 'feedback', FEEDBACK_PER_DAY)
+
+  const requireApproval = String(env.REQUIRE_APPROVAL) === 'true'
+  const st = holds.length || requireApproval ? 'held' : 'new'
+  const id = 'f_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10)
+  const record = { id, kind, message, contact, created: new Date().toISOString(), ip, st, flags: holds }
+  await env.COMMUNITY_KV.put(`fb:${id}`, JSON.stringify(record), { metadata: { st } })
+  return json({ ok: true, id, held: st === 'held' }, 201)
+}
+
+// Only what the issue-filing Action should act on; held items wait for /queue
+async function handleFeedbackExport(request, env) {
+  const all = await getAllValues(env, 'fb:')
+  const pending = all.filter((f) => f.st === 'new')
+  // The IP hash is for rate limiting only and must never leave the Worker
+  const safe = pending.map(({ ip, ...rest }) => rest)
+  return json({ ok: true, exported: new Date().toISOString(), feedback: safe })
+}
+
+// Called back by the Action once an issue exists, so nothing is filed twice
+async function handleFeedbackFiled(request, env) {
+  const body = await readBody(request)
+  const filed = Array.isArray(body.filed) ? body.filed : []
+  const updated = []
+  for (const entry of filed.slice(0, 200)) {
+    const id = String(entry.id || '')
+    if (!/^f_[0-9a-f]{10}$/.test(id)) continue
+    const key = `fb:${id}`
+    const rec = await env.COMMUNITY_KV.get(key, 'json')
+    if (!rec || rec.st !== 'new') continue
+    rec.st = 'filed'
+    rec.issue = Number(entry.issue) || null
+    await env.COMMUNITY_KV.put(key, JSON.stringify(rec), { metadata: { st: 'filed' } })
+    updated.push(id)
+  }
+  return json({ ok: true, updated })
+}
+
 // ── Admin endpoints ─────────────────────────────────────────────────────────
 
 async function requireAdmin(request, env, handler) {
@@ -325,8 +405,10 @@ async function handleQueue(request, env) {
   ])
   const flagCounts = {}
   for (const f of flags) flagCounts[f.spot] = (flagCounts[f.spot] || 0) + 1
+  const feedback = await getAllValues(env, 'fb:')
   return json({
     ok: true,
+    held_feedback: feedback.filter((f) => f.st === 'held'),
     held_spots: spots.filter((s) => s.st === 'held'),
     flagged_spots: spots.filter((s) => s.st !== 'no' && flagCounts[s.id]),
     held_checkins: checkins.filter((c) => c.held),
@@ -342,6 +424,18 @@ async function handleModerate(request, env) {
     if (!String(body.key || '').startsWith('ci:')) throw new ApiError(400, 'Bad key')
     await env.COMMUNITY_KV.delete(body.key)
     return json({ ok: true })
+  }
+  if (body.type === 'feedback') {
+    const fid = String(body.id || '')
+    if (!/^f_[0-9a-f]{10}$/.test(fid)) throw new ApiError(400, 'Bad feedback id')
+    const rec = await env.COMMUNITY_KV.get(`fb:${fid}`, 'json')
+    if (!rec) throw new ApiError(404, 'Feedback not found')
+    // approve releases it to the next issue-filing run; reject drops it
+    const fst = { approve: 'new', reject: 'no', delete: 'no' }[action]
+    if (!fst) throw new ApiError(400, 'Unknown action')
+    rec.st = fst
+    await env.COMMUNITY_KV.put(`fb:${fid}`, JSON.stringify(rec), { metadata: { st: fst } })
+    return json({ ok: true, id: fid, st: fst })
   }
   const id = String(body.id || '')
   const key = `spot:${id}`

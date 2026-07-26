@@ -1,0 +1,58 @@
+# Weekly check that the upstream map datasets are still there, still current,
+# and still backed up (VISION rows 84/85).
+#
+# Two failure modes this catches, both silent otherwise:
+#   * upstream published new data and our self-hosted copy is now stale
+#   * upstream withdrew the dataset entirely
+#
+# Cheap by design: HEAD requests only, no ~450 MB download. Opens (or comments
+# on) a single issue rather than one per week.
+name: Check upstream data sources
+
+on:
+  schedule:
+    - cron: '20 10 * * 1'   # Mondays, 10:20 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: upstream-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check upstream sources
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Exit 2 means "something changed", which is a normal outcome here, not
+        # a build failure. Exit 1 (unreachable) is worth surfacing as a failure
+        # only after the issue has been filed.
+        run: |
+          set +e
+          python3 data-pipeline/check_upstream.py --update --issue
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 1 ]; then
+            echo "::warning::At least one upstream source could not be reached"
+          fi
+          exit 0
+
+      - name: Commit the refreshed manifest
+        run: |
+          if git diff --quiet data-pipeline/upstream_sources.json; then
+            echo "No manifest change"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data-pipeline/upstream_sources.json
+          git commit -m "Upstream check: record current source state"
+          git push

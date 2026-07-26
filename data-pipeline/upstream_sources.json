@@ -1,0 +1,87 @@
+{
+  "_comment": [
+    "Upstream bulk datasets we depend on (VISION rows 84/85). Each entry records",
+    "the cache validators seen the last time we looked, so a weekly HEAD request",
+    "can tell us the file changed without downloading it.",
+    "",
+    "'seen' is what upstream served at 'checked'. 'built_from' is the Last-Modified",
+    "of the copy our published data was actually built from \u2014 when the two differ,",
+    "our map is behind upstream. Set built_from when a rebuild ships.",
+    "",
+    "'backup' records whether we hold our own copy. Standing rule (Tim, 2026-07-25):",
+    "assume US federal datasets can be withdrawn or quietly stop updating, so mirror",
+    "a copy when we first depend on one. Use upstream while it is there; keep the",
+    "backup so a withdrawal is an inconvenience rather than a dead feature.",
+    "Where a backup lives depends on size (Tim, 2026-07-25): <= 20 MB is better",
+    "committed into this repo, where it is versioned and cannot be lost with a",
+    "laptop; anything larger goes to ~/data/cidrlab/boondock_map, since GitHub",
+    "warns past 50 MB and refuses past 100 MB per file.",
+    "",
+    "Adding a source: append an object with id/label/url/risk. The checker fills the rest."
+  ],
+  "sources": [
+    {
+      "id": "usfs-mvum",
+      "label": "USFS MVUM roads (national shapefile)",
+      "url": "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.Road_MVUM.zip",
+      "seen": {
+        "last_modified": "Sun, 11 May 2025 17:12:01 GMT",
+        "etag": "\"e0dbc1d-634df4c40bd5d\"",
+        "content_length": 235781149
+      },
+      "checked": "2026-07-25",
+      "built_from": null,
+      "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
+      "backup": {
+        "held": true,
+        "location": "/Users/buffalo/data/cidrlab/boondock_map/S_USA.Road_MVUM.zip",
+        "sha256": "b950e22a4ef928a525642d3e48e5612dde4a1082c67d0194be2540c1318866cb",
+        "date": "2026-07-25",
+        "stamp": "Sun, 11 May 2025 17:12:01 GMT",
+        "bytes": 235781149
+      }
+    },
+    {
+      "id": "usfs-trails",
+      "label": "USFS trails (national shapefile)",
+      "url": "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.TrailNFS_Publish.zip",
+      "seen": {
+        "last_modified": "Sun, 11 May 2025 17:12:49 GMT",
+        "etag": "\"db473fa-634df4f1e0813\"",
+        "content_length": 229929978
+      },
+      "checked": "2026-07-25",
+      "built_from": null,
+      "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
+      "backup": {
+        "held": true,
+        "location": "/Users/buffalo/data/cidrlab/boondock_map/S_USA.TrailNFS_Publish.zip",
+        "sha256": "3ef74da7adc6e7febd95562999b8981e1b7001a5ca11ea92764a419c3829ffd1",
+        "date": "2026-07-25",
+        "stamp": "Sun, 11 May 2025 17:12:49 GMT",
+        "bytes": 229929978
+      }
+    },
+    {
+      "id": "usfs-roadcore",
+      "label": "USFS RoadCore, all Forest Service roads (national shapefile)",
+      "url": "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.RoadCore_FS.zip",
+      "seen": {
+        "last_modified": null,
+        "etag": null,
+        "content_length": null
+      },
+      "checked": null,
+      "built_from": null,
+      "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
+      "backup": {
+        "held": true,
+        "location": "/Users/buffalo/data/cidrlab/boondock_map/S_USA.RoadCore_FS.zip",
+        "sha256": "e7ae4ad218459c18d700b97f935b8b9a9d7fc289bd69a61391f308a6c36bb38a",
+        "date": "2026-07-25",
+        "stamp": null,
+        "bytes": 432024035
+      }
+    }
+  ]
+}

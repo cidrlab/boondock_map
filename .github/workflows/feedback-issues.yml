@@ -1,0 +1,52 @@
+# Files in-app feedback as GitHub issues (VISION row 66).
+#
+# The Worker stores anonymous feedback; this run opens the issues using the
+# workflow's own GITHUB_TOKEN, so no GitHub credential is ever stored in
+# Cloudflare. That is what lets someone without a GitHub account file an issue.
+#
+# Inert until the repo secrets COMMUNITY_API and COMMUNITY_ADMIN_TOKEN exist
+# (worker/README.md, step 2). Note GitHub suspends cron schedules after ~60
+# days without repo activity; a manual "Run workflow" revives it.
+name: File feedback as issues
+
+on:
+  schedule:
+    - cron: '43 9 * * *'   # 09:43 UTC ≈ 2:43 AM Pacific, after the community merge
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: feedback-issues
+  cancel-in-progress: false
+
+jobs:
+  file:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The API rejects an issue that names a label the repo doesn't have, so
+      # make sure they exist. Already-exists returns 422, which is fine.
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for spec in "from-app:0e8a16:Filed from in-app feedback" \
+                      "bug:d73a4a:Something is broken" \
+                      "enhancement:a2eeef:Feature request" \
+                      "data:0052cc:Map data problem"; do
+            name="${spec%%:*}"; rest="${spec#*:}"
+            color="${rest%%:*}"; desc="${rest#*:}"
+            gh api "repos/${GITHUB_REPOSITORY}/labels" -X POST \
+              -f name="$name" -f color="$color" -f description="$desc" \
+              >/dev/null 2>&1 || echo "label '$name' already exists"
+          done
+
+      - name: File pending feedback
+        env:
+          COMMUNITY_API: ${{ secrets.COMMUNITY_API }}
+          COMMUNITY_ADMIN_TOKEN: ${{ secrets.COMMUNITY_ADMIN_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 worker/scripts/file_feedback.py
