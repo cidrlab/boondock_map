@@ -1,7 +1,40 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, dialog, protocol, net } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
+const { pathToFileURL } = require('url')
+
+// ─── Renderer origin ─────────────────────────────────────────────────────────
+// The built renderer used to load over file://, which is an opaque origin, so
+// web security had to be switched off wholesale to let the map talk to tile and
+// API hosts. Serving the same files over a registered app:// scheme gives the
+// renderer a real, secure origin instead, so webSecurity stays ON (VISION row
+// 71). Must be declared before app is ready.
+const RENDERER_SCHEME = 'app'
+const RENDERER_ORIGIN = `${RENDERER_SCHEME}://boondock`
+// electron-builder packs `dist/**` and `src/main/**` side by side, so dist sits
+// two levels up from this file, not one (VISION row 75).
+const DIST_DIR = path.join(__dirname, '../../dist')
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: RENDERER_SCHEME,
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true },
+  },
+])
+
+function registerRendererProtocol() {
+  protocol.handle(RENDERER_SCHEME, async (request) => {
+    const { pathname } = new URL(request.url)
+    const rel = decodeURIComponent(pathname === '/' ? '/index.html' : pathname)
+    const filePath = path.normalize(path.join(DIST_DIR, rel))
+    // Never serve outside the bundle, whatever the URL claims
+    if (filePath !== DIST_DIR && !filePath.startsWith(DIST_DIR + path.sep)) {
+      return new Response('Forbidden', { status: 403 })
+    }
+    return net.fetch(pathToFileURL(filePath).toString())
+  })
+}
 
 // ─── iCloud sync path ───────────────────────────────────────────────────────
 // Points save here → iCloud syncs to iPhone automatically
@@ -15,15 +48,36 @@ const TRACKS_FILE    = path.join(SYNC_DIR, 'tracks.json')
 const PREFS_FILE     = path.join(SYNC_DIR, 'preferences.json')
 const HISTORY_FILE   = path.join(SYNC_DIR, 'search-history.json')
 
+// Waypoints and tracks are the user's own data, so a save must never throw
+// into an unhandled IPC rejection (EPERM on iCloud did exactly that — VISION
+// row 77) and must never leave a half-written file behind. Write to a sibling
+// temp file, then rename, which is atomic within a directory.
+function writeJsonSafe(file, data) {
+  const tmp = `${file}.tmp`
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2))
+    fs.renameSync(tmp, file)
+    return { ok: true }
+  } catch (e) {
+    try { fs.unlinkSync(tmp) } catch {}
+    console.error(`Save failed for ${file}: ${e.message}`)
+    return { ok: false, error: e.message }
+  }
+}
+
 function ensureSyncDir() {
-  if (!fs.existsSync(SYNC_DIR)) {
-    fs.mkdirSync(SYNC_DIR, { recursive: true })
-  }
-  if (!fs.existsSync(WAYPOINTS_FILE)) {
-    fs.writeFileSync(WAYPOINTS_FILE, JSON.stringify([], null, 2))
-  }
-  if (!fs.existsSync(TRACKS_FILE)) {
-    fs.writeFileSync(TRACKS_FILE, JSON.stringify([], null, 2))
+  try {
+    if (!fs.existsSync(SYNC_DIR)) {
+      fs.mkdirSync(SYNC_DIR, { recursive: true })
+    }
+    if (!fs.existsSync(WAYPOINTS_FILE)) {
+      fs.writeFileSync(WAYPOINTS_FILE, JSON.stringify([], null, 2))
+    }
+    if (!fs.existsSync(TRACKS_FILE)) {
+      fs.writeFileSync(TRACKS_FILE, JSON.stringify([], null, 2))
+    }
+  } catch (e) {
+    console.error(`Could not prepare the iCloud sync folder: ${e.message}`)
   }
 }
 
@@ -51,11 +105,16 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false, // needed for loading local tile files
     },
   })
 
-  const isDev = !app.isPackaged
+  // A bad renderer path used to show as a silent white window; say so instead
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    console.error(`Renderer failed to load (${code} ${desc}): ${url}`)
+  })
+
+  // BOONDOCK_FORCE_PROD exercises the packaged load path from a dev checkout
+  const isDev = !app.isPackaged && process.env.BOONDOCK_FORCE_PROD !== '1'
   if (isDev && process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
     mainWindow.webContents.openDevTools({ mode: 'detach' })
@@ -63,13 +122,14 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    mainWindow.loadURL(`${RENDERER_ORIGIN}/index.html`)
   }
 }
 
 app.whenReady().then(() => {
   ensureSyncDir()
   ensureTilesDir()
+  registerRendererProtocol()
   createWindow()
 
   app.on('activate', () => {
@@ -91,26 +151,46 @@ ipcMain.handle('waypoints:load', () => {
   }
 })
 
-ipcMain.handle('waypoints:save', (_, waypoints) => {
-  fs.writeFileSync(WAYPOINTS_FILE, JSON.stringify(waypoints, null, 2))
-  return { ok: true }
-})
+ipcMain.handle('waypoints:save', (_, waypoints) => writeJsonSafe(WAYPOINTS_FILE, waypoints))
 
 ipcMain.handle('waypoints:sync-path', () => WAYPOINTS_FILE)
 
 // Watch iCloud file for changes (phone saves a point → desktop updates live)
 let waypointWatcher = null
 function startWaypointWatcher() {
-  if (waypointWatcher) waypointWatcher.close()
-  waypointWatcher = fs.watch(WAYPOINTS_FILE, () => {
-    setTimeout(() => {
-      try {
-        const raw = fs.readFileSync(WAYPOINTS_FILE, 'utf8')
-        const waypoints = JSON.parse(raw)
-        mainWindow?.webContents.send('waypoints:remote-update', waypoints)
-      } catch {}
-    }, 200) // small debounce for iCloud write completion
-  })
+  if (waypointWatcher) {
+    try { waypointWatcher.close() } catch { /* already gone */ }
+    waypointWatcher = null
+  }
+  // iCloud Drive sits behind macOS privacy control. Without permission
+  // fs.watch throws EPERM synchronously, and this runs from a bare setTimeout,
+  // so it used to take down the whole main process with a JS error dialog
+  // (VISION row 77). Live cross-device sync is a convenience, not a
+  // requirement: if it can't start, log why and carry on without it.
+  try {
+    waypointWatcher = fs.watch(WAYPOINTS_FILE, () => {
+      setTimeout(() => {
+        try {
+          const raw = fs.readFileSync(WAYPOINTS_FILE, 'utf8')
+          const waypoints = JSON.parse(raw)
+          mainWindow?.webContents.send('waypoints:remote-update', waypoints)
+        } catch {}
+      }, 200) // small debounce for iCloud write completion
+    })
+    // watchers can also fail asynchronously once running
+    waypointWatcher.on('error', (e) => {
+      console.warn(`Live iCloud sync stopped: ${e.message}`)
+      try { waypointWatcher?.close() } catch {}
+      waypointWatcher = null
+    })
+  } catch (e) {
+    waypointWatcher = null
+    console.warn(
+      `Live iCloud sync disabled — cannot watch ${WAYPOINTS_FILE}: ${e.message}. ` +
+      'On macOS this is usually a privacy permission: grant the app (or your ' +
+      'terminal, in dev) Full Disk Access in System Settings → Privacy & Security.'
+    )
+  }
 }
 
 app.whenReady().then(() => {
@@ -127,10 +207,7 @@ ipcMain.handle('tracks:load', () => {
   }
 })
 
-ipcMain.handle('tracks:save', (_, tracks) => {
-  fs.writeFileSync(TRACKS_FILE, JSON.stringify(tracks, null, 2))
-  return { ok: true }
-})
+ipcMain.handle('tracks:save', (_, tracks) => writeJsonSafe(TRACKS_FILE, tracks))
 
 // ─── IPC: Preferences (viewport, base layer, overlays) ─────────────────────
 ipcMain.handle('prefs:load', () => {
@@ -142,10 +219,7 @@ ipcMain.handle('prefs:load', () => {
   }
 })
 
-ipcMain.handle('prefs:save', (_, prefs) => {
-  fs.writeFileSync(PREFS_FILE, JSON.stringify(prefs, null, 2))
-  return { ok: true }
-})
+ipcMain.handle('prefs:save', (_, prefs) => writeJsonSafe(PREFS_FILE, prefs))
 
 // ─── IPC: Search history ────────────────────────────────────────────────────
 const MAX_SEARCH_HISTORY = 50
