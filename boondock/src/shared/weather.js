@@ -14,6 +14,31 @@
 
 const API = 'https://api.open-meteo.com/v1/forecast'
 
+// A forecast that fails on the first page load is usually transient — the
+// request lost a race with everything else loading, or Open-Meteo throttled
+// a burst. Retry those quietly rather than telling the user they're offline
+// (VISION row 67). Client errors other than 429 are permanent; don't retry.
+const RETRY_DELAYS_MS = [400, 1200]
+
+async function getJson(url) {
+  let lastErr
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(url)
+      if (res.ok) return await res.json()
+      const err = new Error(`open-meteo HTTP ${res.status}`)
+      err.status = res.status
+      if (res.status !== 429 && res.status < 500) throw err
+      lastErr = err
+    } catch (e) {
+      if (e.status && e.status !== 429 && e.status < 500) throw e
+      lastErr = e
+    }
+    if (attempt >= RETRY_DELAYS_MS.length) throw lastErr
+    await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]))
+  }
+}
+
 // Open-Meteo's maximum forecast horizon
 export const FORECAST_DAYS = 16
 
@@ -57,11 +82,7 @@ export function pointForecast(lat, lng) {
     precipitation_unit: 'inch',
     timezone: 'auto',   // popup dates should read in the spot's local days
   })
-  const p = fetch(`${API}?${params}`)
-    .then(r => {
-      if (!r.ok) throw new Error(`open-meteo HTTP ${r.status}`)
-      return r.json()
-    })
+  const p = getJson(`${API}?${params}`)
     .then(j => {
       const d = j.daily
       const data = {
@@ -114,9 +135,7 @@ async function fetchDailyChunk(coords) {
     temperature_unit: 'fahrenheit',
     timezone: 'UTC',
   })
-  const res = await fetch(`${API}?${params}`)
-  if (!res.ok) throw new Error(`open-meteo HTTP ${res.status}`)
-  const json = await res.json()
+  const json = await getJson(`${API}?${params}`)
   // single-location requests come back as an object, not a one-item array
   const list = Array.isArray(json) ? json : [json]
   return list.map(r => ({

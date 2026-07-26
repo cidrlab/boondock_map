@@ -143,6 +143,27 @@ const Map = forwardRef(function Map(
       showUserHeading: true,
     })
     map.current.addControl(geolocate, 'bottom-right')
+
+    // Several overlays are rendered on demand by third-party servers — the
+    // USFS ArcGIS host in particular does go down (verified 2026-07-25:
+    // apps.fs.usda.gov/arcx returned HTTP 500 for both MVUM and Trails). The
+    // layer then simply doesn't draw, which reads as a bug in this app. Name
+    // what actually happened instead, once per source (VISION row 82).
+    const reportedBadSources = new Set()
+    map.current.on('error', (e) => {
+      const srcId = e?.sourceId
+      if (!srcId || reportedBadSources.has(srcId)) return
+      const entry = OVERLAY_LAYERS[srcId]
+        ? [srcId, OVERLAY_LAYERS[srcId]]
+        : Object.entries(OVERLAY_LAYERS).find(([id]) => srcId.startsWith(`${id}-`))
+      if (!entry || !overlaysRef.current[entry[0]]) return   // only if it's switched on
+      reportedBadSources.add(srcId)
+      showToast(
+        mapContainer.current,
+        `${entry[1].label} isn't loading right now — the service that draws it isn't responding. Everything else on the map still works.`
+      )
+    })
+
     geolocate.on('error', (err) => {
       showToast(mapContainer.current, err?.message
         ? `Location error: ${err.message}`
@@ -544,6 +565,33 @@ const Map = forwardRef(function Map(
   }, [hoverPin, mapReady])
 
   // ── Boondock Zones β polygons ──────────────────────────────────────────────
+  // Zones are drawn for contrast with whatever is underneath. The mint green
+  // tuned for the night base washes out almost completely on Boondock Day, so
+  // the daylight map gets a deeper green, more fill and a firmer outline
+  // (VISION row 80). Satellite keeps the mint — it reads well on imagery.
+  function zonePaint(baseId) {
+    const day = baseId === 'boondock-day'
+    return {
+      fillColor: day ? '#0b7a4a' : '#34d399',
+      fillOpacity: day ? 0.22 : 0.12,
+      lineColor: day ? '#085433' : '#34d399',
+      lineOpacity: day ? 0.9 : 0.5,
+      lineWidth: day ? 1.4 : 1,
+    }
+  }
+
+  // Re-tint if the basemap changes without the style being rebuilt
+  useEffect(() => {
+    const m = map.current
+    if (!mapReady || !m?.getLayer('zones-fill')) return
+    const z = zonePaint(baseLayer)
+    m.setPaintProperty('zones-fill', 'fill-color', z.fillColor)
+    m.setPaintProperty('zones-fill', 'fill-opacity', z.fillOpacity)
+    m.setPaintProperty('zones-line', 'line-color', z.lineColor)
+    m.setPaintProperty('zones-line', 'line-opacity', z.lineOpacity)
+    m.setPaintProperty('zones-line', 'line-width', z.lineWidth)
+  }, [baseLayer, mapReady])
+
   async function addZonesLayers() {
     const m = map.current
     if (!m) return
@@ -551,23 +599,29 @@ const Map = forwardRef(function Map(
       m.addSource('zones', { type: 'geojson', data: getZonesData() })
     }
     const vis = overlaysRef.current.zones ? 'visible' : 'none'
+    const z = zonePaint(baseLayerRef.current)
     if (!m.getLayer('zones-fill')) {
       m.addLayer({
         id: 'zones-fill', type: 'fill', source: 'zones',
         layout: { visibility: vis },
-        paint: { 'fill-color': '#34d399', 'fill-opacity': 0.12 },
+        paint: { 'fill-color': z.fillColor, 'fill-opacity': z.fillOpacity },
       })
     }
     if (!m.getLayer('zones-line')) {
       m.addLayer({
         id: 'zones-line', type: 'line', source: 'zones',
         layout: { visibility: vis },
-        paint: { 'line-color': '#34d399', 'line-opacity': 0.5, 'line-width': 1, 'line-dasharray': [4, 3] },
+        paint: {
+          'line-color': z.lineColor, 'line-opacity': z.lineOpacity,
+          'line-width': z.lineWidth, 'line-dasharray': [4, 3],
+        },
       })
     }
   }
 
   // ── Temperature filter — forecast grid over the view, contoured ───────────
+  const baseLayerRef = useRef(baseLayer)
+  useEffect(() => { baseLayerRef.current = baseLayer }, [baseLayer])
   const tempFilterRef = useRef(tempFilter)
   const onTempStatusRef = useRef(onTempStatus)
   useEffect(() => { onTempStatusRef.current = onTempStatus }, [onTempStatus])
@@ -882,7 +936,7 @@ const Map = forwardRef(function Map(
         const popup = marker.getPopup()
         popup?.setHTML(waypointPopupHtml(wp))
         // setHTML resets the weather slot; refill if the popup is showing
-        if (popup?.isOpen?.()) attachWeather(popup, wp.lat, wp.lng)
+        if (popup?.isOpen?.()) attachWeather(popup, wp.lat, wp.lng, map.current)
         return
       }
 
@@ -901,7 +955,7 @@ const Map = forwardRef(function Map(
       const wpId = wp.id
       popup.on('open', () => {
         const ll = marker.getLngLat()
-        attachWeather(popup, ll.lat, ll.lng)
+        attachWeather(popup, ll.lat, ll.lng, map.current)
         // Delegate on the popup container: setHTML() (marker-update path)
         // replaces the content nodes, so listeners bound to them get wiped
         popup.getElement()?.addEventListener('click', (ev) => {
@@ -1117,6 +1171,28 @@ function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+// Site `website` values come from OpenStreetMap and Overture, which anyone can
+// edit. esc() stops an attribute breakout but not a `javascript:` scheme, so
+// links are scheme-checked too: http/https only, everything else drops the
+// link rather than rendering it (VISION row 70).
+function safeUrl(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return null
+  try {
+    const proto = new URL(s).protocol
+    return proto === 'http:' || proto === 'https:' ? s : null
+  } catch {
+    // OSM often stores bare hosts ("www.example.com"), which don't parse as
+    // absolute URLs. Those are safe to assume https; anything carrying its own
+    // scheme already failed the check above.
+    try {
+      return /^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(s) ? new URL(`https://${s}`).href : null
+    } catch {
+      return null
+    }
+  }
+}
+
 // Star polygon for favorite badges, centered on the marker's shoulder
 const STAR_POINTS = '27,-2.5 28.35,1.14 32.23,1.3 29.19,3.71 30.23,7.45 27,5.3 23.77,7.45 24.81,3.71 21.77,1.3 25.65,1.14'
 
@@ -1148,20 +1224,20 @@ function waypointPopupHtml(wp) {
     ? `<div style="font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:${badge};margin-bottom:3px">${wp.favorite ? '★ ' : '● '}${status ? status.label : 'Favorite'}</div>`
     : ''
   const labels = (wp.labels || []).length
-    ? `<div style="margin:4px 0 2px">${wp.labels.map(l => `<span style="display:inline-block;font-size:10px;padding:1px 7px;margin:1px 3px 1px 0;border-radius:100px;background:rgba(255,255,255,0.08);color:rgba(232,238,244,.8)">${esc(l)}</span>`).join('')}</div>`
+    ? `<div style="margin:4px 0 2px">${wp.labels.map(l => `<span style="display:inline-block;font-size:10px;padding:1px 7px;margin:1px 3px 1px 0;border-radius:100px;background:rgba(var(--overlay-rgb),0.08);color:rgba(var(--fg-rgb),.8)">${esc(l)}</span>`).join('')}</div>`
     : ''
   const ratings = WP_RATING_KEYS
     .filter(rk => wp.ratings?.[rk.id])
-    .map(rk => `<div style="font-size:11px;color:rgba(232,238,244,.7)">${rk.label}: <span style="color:#fbbf24">${'★'.repeat(wp.ratings[rk.id])}</span><span style="color:rgba(255,255,255,.25)">${'★'.repeat(5 - wp.ratings[rk.id])}</span></div>`)
+    .map(rk => `<div style="font-size:11px;color:rgba(var(--fg-rgb),.7)">${rk.label}: <span style="color:#fbbf24">${'★'.repeat(wp.ratings[rk.id])}</span><span style="color:rgba(var(--overlay-rgb),.25)">${'★'.repeat(5 - wp.ratings[rk.id])}</span></div>`)
     .join('')
   return `
     <div style="font-family:-apple-system,system-ui,sans-serif;">
       <div style="font-size:14px;font-weight:600;margin-bottom:2px">${esc(wp.name)}</div>
       ${statusLine}
-      ${wp.notes ? `<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:4px">${esc(wp.notes)}</div>` : ''}
+      ${wp.notes ? `<div style="font-size:12px;color:rgba(var(--overlay-rgb),0.55);margin-bottom:4px">${esc(wp.notes)}</div>` : ''}
       ${labels}
       ${ratings}
-      <div style="font-size:11px;color:rgba(255,255,255,0.35);font-variant-numeric:tabular-nums;margin-top:3px">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}${wp.elev_ft != null ? ` · ${Number(wp.elev_ft).toLocaleString()} ft` : ''}</div>
+      <div style="font-size:11px;color:rgba(var(--overlay-rgb),0.35);font-variant-numeric:tabular-nums;margin-top:3px">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}${wp.elev_ft != null ? ` · ${Number(wp.elev_ft).toLocaleString()} ft` : ''}</div>
       ${weatherHtml()}
       ${directionsHtml(wp.lat, wp.lng)}
       <div style="display:flex;gap:6px;margin-top:8px">
@@ -1179,9 +1255,9 @@ const SITE_KIND_LABELS = { campsite: 'Campsite', rv_park: 'RV park', dump: 'Dump
 
 function weatherHtml() {
   return `
-    <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08)">
-      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);display:flex;justify-content:space-between"><span>Weather</span><span style="text-transform:none;letter-spacing:0">Open-Meteo</span></div>
-      <div data-weather-body style="font-size:11px;color:rgba(232,238,244,.55);margin-top:3px">Loading forecast…</div>
+    <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(var(--overlay-rgb),0.08)">
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);display:flex;justify-content:space-between"><span>Weather</span><span style="text-transform:none;letter-spacing:0">Open-Meteo</span></div>
+      <div data-weather-body style="font-size:11px;color:rgba(var(--fg-rgb),.55);margin-top:3px">Loading forecast…</div>
     </div>`
 }
 
@@ -1191,10 +1267,10 @@ function forecastBodyHtml(fc) {
     const dow = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' })
     const wet = d.precipProb != null && d.precipProb >= 30
     const tip = `${d.date}: ${label} · high ${Math.round(d.hi)}° low ${Math.round(d.lo)}° · precip ${d.precipProb ?? 0}%${d.precipIn > 0.005 ? ` (${d.precipIn}in)` : ''} · wind ${Math.round(d.wind)} mph`
-    return `<span title="${esc(tip)}" style="flex:1 0 44px;text-align:center;background:rgba(255,255,255,0.05);border-radius:5px;padding:3px 2px;line-height:1.3">
-      <span style="font-size:9px;color:rgba(232,238,244,.55)">${esc(dow)}</span><br>
+    return `<span title="${esc(tip)}" style="flex:1 0 44px;text-align:center;background:rgba(var(--overlay-rgb),0.05);border-radius:5px;padding:3px 2px;line-height:1.3">
+      <span style="font-size:9px;color:rgba(var(--fg-rgb),.55)">${esc(dow)}</span><br>
       <span style="font-size:11px">${emoji}</span><br>
-      <span style="font-size:9.5px;color:rgba(232,238,244,.9)">${Math.round(d.hi)}°<span style="color:rgba(232,238,244,.45)">/${Math.round(d.lo)}°</span></span>${wet ? `<br><span style="font-size:8.5px;color:#38bdf8">☂ ${d.precipProb}%</span>` : ''}
+      <span style="font-size:9.5px;color:rgba(var(--fg-rgb),.9)">${Math.round(d.hi)}°<span style="color:rgba(var(--fg-rgb),.45)">/${Math.round(d.lo)}°</span></span>${wet ? `<br><span style="font-size:8.5px;color:#38bdf8">☂ ${d.precipProb}%</span>` : ''}
     </span>`
   }).join('')
   const rest = fc.days.slice(8)
@@ -1202,26 +1278,72 @@ function forecastBodyHtml(fc) {
     const hi = Math.max(...rest.map(d => d.hi))
     const lo = Math.min(...rest.map(d => d.lo))
     const wetSum = rest.reduce((s, d) => s + (d.precipIn || 0), 0)
-    return `<div style="font-size:10px;color:rgba(232,238,244,.5);margin-top:4px">Days 9–16: ${Math.round(hi)}°/${Math.round(lo)}°${wetSum > 0.005 ? ` · ${wetSum.toFixed(2)}" precip` : ''}${fc.elevFt != null ? ` · model elev ${fc.elevFt.toLocaleString()} ft` : ''}</div>`
+    return `<div style="font-size:10px;color:rgba(var(--fg-rgb),.5);margin-top:4px">Days 9–16: ${Math.round(hi)}°/${Math.round(lo)}°${wetSum > 0.005 ? ` · ${wetSum.toFixed(2)}" precip` : ''}${fc.elevFt != null ? ` · model elev ${fc.elevFt.toLocaleString()} ft` : ''}</div>`
   })() : ''
   const cur = fc.current
   const nowLine = cur
-    ? `<div style="font-size:11.5px;color:rgba(232,238,244,.85)">Now ${cur.temp}° · ${esc(wmoInfo(cur.code)[0])} · wind ${cur.wind} mph · ${cur.humidity}% RH</div>`
+    ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.85)">Now ${cur.temp}° · ${esc(wmoInfo(cur.code)[0])} · wind ${cur.wind} mph · ${cur.humidity}% RH</div>`
     : ''
   return `${nowLine}<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${chips}</div>${restLine}`
 }
 
-function attachWeather(popup, lat, lng) {
-  pointForecast(lat, lng)
-    .then(fc => {
-      if (!popup.isOpen?.()) return
-      const slot = popup.getElement()?.querySelector('[data-weather-body]')
-      if (slot) slot.innerHTML = forecastBodyHtml(fc)
-    })
-    .catch(() => {
-      const slot = popup.getElement()?.querySelector('[data-weather-body]')
-      if (slot) slot.textContent = 'Forecast unavailable — needs a connection'
-    })
+// Say only what we actually know. The old copy blamed the connection for
+// every failure, which read as wrong whenever the user was plainly online
+// (VISION row 67). weather.js already retried twice before we get here.
+function weatherErrorText(err) {
+  if (navigator.onLine === false) return 'No connection — forecasts need one'
+  if (err?.status === 429) return 'Weather service is busy right now'
+  return "Couldn't load the forecast"
+}
+
+// The weather card lands after the popup is already placed, so the popup grows
+// upward and its header can slide under the top edge of the map (VISION row
+// 76). Re-anchor once the taller content is in, then nudge the map if any edge
+// still overhangs. MapLibre picks the popup anchor inside setLngLat, so
+// re-setting the same coordinate is what lets it flip below the point.
+function keepPopupInView(m, popup) {
+  const el = popup.getElement()
+  if (!el || !popup.isOpen?.()) return
+  popup.setLngLat(popup.getLngLat())
+  requestAnimationFrame(() => {
+    if (!popup.isOpen?.()) return
+    const box = el.getBoundingClientRect()
+    const view = m.getContainer().getBoundingClientRect()
+    const margin = 10
+    let dx = 0
+    let dy = 0
+    if (box.top < view.top + margin) dy = box.top - (view.top + margin)
+    else if (box.bottom > view.bottom - margin) dy = box.bottom - (view.bottom - margin)
+    if (box.left < view.left + margin) dx = box.left - (view.left + margin)
+    else if (box.right > view.right - margin) dx = box.right - (view.right - margin)
+    // Only chase the overhang if the card can actually fit
+    if (box.height > view.height - 2 * margin) dy = Math.min(dy, 0)
+    if (dx || dy) m.panBy([dx, dy], { duration: 180 })
+  })
+}
+
+function attachWeather(popup, lat, lng, m) {
+  const slotOf = () => popup.getElement()?.querySelector('[data-weather-body]')
+  const load = () => {
+    pointForecast(lat, lng)
+      .then(fc => {
+        if (!popup.isOpen?.()) return
+        const slot = slotOf()
+        if (slot) slot.innerHTML = forecastBodyHtml(fc)
+        if (m) keepPopupInView(m, popup)
+      })
+      .catch(err => {
+        const slot = slotOf()
+        if (!slot) return
+        slot.innerHTML = `<span style="color:rgba(var(--fg-rgb),.6)">${esc(weatherErrorText(err))}</span>
+          <button data-weather-retry style="all:unset;cursor:pointer;color:#38bdf8;margin-left:6px">Retry</button>`
+        slot.querySelector('[data-weather-retry]')?.addEventListener('click', () => {
+          slot.textContent = 'Loading forecast…'
+          load()
+        })
+      })
+  }
+  load()
 }
 
 // Directions handoff — standard Apple/Google Maps deep links
@@ -1313,13 +1435,13 @@ function openTrailPopup(m, lngLat, result) {
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:170px">
       <div style="font-size:13px;font-weight:600">${esc(name)} Trail</div>
-      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 5px">USFS National Forest trail</div>
-      <div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin:2px 0 5px">USFS National Forest trail</div>
+      <div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>
       ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
     </div>`
   const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
-  attachWeather(popup, lngLat.lat, lngLat.lng)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
 }
 
 const MVUM_ATTR_PATTERN = /SEASON|VEHICLE|SURFACE|SYMBOL_NAME|JURISDICTION|GIS_MILES/i
@@ -1334,13 +1456,13 @@ function openMvumPopup(m, lngLat, result) {
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:170px">
       <div style="font-size:13px;font-weight:600">${esc(title)}</div>
-      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 5px">USFS MVUM · ${esc(result.layerName || 'road')}</div>
-      ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin:2px 0 5px">USFS MVUM · ${esc(result.layerName || 'road')}</div>
+      ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
     </div>`
   const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
-  attachWeather(popup, lngLat.lat, lngLat.lng)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
 }
 
 function openPointInfoPopup(m, lngLat, onSave, zoneProps = null, onReport = null) {
@@ -1350,9 +1472,9 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null, onReport = null
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:190px">
       ${inZone ? `<div style="font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:#34d399;margin-bottom:5px">Possible boondocking zone · beta</div>` : ''}
       <div style="font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums">${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}</div>
-      <div style="font-size:11.5px;color:rgba(232,238,244,.65);margin-top:3px" data-elev>Elevation: …</div>
-      ${flat != null ? `<div style="font-size:11px;color:rgba(232,238,244,.6);margin-top:3px">≈${flat}% of sampled ground ≤ 12% grade</div>` : ''}
-      ${inZone ? `<div style="font-size:10.5px;color:rgba(232,238,244,.5);margin-top:5px;line-height:1.45">USFS land near a legal MVUM road. Heuristic only — verify rules, closures, and conditions locally.</div>` : ''}
+      <div style="font-size:11.5px;color:rgba(var(--fg-rgb),.65);margin-top:3px" data-elev>Elevation: …</div>
+      ${flat != null ? `<div style="font-size:11px;color:rgba(var(--fg-rgb),.6);margin-top:3px">≈${flat}% of sampled ground ≤ 12% grade</div>` : ''}
+      ${inZone ? `<div style="font-size:10.5px;color:rgba(var(--fg-rgb),.5);margin-top:5px;line-height:1.45">USFS land near a legal MVUM road. Heuristic only — verify rules, closures, and conditions locally.</div>` : ''}
       ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px">
@@ -1368,7 +1490,7 @@ function openPointInfoPopup(m, lngLat, onSave, zoneProps = null, onReport = null
     .setLngLat(lngLat)
     .setHTML(html)
     .addTo(m)
-  attachWeather(popup, lngLat.lat, lngLat.lng)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
   const root = popup.getElement()
   elevationAt(lngLat.lng, lngLat.lat)
     .then(meters => {
@@ -1398,14 +1520,14 @@ function openSearchPinPopup(m, lngLat, props, onSaveSpot) {
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px">
       <div style="font-size:13px;font-weight:600">${props.n}. ${esc(props.name || 'Result')}</div>
-      ${tier ? `<div style="font-size:10.5px;color:rgba(232,238,244,.6);margin-top:3px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tier.color};margin-right:5px"></span>${tier.text}</div>` : ''}
+      ${tier ? `<div style="font-size:10.5px;color:rgba(var(--fg-rgb),.6);margin-top:3px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tier.color};margin-right:5px"></span>${tier.text}</div>` : ''}
       ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
-      <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">Source: © OpenStreetMap contributors</div>
+      <div style="font-size:9.5px;color:rgba(var(--fg-rgb),.35);margin-top:7px">Source: © OpenStreetMap contributors</div>
     </div>`
   const popup = new maplibregl.Popup({ offset: 12, maxWidth: '250px' }).setLngLat(lngLat).setHTML(html).addTo(m)
-  attachWeather(popup, lngLat.lat, lngLat.lng)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
   popup.getElement().querySelector('[data-save-wp]')?.addEventListener('click', () => {
     onSaveSpot?.({ name: props.name, lat: lngLat.lat, lng: lngLat.lng })
     popup.remove()
@@ -1418,7 +1540,7 @@ function openRoadPopup(m, lngLat, feature) {
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif">
       <div style="font-size:13px;font-weight:600">${esc(p.name)}</div>
-      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin-top:2px">${esc(cls)}</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin-top:2px">${esc(cls)}</div>
     </div>`
   new maplibregl.Popup({ offset: 8, maxWidth: '240px' }).setLngLat(lngLat).setHTML(html).addTo(m)
 }
@@ -1438,19 +1560,19 @@ function openSitePopup(m, f, onSaveSpot) {
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px">
       <div style="font-size:13.5px;font-weight:600">${esc(p.name || kindLabel)}</div>
-      <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 6px">${kindLabel}</div>
-      ${rows.length ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
-      ${p.website ? `<div style="margin-top:5px"><a href="${esc(p.website)}" target="_blank" rel="noreferrer" style="font-size:11.5px;color:#38bdf8">Website</a></div>` : ''}
+      <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin:2px 0 6px">${kindLabel}</div>
+      ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      ${safeUrl(p.website) ? `<div style="margin-top:5px"><a href="${esc(safeUrl(p.website))}" target="_blank" rel="noreferrer" style="font-size:11.5px;color:#38bdf8">Website</a></div>` : ''}
       ${weatherHtml()}
       ${directionsHtml(lat, lng)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
-      <div style="font-size:9.5px;color:rgba(232,238,244,.35);margin-top:7px">${p.elev_ft != null ? `${Number(p.elev_ft).toLocaleString()} ft · ` : ''}${SITE_SRC_CREDIT(p.src)}</div>
+      <div style="font-size:9.5px;color:rgba(var(--fg-rgb),.35);margin-top:7px">${p.elev_ft != null ? `${Number(p.elev_ft).toLocaleString()} ft · ` : ''}${SITE_SRC_CREDIT(p.src)}</div>
     </div>`
   const popup = new maplibregl.Popup({ offset: 10, maxWidth: '270px' })
     .setLngLat([lng, lat])
     .setHTML(html)
     .addTo(m)
-  attachWeather(popup, lat, lng)
+  attachWeather(popup, lat, lng, m)
   popup.getElement().querySelector('[data-save-wp]')?.addEventListener('click', () => {
     onSaveSpot?.({ ...p, lat, lng })
     popup.remove()
@@ -1482,7 +1604,7 @@ function checkinRowHtml(c) {
     ? '<span style="color:#22c55e">✓</span>'
     : '<span style="color:#f87171">✗</span>'
   const note = c.comment ? esc(c.comment) : c.ok ? 'still there' : 'gone / closed'
-  return `<div style="font-size:11px;color:rgba(232,238,244,.75);margin-top:3px;line-height:1.45">${mark} <span style="color:rgba(232,238,244,.5);font-variant-numeric:tabular-nums">${esc(c.date)}</span> — ${note}</div>`
+  return `<div style="font-size:11px;color:rgba(var(--fg-rgb),.75);margin-top:3px;line-height:1.45">${mark} <span style="color:rgba(var(--fg-rgb),.5);font-variant-numeric:tabular-nums">${esc(c.date)}</span> — ${note}</div>`
 }
 
 function openCommunitySitePopup(m, f, onSaveSpot) {
@@ -1497,18 +1619,18 @@ function openCommunitySitePopup(m, f, onSaveSpot) {
   const html = `
     <div style="font-family:-apple-system,system-ui,sans-serif;min-width:210px">
       <div style="font-size:13.5px;font-weight:600">${esc(p.name || kindLabel)}</div>
-      <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin:2px 0 5px">${kindLabel} · community</div>
+      <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin:2px 0 5px">${kindLabel} · community</div>
       <div style="font-size:11px;color:${status.color};line-height:1.4"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${status.color};margin-right:5px"></span>${status.text}</div>
       ${maybeGone ? '<div style="font-size:11px;color:#f87171;margin-top:4px;line-height:1.45">Recent check-ins say this may be gone — verify before counting on it</div>' : ''}
-      ${p.confirmed ? `<div style="font-size:10.5px;color:rgba(232,238,244,.55);margin-top:3px">Last confirmed ${esc(p.confirmed)}</div>` : ''}
-      ${p.desc ? `<div style="font-size:11.5px;color:rgba(232,238,244,.75);margin-top:5px;line-height:1.5">${esc(p.desc)}</div>` : ''}
+      ${p.confirmed ? `<div style="font-size:10.5px;color:rgba(var(--fg-rgb),.55);margin-top:3px">Last confirmed ${esc(p.confirmed)}</div>` : ''}
+      ${p.desc ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);margin-top:5px;line-height:1.5">${esc(p.desc)}</div>` : ''}
       <div data-checkin-list style="margin-top:5px">${shown.map(checkinRowHtml).join('')}</div>
-      ${checkins.length > shown.length ? `<div style="font-size:10px;color:rgba(232,238,244,.4);margin-top:3px">+ ${checkins.length - shown.length} older check-ins</div>` : ''}
+      ${checkins.length > shown.length ? `<div style="font-size:10px;color:rgba(var(--fg-rgb),.4);margin-top:3px">+ ${checkins.length - shown.length} older check-ins</div>` : ''}
       ${canAct ? `
-      <div data-checkin-controls style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,0.08)">
-        <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(232,238,244,.55);margin-bottom:5px">Been here? Check in</div>
+      <div data-checkin-controls style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(var(--overlay-rgb),0.08)">
+        <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin-bottom:5px">Been here? Check in</div>
         <input data-ci-comment placeholder="Optional comment — cost, access, condition…" maxlength="280"
-          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:6px;color:#e8eef4;font-size:11px;padding:5px 7px;outline:none">
+          style="width:100%;box-sizing:border-box;background:rgba(var(--overlay-rgb),0.06);border:1px solid rgba(var(--overlay-rgb),0.12);border-radius:6px;color:var(--text-primary);font-size:11px;padding:5px 7px;outline:none">
         <div style="display:flex;gap:6px;margin-top:6px">
           <button data-ci-yes class="btn-secondary" style="flex:1;padding:5px 8px;font-size:11px;justify-content:center">✓ Still there</button>
           <button data-ci-no class="btn-secondary" style="flex:1;padding:5px 8px;font-size:11px;justify-content:center">✗ Gone / closed</button>
@@ -1518,7 +1640,7 @@ function openCommunitySitePopup(m, f, onSaveSpot) {
       ${directionsHtml(lat, lng)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px">
-        <span style="font-size:9.5px;color:rgba(232,238,244,.35)">Community-reported — verify before relying on it</span>
+        <span style="font-size:9.5px;color:rgba(var(--fg-rgb),.35)">Community-reported — verify before relying on it</span>
         ${canAct ? '<button data-flag-spot style="all:unset;cursor:pointer;font-size:9.5px;color:#8babd0;white-space:nowrap">Report a problem</button>' : ''}
       </div>
     </div>`
@@ -1526,7 +1648,7 @@ function openCommunitySitePopup(m, f, onSaveSpot) {
     .setLngLat([lng, lat])
     .setHTML(html)
     .addTo(m)
-  attachWeather(popup, lat, lng)
+  attachWeather(popup, lat, lng, m)
   const root = popup.getElement()
   root.querySelector('[data-save-wp]')?.addEventListener('click', () => {
     onSaveSpot?.({ ...p, lat, lng })
