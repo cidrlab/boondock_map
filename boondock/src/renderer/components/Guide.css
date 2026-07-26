@@ -62,8 +62,21 @@
 .guide-body strong { color: var(--text-primary); font-weight: 600; }
 .guide-body ul, .guide-body ol { margin: 0 0 8px; padding-left: 18px; }
 .guide-body li { margin-bottom: 5px; }
+.guide-body a { color: var(--accent); text-decoration: underline; }
+
+/* Safety callout at the top of the License tab — the one thing in the Guide
+   that should stop the eye rather than blend in */
+.guide-warn {
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-muted);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+}
+
 .guide-body code {
-  background: rgba(255,255,255,0.07);
+  background: rgba(var(--overlay-rgb),0.07);
   border-radius: 3px;
   padding: 0 4px;
   font-size: 11px;

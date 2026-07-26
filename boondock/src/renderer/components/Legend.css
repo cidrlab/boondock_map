@@ -90,6 +90,13 @@
   flex-shrink: 0;
 }
 
+/* The BLM land tints are pale by design — several are near-white — so they
+   need an outline to be visible at all against the panel */
+.legend-swatch-land {
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+}
+
 .legend-note {
   font-size: 10.5px;
   color: var(--text-muted);

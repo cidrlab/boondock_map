@@ -217,6 +217,29 @@ Files are accessible on iPhone via the **Files app → iCloud Drive → Boondock
 
 ---
 
+## Disclaimer — use at your own risk
+
+Boondock Map is a planning tool, not a safety system. It is assembled from
+public datasets that are incomplete, out of date in places, and never verified
+against the ground. Boondock Zones are a computed heuristic, not permission to
+camp. Roads shown as legal may be gated, washed out, or impassable. Sites may
+be closed or gone, community reports are unverified until confirmed, and
+weather is coarse-grid model output rather than a forecast for a specific spot.
+
+Carry a paper map and an independent navigation backup, and treat your own
+judgment in the field as authoritative over anything this app displays.
+
+The app and its data are provided **as is, without warranty of any kind**,
+express or implied, including any warranty of merchantability, fitness for a
+particular purpose, or accuracy. To the fullest extent permitted by law, the
+authors, contributors, and CiDR Lab accept no liability for any injury, loss,
+damage, or expense arising from use of this app or reliance on what it shows.
+This mirrors sections 15 and 16 of the GPL, below.
+
+The same text is in the app under the book icon → **License**.
+
+---
+
 ## License
 
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0-or-later)**.

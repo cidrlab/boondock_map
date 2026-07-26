@@ -29,6 +29,12 @@ const TABS = [
         <p>Flip through the tabs above for each part of the app. The
         <strong> ?</strong> button beside the book in the top bar is the map
         legend — what every color and symbol means.</p>
+        {communityEnabled() && (
+        <p><strong>Found a bug, or want something?</strong> The speech-bubble
+        button in the top bar sends feedback straight to the project&apos;s
+        issue tracker. No account, no sign-up: say what happened and it gets
+        read. Leave an email only if you want a reply.</p>
+        )}
       </>
     ),
   },
@@ -41,6 +47,21 @@ const TABS = [
         daylight colors; <em>Satellite</em> — aerial imagery for scouting
         clearings and road surfaces (zooming in very close scales the last
         available imagery, so remote areas go soft instead of blank).</p>
+        <p><strong>Appearance</strong> (Layers tab, under Base Map) sets the
+        look of the app itself, not the map:</p>
+        <ul>
+          <li><strong>Auto</strong> follows the basemap — pick Boondock Day and
+          the sidebar, toolbar, and cards go light with it.</li>
+          <li><strong>Dark</strong> or <strong>Light</strong> pin it either way
+          regardless of the map.</li>
+          <li><strong>Night Red</strong> is for real darkness: the whole
+          interface drops to dim red and the map itself is tinted red, because
+          red light at low brightness doesn&apos;t wreck your night vision the
+          way a bright screen does. The trade is color: the map and the site
+          dots go red, so you can&apos;t tell a campsite dot from a water dot
+          by color until you switch back or tap it. Your own saved waypoint
+          pins keep their colors.</li>
+        </ul>
         <p><strong>Reading the map:</strong></p>
         <ul>
           <li>Move the mouse and the bottom bar shows the cursor&apos;s
@@ -253,6 +274,80 @@ const TABS = [
         </ul>
         <p>Feature ideas from the late, great FreeRoam app. Full license detail
         lives in <code>data/ATTRIBUTION.md</code> in the repository.</p>
+      </>
+    ),
+  },
+  {
+    id: 'license', label: 'License',
+    body: (
+      <>
+        <p className="guide-warn"><strong>Read this before you rely on it.</strong> Boondock
+        Map is a planning tool, not a safety system, and you use it at your own
+        risk.</p>
+
+        <p><strong>Everything on this map can be wrong.</strong> It is built
+        from public datasets that are incomplete, out of date in places, and
+        never checked against the ground:</p>
+        <ul>
+          <li><strong>Boondock Zones are a computed guess</strong>, not
+          permission to camp. They mark Forest Service land near a legal road.
+          They know nothing about current closures, fire restrictions, permit
+          areas, private inholdings, or whether camping is allowed where
+          you&apos;re standing. Confirm with the ranger district before you
+          settle in.</li>
+          <li><strong>Roads and trails</strong> come from published Forest
+          Service data, which lags the real world. A road drawn here may be
+          gated, washed out, snowed in, or gone. A road&apos;s vehicle class
+          says what is <em>legal</em>, never what is <em>passable</em> in your
+          rig today.</li>
+          <li><strong>Sites</strong> may be closed, full, moved, or now
+          charging. <strong>Community spots</strong> are unverified traveler
+          reports until other travelers confirm them.</li>
+          <li><strong>Weather</strong> is computer model output for a coarse
+          grid cell, not a forecast for your exact spot. Mountain weather
+          routinely does something else.</li>
+          <li><strong>Elevation and coordinates</strong> are sampled from
+          public terrain data and carry their own error.</li>
+        </ul>
+        <p>Carry a paper map and a real navigation backup, tell someone where
+        you&apos;re going and when you&apos;ll be back, and don&apos;t let a
+        phone screen be the only thing between you and a bad night. Your
+        judgment in the field beats anything on this map.</p>
+
+        <p><strong>No warranty, no liability.</strong> This app and its data
+        are provided <em>as is</em>, without warranty of any kind, express or
+        implied, including any warranty of merchantability, fitness for a
+        particular purpose, or accuracy. To the fullest extent permitted by
+        law, the authors, contributors, and CiDR Lab are not liable for any
+        injury, loss, damage, or expense arising out of the use of this app or
+        reliance on anything it shows you. Decisions you make in the field are
+        yours.</p>
+
+        <p><strong>The app is free software.</strong> Boondock Map is licensed
+        under the <strong>GNU General Public License, version 3 or later
+        (GPL-3.0-or-later)</strong>. In plain terms: you may use, copy, study,
+        modify, and share it, for any purpose, at no cost, forever. If you
+        distribute a modified version, it has to stay under the same license
+        with its source available, so nobody can take this work, close it up,
+        and start charging for it. That is the point of the choice: the apps
+        this one replaces got bought, paywalled, or shut down.</p>
+        <p>The full license text ships with the app as the
+        <code> LICENSE</code> file and is published at
+        <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noreferrer"> gnu.org/licenses/gpl-3.0</a>.
+        Sections 15 and 16 there are the formal versions of the no-warranty and
+        no-liability paragraphs above.</p>
+
+        <p><strong>The map data has its own licenses.</strong> The GPL covers
+        this app&apos;s code, not the data drawn on it. OpenStreetMap and
+        Overture places carry their own terms (ODbL and others), Recreation.gov
+        campgrounds are CC-BY 4.0, weather is CC-BY 4.0 from Open-Meteo, and
+        Forest Service and BLM layers are US public domain. Each source is
+        named on the card it appears on, listed in the Credits tab, and set out
+        in full in <code>data/ATTRIBUTION.md</code>. If you reuse the data,
+        follow the data license, not this one.</p>
+
+        <p>Boondock Map is free and always will be. Donations are welcome and
+        never required.</p>
       </>
     ),
   },
