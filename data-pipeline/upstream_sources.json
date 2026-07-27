@@ -29,7 +29,7 @@
         "etag": "\"e0dbc1d-634df4c40bd5d\"",
         "content_length": 235781149
       },
-      "checked": "2026-07-25",
+      "checked": "2026-07-27",
       "built_from": null,
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
@@ -50,7 +50,7 @@
         "etag": "\"db473fa-634df4f1e0813\"",
         "content_length": 229929978
       },
-      "checked": "2026-07-25",
+      "checked": "2026-07-27",
       "built_from": null,
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
@@ -67,11 +67,11 @@
       "label": "USFS RoadCore, all Forest Service roads (national shapefile)",
       "url": "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.RoadCore_FS.zip",
       "seen": {
-        "last_modified": null,
-        "etag": null,
-        "content_length": null
+        "last_modified": "Sun, 11 May 2025 17:11:42 GMT",
+        "etag": "\"19c029e3-634df4b1d1551\"",
+        "content_length": 432024035
       },
-      "checked": null,
+      "checked": "2026-07-27",
       "built_from": null,
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
