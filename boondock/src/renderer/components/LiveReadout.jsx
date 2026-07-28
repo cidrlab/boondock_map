@@ -27,6 +27,8 @@ export default function LiveReadout() {
   const fixRef = useRef(null)
   const movingRef = useRef(false)
   const lastSampleRef = useRef(null)
+  const sampleSeqRef = useRef(0)
+  const elevRef = useRef(null)
   const tapeRef = useRef(null)
   const contRef = useRef(null)                  // unwrapped heading driving the tape
 
@@ -71,11 +73,19 @@ export default function LiveReadout() {
     return () => clearInterval(t)
   }, [])
 
+  useEffect(() => { elevRef.current = elev }, [elev])
+
   // ── Elevation — the app's DEM at the live fix, GPS altitude offline ─────
+  // A fix arrives every second or faster; a tile fetch on cellular can take
+  // longer. Cancelling the lookup on each new fix therefore left the cell
+  // permanently blank on a real phone (office repro, VISION row 89) — so
+  // in-flight lookups are never cancelled. A sequence number keeps the
+  // newest sample's answer, except that when nothing is on screen yet any
+  // answer beats blank (the fix has moved under 20 m anyway).
   useEffect(() => {
     if (!fix) return
     const last = lastSampleRef.current
-    if (last) {
+    if (last && elevRef.current != null) {
       const dx = (fix.lng - last.lng) * 111320 * Math.cos(fix.lat * Math.PI / 180)
       const dy = (fix.lat - last.lat) * 110540
       if (dx * dx + dy * dy < 20 * 20) return   // re-sample after ~20 m
@@ -84,11 +94,15 @@ export default function LiveReadout() {
     const fallback = Number.isFinite(fix.altitude)
       ? { ft: Math.round(fix.altitude * 3.28084), src: 'gps' }
       : null
-    let live = true
+    // GPS altitude shows immediately while the DEM tile loads
+    if (fallback) setElev(prev => prev ?? fallback)
+    const seq = ++sampleSeqRef.current
     elevationAt(fix.lng, fix.lat)
-      .then((m) => { if (live) setElev(m == null ? fallback : { ft: Math.round(m * 3.28084), src: 'dem' }) })
-      .catch(() => { if (live) setElev(fallback) })
-    return () => { live = false }
+      .then((m) => setElev(prev => {
+        const val = m == null ? fallback : { ft: Math.round(m * 3.28084), src: 'dem' }
+        return seq === sampleSeqRef.current ? val : prev ?? val
+      }))
+      .catch(() => setElev(prev => seq === sampleSeqRef.current ? fallback : prev ?? fallback))
   }, [fix])
 
   // Desktop browsers implement the orientation event but ship no
