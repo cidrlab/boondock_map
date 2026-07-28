@@ -36,6 +36,7 @@ const Map = forwardRef(function Map(
     searchPins, hoverPin, onPinHover, onZoomChange, onCenterChange,
     siteMinElev, siteMaxElev, siteKinds, tempFilter, onTempStatus,
     wpColors, onWaypointEdit, onWaypointDelete, onReportSpot,
+    liveReadoutOn, onToggleLiveReadout,
   },
   ref
 ) {
@@ -47,6 +48,8 @@ const Map = forwardRef(function Map(
   const bboxStart = useRef(null)
   const bboxRect = useRef(null)
   const infoPopupRef = useRef(null)
+  const liveToggleBtnRef = useRef(null)
+  const onToggleLiveRef = useRef(onToggleLiveReadout)
 
   // GPS feed for track recording. Everything downstream (accumulate in App,
   // draw current-track, save on stop) was already wired; nothing watched the
@@ -68,6 +71,15 @@ const Map = forwardRef(function Map(
     )
     return () => navigator.geolocation.clearWatch(watchId)
   }, [isRecordingTrack, onTrackPoint])
+
+  // Keep the live-readout toggle button in step with App state
+  useEffect(() => { onToggleLiveRef.current = onToggleLiveReadout })
+  useEffect(() => {
+    const btn = liveToggleBtnRef.current
+    if (!btn) return
+    btn.classList.toggle('active', !!liveReadoutOn)
+    btn.setAttribute('aria-pressed', liveReadoutOn ? 'true' : 'false')
+  }, [liveReadoutOn])
 
   // One delegated handler serves the "Copy coords" button in every popup —
   // popup content gets replaced by setHTML, so per-node listeners don't stick
@@ -147,10 +159,32 @@ const Map = forwardRef(function Map(
       'top-right'
     )
     map.current.addControl(new maplibregl.ScaleControl({ maxWidth: 200, unit: 'imperial' }), 'bottom-right')
+
+    // Live instrument cluster toggle (VISION row 89) — a hand-rolled control
+    // so it stacks with the built-ins, just above Locate. The inline gauge
+    // SVG follows the MARKER_SVG pattern, in the Icons.jsx monoline style.
+    const liveBtn = document.createElement('button')
+    liveBtn.type = 'button'
+    liveBtn.className = 'live-toggle-btn'
+    liveBtn.title = 'Live readout — compass, speed, elevation'
+    liveBtn.setAttribute('aria-label', 'Toggle live readout')
+    liveBtn.setAttribute('aria-pressed', 'false')
+    liveBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>'
+    liveBtn.addEventListener('click', () => onToggleLiveRef.current?.())
+    liveToggleBtnRef.current = liveBtn
+    map.current.addControl({
+      onAdd: () => {
+        const box = document.createElement('div')
+        box.className = 'maplibregl-ctrl maplibregl-ctrl-group'
+        box.appendChild(liveBtn)
+        return box
+      },
+      onRemove: () => { liveBtn.parentElement?.remove() },
+    }, 'bottom-right')
+
     const geolocate = new maplibregl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true },
       trackUserLocation: true,
-      showUserHeading: true,
     })
     map.current.addControl(geolocate, 'bottom-right')
 

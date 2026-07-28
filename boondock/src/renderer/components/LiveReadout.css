@@ -1,0 +1,177 @@
+/* Live instrument cluster (VISION row 89) — one glass card, top-center over
+   the map: elevation + speed cells above a sliding compass ribbon. Layout
+   cue from Gaia GPS's trip bar (credited in README + Guide); the glass,
+   type, and color are Boondock's own system, so all three themes come from
+   the variables. */
+
+.live-readout {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45; /* under the Legend/Guide panels and the search pill */
+  width: min(92%, 330px);
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* The search pill normally owns top-center; drop it below the cluster while
+   both are up (the cluster renders before the pill inside .map-wrap) */
+.live-readout ~ .search-area-btn { top: 112px; }
+
+.lr-status {
+  padding: 9px 14px;
+  font-size: 11.5px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+/* ── Stat cells ─────────────────────────────────────────────────────────── */
+.lr-cells { display: flex; }
+.lr-cell {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px 5px;
+  text-align: center;
+}
+.lr-cell + .lr-cell { border-left: 1px solid var(--glass-border); }
+
+.lr-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.lr-value {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lr-unit {
+  margin-left: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.lr-tag {
+  margin-left: 4px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent);
+  vertical-align: 2px;
+}
+
+/* ── Compass ribbon ─────────────────────────────────────────────────────── */
+.lr-ribbon {
+  position: relative;
+  height: 46px;
+  border-top: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+.lr-tape {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin-left: -720px; /* degree 0 sits under the caret at translateX(0) */
+  transition: transform 0.25s ease-out;
+  will-change: transform;
+}
+.lr-tick       { stroke: var(--text-muted); stroke-width: 1; }
+.lr-tick-mid   { stroke: var(--text-secondary); stroke-width: 1; }
+.lr-tick-major { stroke: var(--text-secondary); stroke-width: 1.5; }
+.lr-tick-n     { stroke: var(--accent); stroke-width: 1.5; }
+.lr-card {
+  fill: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+}
+.lr-card-n { fill: var(--accent); }
+
+.lr-caret {
+  position: absolute;
+  top: 0;
+  bottom: 16px;
+  left: 50%;
+  width: 1px;
+  margin-left: -0.5px;
+  background: var(--accent);
+}
+.lr-caret::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -4.5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--accent);
+}
+
+.lr-reading {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.lr-compass-btn {
+  display: block;
+  margin: 11px auto;
+  padding: 5px 14px;
+  border: 1px solid var(--accent-muted);
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+}
+.lr-compass-btn:hover { background: var(--accent-dim); }
+
+.lr-nocompass {
+  padding: 15px 12px;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.lr-stale .lr-fix { opacity: 0.55; transition: opacity 0.3s; }
+
+/* ── The cluster's toggle button (a hand-rolled control in Map.jsx) ─────── */
+.maplibregl-ctrl-group button.live-toggle-btn {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+.maplibregl-ctrl-group button.live-toggle-btn.active {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+}
+
+@media (max-width: 768px) {
+  .live-readout { top: calc(var(--toolbar-h) + env(safe-area-inset-top) + 12px); }
+  .live-readout ~ .search-area-btn { top: calc(var(--toolbar-h) + env(safe-area-inset-top) + 112px); }
+  .lr-value { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lr-tape { transition: none; }
+}

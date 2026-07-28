@@ -24,6 +24,7 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 - **GPX import:** Load existing GPX files for tracks and waypoints
 - **Offline maps:** Download any area (drawn box or current view) at your chosen zoom range into a local pack — the map serves pack tiles automatically when you're offline. Works on desktop and web/iPhone. USGS Topo only for now; other layers await tile-service terms verification (VISION.md).
 - **Track recording:** Record GPS tracks — live line and point count while recording, saved with distance on stop (GPS quality is best on the phone PWA)
+- **Live readout:** a glass instrument strip toggled from the map's gauge button — compass ribbon, speed, and elevation from the device's own sensors (heading is magnetic while still and GPS course once moving, each labeled; elevation falls back to GPS altitude when the terrain tiles are unreachable offline)
 - **Weather:** a 16-day Open-Meteo forecast card on every point popup (sites, waypoints, map clicks, roads, trails, search results), plus a **Temperature Filter** — set "no day hotter than", "no night colder than", or an average-temperature range over the next 7–16 days; a dashed blue polygon shades where the forecast fits and sites outside it are hidden
 - **Search:** Nominatim geocoder (place names, addresses, coordinates), biased to your current map view
 - **POI search:** Nearby points of interest via Overpass/OpenStreetMap — gas, food, groceries, campgrounds, water, restrooms, trailheads, picnic sites, viewpoints, lodging
@@ -268,6 +269,8 @@ open-source boondocking app whose feature set and architecture inform this
 project's roadmap. The community-spots trust model — dated check-ins as their
 own record type, freshness always visible — follows FreeRoam's design and the
 community-validation spirit of [iOverlander](https://www.ioverlander.com/).
+The live readout's instrument-cluster layout takes its cue from
+[Gaia GPS](https://www.gaiagps.com/); its visual design is Boondock's own.
 
 Built with free and open data:
 - [OpenStreetMap](https://www.openstreetmap.org/) contributors

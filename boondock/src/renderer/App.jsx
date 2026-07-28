@@ -9,6 +9,7 @@ import ReportSpotModal from './components/ReportSpotModal'
 import FeedbackModal from './components/FeedbackModal'
 import DownloadModal from './components/DownloadModal'
 import StatusBar from './components/StatusBar'
+import LiveReadout from './components/LiveReadout'
 import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
 import { elevationAt } from '../shared/elevation'
 import { matchesWpFilter } from '../shared/waypointMeta'
@@ -33,6 +34,7 @@ export default function App() {
   const [mapCenterPt, setMapCenterPt] = useState({ lng: DEFAULT_CENTER[0], lat: DEFAULT_CENTER[1] })
   const [zoomLevel, setZoomLevel] = useState(null)
   const [helpPanel, setHelpPanel] = useState(null) // 'legend' | 'guide' | null
+  const [liveReadoutOn, setLiveReadoutOn] = useState(false)   // instrument cluster (VISION row 89)
   const [searchPins, setSearchPins] = useState([])   // numbered POI/search results shown on the map
   const [hoverPin, setHoverPin] = useState(null)     // index sync: list row ↔ map pin
   const [searchArea, setSearchArea] = useState(null) // {run} when the map moved away from the last POI search
@@ -163,6 +165,8 @@ export default function App() {
       return updated
     })
   }, [])
+
+  const toggleLiveReadout = useCallback(() => setLiveReadoutOn(v => !v), [])
 
   // ── Map click → drop waypoint ────────────────────────────────────────────
   const handleMapClick = useCallback((lngLat) => {
@@ -406,9 +410,12 @@ export default function App() {
           }}
           onWaypointDelete={deleteWaypoint}
           onReportSpot={setReportSpotAt}
+          liveReadoutOn={liveReadoutOn}
+          onToggleLiveReadout={toggleLiveReadout}
         />
         <Legend open={helpPanel === 'legend'} onClose={() => setHelpPanel(null)} />
         <Guide open={helpPanel === 'guide'} onClose={() => setHelpPanel(null)} />
+        {liveReadoutOn && <LiveReadout />}
         {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
         {searchArea && (
           <button className="search-area-btn" onClick={() => searchArea.run()}>

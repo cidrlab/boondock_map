@@ -80,6 +80,16 @@ const TABS = [
           ~z10) to see whether it&apos;s hiking or motorized, plus surface
           info.</li>
           <li>Zoom buttons and the locate-me button are on the right edge.</li>
+          <li><strong>Live readout</strong> — the gauge button (right edge,
+          under the locate button) opens an instrument strip at the top of
+          the map: a
+          compass ribbon with your heading, plus live speed and elevation.
+          Heading is magnetic (<em>mag</em>) while you&apos;re still and
+          switches to your GPS direction of travel (<em>gps</em>, true north)
+          once you&apos;re moving. Elevation comes from the map&apos;s terrain
+          data, or straight from GPS (marked <em>gps</em>) when you&apos;re
+          offline. Tap the gauge again to put it away. The sensors need a
+          phone — on a desktop the strip shows elevation only.</li>
           <li><strong>Record</strong> (top bar) starts a GPS track: your path
           draws on the map as you move, and <em>Stop</em> names and saves it
           to the Tracks tab. Tracks ride along in GPX export.</li>
@@ -232,6 +242,11 @@ const TABS = [
         in Safari → Share button → <em>Add to Home Screen</em>. It installs
         like an app, full screen, and keeps working offline for anything
         you&apos;ve downloaded.</p>
+        <p><strong>Compass access:</strong> the live readout&apos;s compass
+        needs motion &amp; orientation access, which iPhone grants separately
+        from location — the first time, tap <em>Enable compass</em> on the
+        strip and allow it. Decline and the strip still shows your GPS
+        direction of travel whenever you&apos;re moving.</p>
         <p><strong>Moving waypoints between devices</strong> uses GPX files —
         the universal waypoint format (Gaia, Garmin, etc. all read it):</p>
         <ol>
@@ -272,7 +287,8 @@ const TABS = [
           <li><strong>Open-Meteo</strong> — weather forecasts on point cards
           and behind the temperature filter (CC-BY 4.0).</li>
         </ul>
-        <p>Feature ideas from the late, great FreeRoam app. Full license detail
+        <p>Feature ideas from the late, great FreeRoam app; the live
+        readout&apos;s layout takes its cue from Gaia GPS. Full license detail
         lives in <code>data/ATTRIBUTION.md</code> in the repository.</p>
       </>
     ),
