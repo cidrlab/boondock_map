@@ -2,3 +2,7 @@
 node_modules/
 dist/
 *.mbtiles
+
+# Python bytecode
+__pycache__/
+*.pyc
