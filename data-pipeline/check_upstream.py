@@ -127,6 +127,62 @@ def check_all(manifest):
     return moved, behind, unreachable, unbacked, lines
 
 
+def probe_service(url):
+    """GET an ArcGIS/JSON metadata endpoint. Returns (state, detail) where state
+    is 'ok', 'error' (reached but the body is an error), or 'down' (unreachable).
+    A live overlay whose service errors just silently stops drawing (row 82)."""
+    req = urllib.request.Request(url)
+    req.add_header("User-Agent", "boondock-map-upstream-check")
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+            # metadata endpoints are bounded (a few hundred KB at most); read it
+            # all so a large layer JSON isn't truncated into an invalid parse
+            body = res.read(2_000_000).decode("utf-8", "replace")
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError) as e:
+        return "down", str(e)
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return "error", "response was not JSON (error page?)"
+    if isinstance(data, dict) and data.get("error"):
+        err = data["error"]
+        return "error", str(err.get("message", err) if isinstance(err, dict) else err)[:120]
+    return "ok", ""
+
+
+def check_live_services(manifest):
+    """Reachability of the overlays rendered live off agency servers."""
+    down, lines = [], []
+    for svc in manifest.get("live_services", []):
+        state, detail = probe_service(svc["url"])
+        if state == "ok":
+            lines.append(f"- ✅ **{svc['label']}** — live service reachable")
+        else:
+            down.append(svc)
+            lines.append(f"- {'⚠️' if state == 'down' else '🔴'} **{svc['label']}** — {state}: {detail}")
+    return down, lines
+
+
+def check_derived_data(manifest):
+    """Age of data we built from other sources and committed (no upstream stamp)."""
+    stale, lines = [], []
+    today = datetime.now(timezone.utc).date()
+    for d in manifest.get("derived_data", []):
+        try:
+            built = date.fromisoformat(d["snapshot_date"])
+        except (KeyError, ValueError):
+            lines.append(f"- ⚠️ **{d.get('label', '?')}** — no valid snapshot_date")
+            continue
+        age = (today - built).days
+        limit = d.get("stale_after_days", 365)
+        if age > limit:
+            stale.append(d)
+            lines.append(f"- 🟠 **{d['label']}** — snapshot is {age} days old (> {limit}); consider rebuilding")
+        else:
+            lines.append(f"- ✅ **{d['label']}** — snapshot {age} days old (rebuild after {limit})")
+    return stale, lines
+
+
 def write_manifest(manifest, path=MANIFEST):
     today = date.today().isoformat()
     for src in manifest["sources"]:
@@ -195,30 +251,39 @@ def main():
 
     manifest = json.loads(MANIFEST.read_text())
     moved, behind, unreachable, unbacked, lines = check_all(manifest)
+    down, live_lines = check_live_services(manifest)
+    stale, derived_lines = check_derived_data(manifest)
 
-    report = "\n".join(lines)
+    sections = ["### Mirrored bulk sources", *lines]
+    if live_lines:
+        sections += ["", "### Live overlay services", *live_lines]
+    if derived_lines:
+        sections += ["", "### Derived / snapshot data", *derived_lines]
+    report = "\n".join(sections)
     print(report)
 
     if args.update:
         write_manifest(manifest)
         print(f"\nManifest updated: {MANIFEST}")
 
-    if (moved or behind) and args.issue:
+    attention = bool(moved or behind or down or stale)
+    if attention and args.issue:
+        extras = []
+        if unbacked:
+            extras.append(f"**{len(unbacked)} bulk source(s) have no local backup** — mirror a copy (standing rule, federal data is treated as at risk).")
+        if down:
+            extras.append(f"**{len(down)} live overlay service(s) are erroring or unreachable** — that overlay silently stops drawing (row 82) until the service recovers or is self-hosted (row 83).")
+        if stale:
+            extras.append(f"**{len(stale)} derived dataset(s) are past their rebuild threshold** — rerun the build pipeline and update `snapshot_date`.")
         body = "\n".join(
             [
                 ISSUE_MARKER,
-                "Upstream bulk datasets moved since the last check.",
+                "Upstream map data needs attention.",
                 "",
                 report,
                 "",
-                (
-                    f"**{len(unbacked)} source(s) have no local backup.** Federal "
-                    "datasets are treated as at risk of withdrawal, so mirror a "
-                    "copy and fill in `backup` in the manifest.\n"
-                    if unbacked
-                    else ""
-                ),
-                "**What to do:** re-download the changed sources, rebuild the "
+                *[e + "\n" for e in extras],
+                "**For bulk sources that moved or are behind:** re-download, rebuild the "
                 "PMTiles (VISION row 83), and set `built_from` in "
                 "`data-pipeline/upstream_sources.json` to the new `Last-Modified` "
                 "so this stops reporting.",
@@ -231,7 +296,7 @@ def main():
 
     if unreachable:
         return 1
-    return 2 if (moved or behind) else 0
+    return 2 if attention else 0
 
 
 if __name__ == "__main__":
