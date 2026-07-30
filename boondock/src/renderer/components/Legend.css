@@ -89,6 +89,11 @@
   border-top: 2px solid #c87830;
   height: 0;
 }
+.legend-wadnr-road {
+  background: transparent;
+  border-top: 2px solid #a855f7;
+  height: 0;
+}
 .legend-roadcore-open {
   background: transparent;
   border-top: 2px solid #c2b280;

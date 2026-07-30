@@ -393,6 +393,13 @@ const Map = forwardRef(function Map(
           return
         }
       }
+      if (overlaysRef.current['wadnr-roads'] && m.getZoom() >= 10) {
+        const road = await identifyWadnr(m, e.lngLat)
+        if (road && map.current === m) {
+          openWadnrPopup(m, e.lngLat, road)
+          return
+        }
+      }
       if (overlaysRef.current.roadcore && m.getZoom() >= 9) {
         const rcLayers = ['roadcore-open', 'roadcore-closed'].filter(id => m.getLayer(id))
         const box = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]]
@@ -1685,6 +1692,7 @@ async function identifyArc(idUrl, layersParam, m, lngLat) {
 const identifyMvum = (m, lngLat) => identifyArc(OVERLAY_LAYERS.mvum.identifyUrl, 'visible:1,2', m, lngLat)
 const identifyTrail = (m, lngLat) => identifyArc(OVERLAY_LAYERS['usfs-trails'].identifyUrl, 'all', m, lngLat)
 const identifyBlm = (m, lngLat) => identifyArc(OVERLAY_LAYERS['blm-roads'].identifyUrl, 'all:0,1', m, lngLat)
+const identifyWadnr = (m, lngLat) => identifyArc(OVERLAY_LAYERS['wadnr-roads'].identifyUrl, 'all:2,5', m, lngLat)
 
 function titleCase(s) {
   return String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
@@ -1752,6 +1760,29 @@ function openBlmPopup(m, lngLat, result) {
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng, name === 'BLM road' ? '' : name)}
+    </div>`
+  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
+}
+
+function openWadnrPopup(m, lngLat, result) {
+  const a = result.attributes || {}
+  const name = titleCase(String(a['Road Name'] || a['Road Number'] || '').trim()) || 'WA DNR road'
+  const rows = []
+  const surface = String(a['Surface Label'] || '').trim()
+  const access = String(a['Public Access Label'] || '').trim()
+  const status = String(a['Status Label'] || '').trim()
+  if (surface && surface !== 'Unknown') rows.push(`Surface: ${esc(surface)}`)
+  if (access && access !== 'Unknown') rows.push(`Public access: ${esc(access)}`)
+  if (status && status !== 'Unknown') rows.push(`Status: ${esc(status)}`)
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:170px">
+      <div style="font-size:13px;font-weight:600">${esc(name)}</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin:2px 0 5px">WA DNR · state trust road</div>
+      <div style="font-size:11px;color:rgba(var(--fg-rgb),.6);line-height:1.45;margin-bottom:2px">On WA state trust land, where rules differ from federal land — a Discover Pass is often required and gates/closures are common. Verify access locally.</div>
+      ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      ${weatherHtml()}
+      ${directionsHtml(lngLat.lat, lngLat.lng, name === 'WA DNR road' ? '' : name)}
     </div>`
   const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
   attachWeather(popup, lngLat.lat, lngLat.lng, m)
