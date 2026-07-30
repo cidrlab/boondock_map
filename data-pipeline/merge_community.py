@@ -39,6 +39,12 @@ DUP_METERS = 75
 FLAG_WITHHOLD = 2
 VERIFY_CONFIRMATIONS = 2
 
+# Cloudflare bans the default "Python-urllib" User-Agent at the edge (error
+# 1010 → HTTP 403) before the request ever reaches the Worker's own auth, so
+# every Worker call must send a real UA (verified 2026-07-29: urllib UA → 403,
+# any normal UA → the Worker's 401/200).
+USER_AGENT = 'BoondockMap-community-merge/1.0 (+https://boondockmap.com)'
+
 
 def haversine_m(lng1, lat1, lng2, lat2):
     r = 6371000
@@ -50,7 +56,8 @@ def haversine_m(lng1, lat1, lng2, lat2):
 
 def fetch_export(api, token):
     req = urllib.request.Request(api.rstrip('/') + '/export',
-                                 headers={'Authorization': f'Bearer {token}'})
+                                 headers={'Authorization': f'Bearer {token}',
+                                          'User-Agent': USER_AGENT})
     with urllib.request.urlopen(req, timeout=60) as resp:
         return json.load(resp)
 

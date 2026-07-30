@@ -15,6 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  contents: read   # actions/checkout needs this; a bare `issues: write` sets it to none
   issues: write
 
 concurrency:

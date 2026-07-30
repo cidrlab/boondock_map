@@ -31,6 +31,11 @@ ADMIN = os.environ.get("COMMUNITY_ADMIN_TOKEN", "")
 GH_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 REPO = os.environ.get("GITHUB_REPOSITORY", "")
 
+# Cloudflare bans the default "Python-urllib" User-Agent at the edge (error
+# 1010 → HTTP 403) before the Worker's own auth runs, so Worker calls must send
+# a real UA. The GitHub calls set their own UA, which overrides this default.
+USER_AGENT = "BoondockMap-feedback-filer/1.0 (+https://boondockmap.com)"
+
 # Feedback kind → issue labels. Labels are created on demand by GitHub only if
 # they already exist; unknown labels make the API reject the issue, so these
 # must match labels present in the repo (the workflow creates them first).
@@ -50,7 +55,10 @@ KIND_TITLE = {
 
 def request(url, *, data=None, headers=None, method=None):
     req = urllib.request.Request(url, data=data, method=method)
-    for k, v in (headers or {}).items():
+    # Default UA so Worker calls clear Cloudflare's edge; per-call headers
+    # (e.g. GitHub's own User-Agent) override it.
+    merged = {"User-Agent": USER_AGENT, **(headers or {})}
+    for k, v in merged.items():
         req.add_header(k, v)
     with urllib.request.urlopen(req, timeout=30) as res:
         return json.loads(res.read().decode() or "{}")
