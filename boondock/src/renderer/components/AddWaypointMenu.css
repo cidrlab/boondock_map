@@ -1,0 +1,82 @@
+/* Add-waypoint chooser (VISION row 93). A small glass card anchored above the
+   bottom-right controls on desktop, and lifted to a thumb-reachable sheet on
+   the phone. Colors come from the theme variables so all three themes work. */
+
+.addwp-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 55; /* above the live readout (45) and map controls, below modals */
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.addwp-menu {
+  margin: 0 12px 96px 0;
+  width: min(300px, calc(100% - 24px));
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.addwp-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 10px 9px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--glass-border);
+}
+.addwp-close { padding: 3px; }
+
+.addwp-opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.addwp-opt:last-of-type { border-bottom: none; }
+.addwp-opt:hover { background: var(--glass-hover); }
+.addwp-opt:active { background: var(--bg-active); }
+.addwp-opt:disabled { opacity: 0.6; cursor: default; }
+.addwp-opt svg { flex: none; color: var(--accent); }
+
+.addwp-opt-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.addwp-opt-text strong { font-size: 13px; font-weight: 600; }
+.addwp-opt-text small { font-size: 11px; color: var(--text-secondary); }
+
+.addwp-err {
+  padding: 9px 14px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #f87171;
+  border-top: 1px solid var(--glass-border);
+}
+
+/* Phone: lift the card above the sheet + controls and center it */
+@media (max-width: 768px) {
+  .addwp-overlay { justify-content: center; }
+  .addwp-menu {
+    margin: 0 0 calc(150px + env(safe-area-inset-bottom));
+    width: calc(100% - 24px);
+    max-width: 340px;
+  }
+  .addwp-opt { padding: 14px; }
+}

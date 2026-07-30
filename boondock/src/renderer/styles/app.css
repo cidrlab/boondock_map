@@ -41,6 +41,18 @@ button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: tran
   filter: var(--map-filter);
 }
 
+/* Waypoint pin open in the editor is draggable (VISION row 94): a soft accent
+   pulse says "grab me". The glow animates the inner SVG's filter, leaving the
+   element's own drop-shadow and the selected-scale transform untouched. */
+.bdk-marker-editing svg { animation: bdk-pin-pulse 1.4s ease-in-out infinite; }
+@keyframes bdk-pin-pulse {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(249, 50, 43, 0)); }
+  50%      { filter: drop-shadow(0 0 5px var(--accent)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bdk-marker-editing svg { animation: none; }
+}
+
 /* MapLibre control overrides — glassy dark ──────────────────────────────── */
 .maplibregl-ctrl-top-right { margin-top: 10px; margin-right: 10px; }
 .maplibregl-ctrl-bottom-right { margin-bottom: 36px; margin-right: 10px; }
@@ -80,6 +92,18 @@ button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: tran
 .maplibregl-ctrl button.maplibregl-ctrl-geolocate-active,
 .maplibregl-ctrl button.maplibregl-ctrl-geolocate-waiting {
   background: var(--accent-dim) !important;
+}
+
+/* Add-waypoint control (VISION row 93) — hand-rolled like the live toggle;
+   lights up while its chooser is open or pick-mode is armed. */
+.maplibregl-ctrl-group button.addwp-toggle-btn {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+.maplibregl-ctrl-group button.addwp-toggle-btn.active {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
 }
 
 /* Transient map message (e.g. location errors) */

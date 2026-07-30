@@ -79,7 +79,9 @@ const TABS = [
           route name and vehicle class; click a <strong>trail</strong> (past
           ~z10) to see whether it&apos;s hiking or motorized, plus surface
           info.</li>
-          <li>Zoom buttons and the locate-me button are on the right edge.</li>
+          <li>Zoom buttons and the locate-me button are on the right edge, with
+          an <strong>add-pin button</strong> that drops a waypoint at your
+          location or a point you tap (see the Waypoints tab).</li>
           <li><strong>Live readout</strong> — the gauge button (right edge,
           under the locate button) opens an instrument strip at the top of
           the map: a
@@ -196,6 +198,11 @@ const TABS = [
         <em> Save waypoint</em>. Pick an icon type, name it, and optionally set
         everything else right there: visit status, favorite, labels, pin color,
         notes.</p>
+        <p><strong>The add-pin button</strong> (right edge, under the gauge) is
+        the quickest way on the phone. Tap it and choose <em>At my location</em>
+        to drop a pin where you&apos;re standing (it uses your GPS fix), or
+        <em> Pick on the map</em> and then tap the exact spot. Either way the
+        save form opens ready to name.</p>
         <p><strong>Visit status</strong> shows as a small badge on the pin:
         green <em>Been &amp; stayed</em>, orange <em>Been, not camped</em>,
         red <em>Explore</em> (want to go), or none. <strong>Favorite</strong>
@@ -209,6 +216,10 @@ const TABS = [
         <p><strong>In the list:</strong> the pencil opens the full editor,
         which adds ★ ratings for Quiet, Cleanliness, and Accessibility, plus a
         trashcan to delete. Elevation attaches automatically to every save.</p>
+        <p><strong>Moving a pin:</strong> while a waypoint is open in the editor
+        its map pin pulses and can be <strong>dragged</strong> — drop it on the
+        right spot and the coordinates (and elevation) update to match. Handy
+        when you saved a rough spot and want to nudge it onto the actual pullout.</p>
       </>
     ),
   },

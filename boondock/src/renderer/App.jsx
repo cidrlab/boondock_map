@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Map from './components/Map'
 import Legend from './components/Legend'
 import Guide from './components/Guide'
@@ -10,6 +10,7 @@ import FeedbackModal from './components/FeedbackModal'
 import DownloadModal from './components/DownloadModal'
 import StatusBar from './components/StatusBar'
 import LiveReadout from './components/LiveReadout'
+import AddWaypointMenu from './components/AddWaypointMenu'
 import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
 import { elevationAt } from '../shared/elevation'
 import { matchesWpFilter } from '../shared/waypointMeta'
@@ -35,6 +36,9 @@ export default function App() {
   const [zoomLevel, setZoomLevel] = useState(null)
   const [helpPanel, setHelpPanel] = useState(null) // 'legend' | 'guide' | null
   const [liveReadoutOn, setLiveReadoutOn] = useState(false)   // instrument cluster (VISION row 89)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)       // "Add waypoint" chooser (VISION row 93)
+  const [pickMode, setPickMode] = useState(false)             // next map tap drops a waypoint
+  const [editingWaypointId, setEditingWaypointId] = useState(null)  // its pin is draggable (VISION row 94)
   const [searchPins, setSearchPins] = useState([])   // numbered POI/search results shown on the map
   const [hoverPin, setHoverPin] = useState(null)     // index sync: list row ↔ map pin
   const [searchArea, setSearchArea] = useState(null) // {run} when the map moved away from the last POI search
@@ -168,9 +172,38 @@ export default function App() {
 
   const toggleLiveReadout = useCallback(() => setLiveReadoutOn(v => !v), [])
 
+  // Stable reference unless the set actually changes. Without this the .filter()
+  // ran on every render (each mousemove fires setMapCursor), handing Map a fresh
+  // array each time — which re-ran its marker effect and reset a pin's position
+  // mid-drag, fighting the row-94 drag. Memoizing also drops the per-mousemove
+  // marker churn.
+  const visibleWaypoints = useMemo(
+    () => waypoints.filter(w => matchesWpFilter(w, wpFilter)),
+    [waypoints, wpFilter]
+  )
+
+  // ── Add waypoint (VISION row 93) ─────────────────────────────────────────
+  // The map control opens a chooser; while pick-mode is armed it cancels it.
+  const onAddWaypoint = useCallback(() => {
+    if (pickMode) { setPickMode(false); return }
+    setAddMenuOpen(o => !o)
+  }, [pickMode])
+  const enterPickMode = useCallback(() => {
+    setAddMenuOpen(false)
+    setDownloadMode(false)   // the two map-tap modes can't share the pointer
+    setPickMode(true)
+  }, [])
+  const dropAtLocation = useCallback((ll) => {
+    setAddMenuOpen(false)
+    // Prefilled, selected name so one keystroke renames it (row 59 pattern);
+    // elevation is sampled after save like every other drop.
+    setPendingWaypoint({ lng: ll.lng, lat: ll.lat, prefill: { name: 'My location' } })
+  }, [])
+
   // ── Map click → drop waypoint ────────────────────────────────────────────
   const handleMapClick = useCallback((lngLat) => {
     if (downloadMode) return  // bbox drawing mode handles its own clicks
+    setPickMode(false)        // a pick-mode tap lands here too (VISION row 93)
     setPendingWaypoint({ lng: lngLat.lng, lat: lngLat.lat })
   }, [downloadMode])
 
@@ -204,6 +237,14 @@ export default function App() {
   const updateWaypoint = useCallback((id, updates) => {
     setWaypoints(prev => prev.map(w => w.id === id ? { ...w, ...updates } : w))
   }, [])
+
+  // Pin dragged to a new spot in edit mode (VISION row 94). The old elevation
+  // is now wrong, so clear it and re-sample at the new coordinate.
+  const relocateWaypoint = useCallback((id, ll) => {
+    setWaypoints(prev => prev.map(w => w.id === id ? { ...w, lat: ll.lat, lng: ll.lng, elev_ft: null } : w))
+    setSelectedWaypoint(sw => (sw?.id === id ? { ...sw, lat: ll.lat, lng: ll.lng } : sw))
+    attachElevation(id, ll.lat, ll.lng)
+  }, [attachElevation])
 
   // ── Fly to coordinate or place (from search bar) ─────────────────────────
   const flyToCoord = useCallback((coord, dropWaypoint = false) => {
@@ -357,6 +398,7 @@ export default function App() {
             setWpColors={setWpColors}
             editRequestId={editRequestId}
             onEditHandled={() => setEditRequestId(null)}
+            onEditingChange={setEditingWaypointId}
             siteMinElev={siteMinElev}
             setSiteMinElev={setSiteMinElev}
             siteMaxElev={siteMaxElev}
@@ -374,7 +416,7 @@ export default function App() {
           ref={mapRef}
           baseLayer={baseLayer}
           overlays={overlays}
-          waypoints={waypoints.filter(w => matchesWpFilter(w, wpFilter))}
+          waypoints={visibleWaypoints}
           tracks={tracks}
           currentTrackPoints={currentTrackPoints}
           selectedWaypoint={selectedWaypoint}
@@ -412,10 +454,22 @@ export default function App() {
           onReportSpot={setReportSpotAt}
           liveReadoutOn={liveReadoutOn}
           onToggleLiveReadout={toggleLiveReadout}
+          pickMode={pickMode}
+          onAddWaypoint={onAddWaypoint}
+          addActive={addMenuOpen || pickMode}
+          editingWaypointId={editingWaypointId}
+          onWaypointRelocate={relocateWaypoint}
         />
         <Legend open={helpPanel === 'legend'} onClose={() => setHelpPanel(null)} />
         <Guide open={helpPanel === 'guide'} onClose={() => setHelpPanel(null)} />
         {liveReadoutOn && <LiveReadout />}
+        {addMenuOpen && (
+          <AddWaypointMenu
+            onAtLocation={dropAtLocation}
+            onPickOnMap={enterPickMode}
+            onClose={() => setAddMenuOpen(false)}
+          />
+        )}
         {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
         {searchArea && (
           <button className="search-area-btn" onClick={() => searchArea.run()}>

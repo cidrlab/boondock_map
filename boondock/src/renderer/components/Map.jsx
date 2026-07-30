@@ -37,6 +37,8 @@ const Map = forwardRef(function Map(
     siteMinElev, siteMaxElev, siteKinds, tempFilter, onTempStatus,
     wpColors, onWaypointEdit, onWaypointDelete, onReportSpot,
     liveReadoutOn, onToggleLiveReadout,
+    pickMode, onAddWaypoint, addActive,
+    editingWaypointId, onWaypointRelocate,
   },
   ref
 ) {
@@ -50,6 +52,10 @@ const Map = forwardRef(function Map(
   const infoPopupRef = useRef(null)
   const liveToggleBtnRef = useRef(null)
   const onToggleLiveRef = useRef(onToggleLiveReadout)
+  const addWpBtnRef = useRef(null)
+  const onAddWpRef = useRef(onAddWaypoint)
+  const pickModeRef = useRef(pickMode)
+  const onRelocateRef = useRef(onWaypointRelocate)
 
   // GPS feed for track recording. Everything downstream (accumulate in App,
   // draw current-track, save on stop) was already wired; nothing watched the
@@ -80,6 +86,19 @@ const Map = forwardRef(function Map(
     btn.classList.toggle('active', !!liveReadoutOn)
     btn.setAttribute('aria-pressed', liveReadoutOn ? 'true' : 'false')
   }, [liveReadoutOn])
+
+  // Keep the add-waypoint control + relocate handler current without recreating
+  // the map (VISION rows 93/94). addActive lights the button while the chooser
+  // is open or pick-mode is armed.
+  useEffect(() => { onAddWpRef.current = onAddWaypoint })
+  useEffect(() => { onRelocateRef.current = onWaypointRelocate })
+  useEffect(() => { pickModeRef.current = pickMode }, [pickMode])
+  useEffect(() => {
+    const btn = addWpBtnRef.current
+    if (!btn) return
+    btn.classList.toggle('active', !!addActive)
+    btn.setAttribute('aria-pressed', addActive ? 'true' : 'false')
+  }, [addActive])
 
   // One delegated handler serves the "Copy coords" button in every popup —
   // popup content gets replaced by setHTML, so per-node listeners don't stick
@@ -159,6 +178,28 @@ const Map = forwardRef(function Map(
       'top-right'
     )
     map.current.addControl(new maplibregl.ScaleControl({ maxWidth: 200, unit: 'imperial' }), 'bottom-right')
+
+    // Add-waypoint control (VISION row 93) — opens the chooser (at my location
+    // / pick on the map). Hand-rolled like the live toggle so it stacks with
+    // the built-in controls; the icon is Icons.jsx's MapPinPlus.
+    const addWpBtn = document.createElement('button')
+    addWpBtn.type = 'button'
+    addWpBtn.className = 'addwp-toggle-btn'
+    addWpBtn.title = 'Add a waypoint — at my location or a point I pick'
+    addWpBtn.setAttribute('aria-label', 'Add a waypoint')
+    addWpBtn.setAttribute('aria-pressed', 'false')
+    addWpBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19.43 12.98c.04-.32.07-.64.07-.98 0-4.42-3.58-8-8-8s-8 3.58-8 8c0 5.25 8 13 8 13"/><circle cx="11.5" cy="10" r="3"/><line x1="19" y1="15" x2="19" y2="21"/><line x1="16" y1="18" x2="22" y2="18"/></svg>'
+    addWpBtn.addEventListener('click', () => onAddWpRef.current?.())
+    addWpBtnRef.current = addWpBtn
+    map.current.addControl({
+      onAdd: () => {
+        const box = document.createElement('div')
+        box.className = 'maplibregl-ctrl maplibregl-ctrl-group'
+        box.appendChild(addWpBtn)
+        return box
+      },
+      onRemove: () => { addWpBtn.parentElement?.remove() },
+    }, 'bottom-right')
 
     // Live instrument cluster toggle (VISION row 89) — a hand-rolled control
     // so it stacks with the built-ins, just above Locate. The inline gauge
@@ -273,6 +314,12 @@ const Map = forwardRef(function Map(
       // Clicks on a waypoint marker (or its inner SVG) belong to its popup
       if (e.originalEvent.target?.closest?.('.bdk-marker')) return
       if (downloadModeRef.current) return   // bbox drawing owns the pointer
+      // Pick-mode (VISION row 93): the next tap drops a waypoint straight into
+      // the save dialog, skipping the info card. App clears the mode.
+      if (pickModeRef.current) {
+        onMapClick?.({ lng: e.lngLat.lng, lat: e.lngLat.lat })
+        return
+      }
       const m = map.current
       // Numbered search pins first — they're what the user just asked for
       if (m.getLayer('search-pins-circle')) {
@@ -978,23 +1025,28 @@ const Map = forwardRef(function Map(
       }
     })
 
-    // Add/update markers
+    // Add/update markers. The pin for the waypoint open in the editor is born
+    // draggable (VISION row 94); MapLibre 4.7.1 will NOT attach drag handlers to
+    // a custom-element marker through setDraggable() after construction (isolated
+    // and verified headless), so a change in edit state rebuilds just that pin.
     waypoints.forEach(wp => {
-      if (markersRef.current[wp.id]) {
-        const marker = markersRef.current[wp.id]
-        marker.setLngLat([wp.lng, wp.lat])
-        marker.getElement().innerHTML = markerSvgHtml(wp, wpColors)   // icon/status/colors may have changed
-        const popup = marker.getPopup()
+      const draggable = wp.id === editingWaypointId
+      const existing = markersRef.current[wp.id]
+      if (existing && existing.isDraggable() === draggable) {
+        existing.setLngLat([wp.lng, wp.lat])
+        existing.getElement().innerHTML = markerSvgHtml(wp, wpColors)   // icon/status/colors may have changed
+        const popup = existing.getPopup()
         popup?.setHTML(waypointPopupHtml(wp))
         // setHTML resets the weather slot; refill if the popup is showing
         if (popup?.isOpen?.()) attachWeather(popup, wp.lat, wp.lng, map.current)
         return
       }
+      if (existing) { existing.remove(); delete markersRef.current[wp.id] }   // edit state flipped → rebuild
 
       const el = document.createElement('div')
-      el.className = 'bdk-marker'
+      el.className = 'bdk-marker' + (draggable ? ' bdk-marker-editing' : '')
       el.style.cssText = `
-        width: 30px; height: 38px; cursor: pointer;
+        width: 30px; height: 38px; cursor: ${draggable ? 'grab' : 'pointer'};
         display: flex; align-items: center; justify-content: center;
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
         overflow: visible;
@@ -1029,10 +1081,17 @@ const Map = forwardRef(function Map(
         })
       })
 
-      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom', draggable })
         .setLngLat([wp.lng, wp.lat])
         .setPopup(popup)
         .addTo(map.current)
+
+      // Dropping the pin in edit mode rewrites the coordinates (VISION row 94).
+      // The handler comes from a ref so it never goes stale.
+      marker.on('dragend', () => {
+        const ll = marker.getLngLat()
+        onRelocateRef.current?.(wp.id, { lat: ll.lat, lng: ll.lng })
+      })
 
       // No stopPropagation: MapLibre toggles the marker's popup from the
       // map's own click event, so swallowing it here kills popups entirely
@@ -1042,7 +1101,7 @@ const Map = forwardRef(function Map(
 
       markersRef.current[wp.id] = marker
     })
-  }, [waypoints, mapReady, wpColors])
+  }, [waypoints, mapReady, wpColors, editingWaypointId])
 
   // Highlight selected waypoint — scale the inner SVG, never the marker
   // element itself: MapLibre positions markers via transform on that element,
@@ -1059,6 +1118,16 @@ const Map = forwardRef(function Map(
       }
     })
   }, [selectedWaypoint])
+
+  // Pick-mode affordance (VISION row 93): crosshair cursor + a one-time hint
+  // while the map waits for the placing tap.
+  useEffect(() => {
+    const m = map.current
+    if (!m || !mapReady || !pickMode) return
+    m.getCanvas().style.cursor = 'crosshair'
+    showToast(mapContainer.current, 'Tap the map to place your waypoint')
+    return () => { if (map.current === m) m.getCanvas().style.cursor = '' }
+  }, [pickMode, mapReady])
 
   // ── Download mode — bounding box drawing ─────────────────────────────────
   useEffect(() => {

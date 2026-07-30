@@ -54,7 +54,7 @@ export default function Sidebar({
   siteMinElev, setSiteMinElev, siteMaxElev, setSiteMaxElev,
   siteKinds, setSiteKinds,
   tempFilter, setTempFilter, tempStatus,
-  wpFilter, setWpFilter, wpColors, setWpColors, editRequestId, onEditHandled,
+  wpFilter, setWpFilter, wpColors, setWpColors, editRequestId, onEditHandled, onEditingChange,
 }) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || {} } catch { return {} }
@@ -232,6 +232,10 @@ export default function Sidebar({
     if (wp) startEdit(wp)
     onEditHandled?.()
   }, [editRequestId])
+
+  // Tell the app which waypoint is open in the editor, so its map pin becomes
+  // draggable (VISION row 94). Covers every exit path (save/cancel/delete).
+  useEffect(() => { onEditingChange?.(editingId) }, [editingId])
 
   const toggleEditLabel = (l) => setEditLabels(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l])
   const addNewLabel = () => {
@@ -479,6 +483,11 @@ export default function Sidebar({
                   >
                     {editingId === wp.id ? (
                       <div className="wp-edit" onClick={e => e.stopPropagation()}>
+                        <div className="wp-edit-loc">
+                          <Crosshair size={11} />
+                          <span>{wp.lat.toFixed(5)}, {wp.lng.toFixed(5)}{wp.elev_ft != null ? ` · ${wp.elev_ft.toLocaleString()} ft` : ''}</span>
+                        </div>
+                        <div className="wp-edit-hint">Drag the pin on the map to move it</div>
                         <input value={editName} onChange={e => setEditName(e.target.value)} autoFocus />
                         <textarea placeholder="Notes…" value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={2} />
                         <div className="icon-picker">

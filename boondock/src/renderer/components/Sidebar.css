@@ -441,6 +441,22 @@
 .wp-edit input, .wp-edit textarea { width: 100%; }
 .wp-edit-actions { display: flex; gap: 6px; }
 
+/* Location line + drag hint at the top of the editor (VISION row 94) */
+.wp-edit-loc {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.wp-edit-loc svg { flex: none; color: var(--accent); }
+.wp-edit-hint {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: -4px;
+}
+
 .icon-picker { display: flex; gap: 4px; flex-wrap: wrap; }
 .icon-picker button {
   display: flex; align-items: center; justify-content: center;
