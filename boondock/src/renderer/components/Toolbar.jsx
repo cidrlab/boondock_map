@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Menu, Circle, Square, Download, FolderOpen, Share, Cloud, Compass, BookOpen, HelpCircle, MessageSquare } from './Icons'
+import { Menu, Circle, Square, Download, FolderOpen, Share, Cloud, Compass, BookOpen, HelpCircle, MessageSquare, Maximize } from './Icons'
 import './Toolbar.css'
 
 export default function Toolbar({
@@ -7,6 +7,7 @@ export default function Toolbar({
   onExportGPX, onImportGPX, onToggleSidebar,
   onToggleDownloadMode, downloadMode, onOpenSyncFolder,
   helpPanel, onToggleHelp, onFeedback, feedbackEnabled,
+  onOpenInstruments,
 }) {
   const [trackName, setTrackName] = useState('')
   const [showStopModal, setShowStopModal] = useState(false)
@@ -52,6 +53,9 @@ export default function Toolbar({
         </button>
         <button className={`tb-icon-btn ${helpPanel === 'legend' ? 'active' : ''}`} onClick={() => onToggleHelp?.('legend')} title="Map legend">
           <HelpCircle size={16} />
+        </button>
+        <button className="tb-icon-btn" onClick={onOpenInstruments} title="Full-screen instruments (compass, speed, elevation)">
+          <Maximize size={16} />
         </button>
         {feedbackEnabled && (
           <button className="tb-icon-btn" onClick={onFeedback} title="Send feedback">

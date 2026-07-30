@@ -39,6 +39,7 @@ const Map = forwardRef(function Map(
     liveReadoutOn, onToggleLiveReadout,
     pickMode, onAddWaypoint, addActive,
     editingWaypointId, onWaypointRelocate,
+    navTarget, userFix, onNavigate,
   },
   ref
 ) {
@@ -56,6 +57,9 @@ const Map = forwardRef(function Map(
   const onAddWpRef = useRef(onAddWaypoint)
   const pickModeRef = useRef(pickMode)
   const onRelocateRef = useRef(onWaypointRelocate)
+  const onNavigateRef = useRef(onNavigate)
+  const navTargetRef = useRef(navTarget)
+  const userFixRef = useRef(userFix)
 
   // GPS feed for track recording. Everything downstream (accumulate in App,
   // draw current-track, save on stop) was already wired; nothing watched the
@@ -92,6 +96,7 @@ const Map = forwardRef(function Map(
   // is open or pick-mode is armed.
   useEffect(() => { onAddWpRef.current = onAddWaypoint })
   useEffect(() => { onRelocateRef.current = onWaypointRelocate })
+  useEffect(() => { onNavigateRef.current = onNavigate })
   useEffect(() => { pickModeRef.current = pickMode }, [pickMode])
   useEffect(() => {
     const btn = addWpBtnRef.current
@@ -114,6 +119,24 @@ const Map = forwardRef(function Map(
     }
     document.addEventListener('click', onCopyClick)
     return () => document.removeEventListener('click', onCopyClick)
+  }, [])
+
+  // Delegated "Guide me here" (VISION row 90): every point card's directions
+  // row carries a compass button, so one handler serves them all. Sets the
+  // navigation target in App, which auto-shows the live readout + ribbon.
+  useEffect(() => {
+    const onNavClick = (e) => {
+      const btn = e.target.closest?.('[data-nav-lat]')
+      if (!btn) return
+      const lat = parseFloat(btn.dataset.navLat)
+      const lng = parseFloat(btn.dataset.navLng)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      onNavigateRef.current?.({ lat, lng, name: btn.dataset.navName || '' })
+      // close the popup the button lives in, so the ribbon has the stage
+      btn.closest('.maplibregl-popup')?.querySelector('.maplibregl-popup-close-button')?.click()
+    }
+    document.addEventListener('click', onNavClick)
+    return () => document.removeEventListener('click', onNavClick)
   }, [])
 
   // Keep refs in sync so callbacks always see current state
@@ -273,6 +296,7 @@ const Map = forwardRef(function Map(
       addZonesLayers()
       addTempLayers()
       addSearchPinsLayers()
+      addNavLayers()
       setMapReady(true)
     })
 
@@ -435,6 +459,8 @@ const Map = forwardRef(function Map(
       applyTempData()
       addSearchPinsLayers()
       applySearchPins()
+      addNavLayers()
+      applyNavData()
       applyOverlayVisibility()
       applyPackAreasVisibility()
       applySiteElevFilter()
@@ -649,6 +675,53 @@ const Map = forwardRef(function Map(
       })),
     })
   }
+
+  // ── Beeline navigation (VISION row 90) ────────────────────────────────────
+  // A dashed green line from the live GPS fix to the chosen target, plus a ring
+  // on the target. Straight-line only; the compass ribbon does the turning.
+  function addNavLayers() {
+    const m = map.current
+    if (!m) return
+    const empty = { type: 'FeatureCollection', features: [] }
+    if (!m.getSource('nav-line')) m.addSource('nav-line', { type: 'geojson', data: empty })
+    if (!m.getSource('nav-target')) m.addSource('nav-target', { type: 'geojson', data: empty })
+    if (!m.getLayer('nav-line-layer')) {
+      m.addLayer({
+        id: 'nav-line-layer', type: 'line', source: 'nav-line',
+        layout: { 'line-cap': 'round' },
+        paint: { 'line-color': '#34d399', 'line-width': 3, 'line-opacity': 0.9, 'line-dasharray': [2, 1.5] },
+      })
+    }
+    if (!m.getLayer('nav-target-ring')) {
+      m.addLayer({
+        id: 'nav-target-ring', type: 'circle', source: 'nav-target',
+        paint: {
+          'circle-radius': 9,
+          'circle-color': 'rgba(52,211,153,0.18)',
+          'circle-stroke-color': '#34d399',
+          'circle-stroke-width': 2.5,
+        },
+      })
+    }
+  }
+
+  function applyNavData() {
+    const m = map.current
+    if (!m?.getSource('nav-line')) return
+    const t = navTargetRef.current, u = userFixRef.current
+    m.getSource('nav-line').setData({
+      type: 'FeatureCollection',
+      features: (t && u) ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: [[u.lng, u.lat], [t.lng, t.lat]] }, properties: {} }] : [],
+    })
+    m.getSource('nav-target').setData({
+      type: 'FeatureCollection',
+      features: t ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: [t.lng, t.lat] }, properties: {} }] : [],
+    })
+  }
+
+  useEffect(() => { navTargetRef.current = navTarget }, [navTarget])
+  useEffect(() => { userFixRef.current = userFix }, [userFix])
+  useEffect(() => { if (mapReady) applyNavData() }, [navTarget, userFix, mapReady])
 
   const searchPinsRef = useRef(searchPins)
   useEffect(() => {
@@ -1359,7 +1432,7 @@ function waypointPopupHtml(wp) {
       ${ratings}
       <div style="font-size:11px;color:rgba(var(--overlay-rgb),0.35);font-variant-numeric:tabular-nums;margin-top:3px">${wp.lat.toFixed(5)}, ${wp.lng.toFixed(5)}${wp.elev_ft != null ? ` · ${Number(wp.elev_ft).toLocaleString()} ft` : ''}</div>
       ${weatherHtml()}
-      ${directionsHtml(wp.lat, wp.lng)}
+      ${directionsHtml(wp.lat, wp.lng, wp.name)}
       <div style="display:flex;gap:6px;margin-top:8px">
         <button data-wp-edit class="btn-secondary" style="flex:1;padding:5px 10px;font-size:11.5px">Edit</button>
         <button data-wp-delete class="btn-danger" style="flex:1;padding:5px 10px;font-size:11.5px;justify-content:center">Delete</button>
@@ -1466,8 +1539,10 @@ function attachWeather(popup, lat, lng, m) {
   load()
 }
 
-// Directions handoff — standard Apple/Google Maps deep links
-function directionsHtml(lat, lng) {
+// Directions handoff — standard Apple/Google Maps deep links, plus in-app
+// compass guidance (VISION row 90). The Guide button carries the target in
+// data- attributes; a delegated handler in the map reads them.
+function directionsHtml(lat, lng, name) {
   const apple = `https://maps.apple.com/?daddr=${lat},${lng}`
   const google = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
   const coords = `${lat.toFixed(5)}, ${lng.toFixed(5)}`
@@ -1481,7 +1556,13 @@ function directionsHtml(lat, lng) {
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         Copy coords
       </button>
-    </div>`
+    </div>
+    <button data-nav-lat="${lat}" data-nav-lng="${lng}" data-nav-name="${esc(name || '')}"
+      title="Beeline compass guidance to this point"
+      style="margin-top:6px;width:100%;padding:5px 10px;font-size:11.5px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(52,211,153,0.12);color:#34d399;border:1px solid rgba(52,211,153,0.35);border-radius:7px;cursor:pointer">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+      Guide me here
+    </button>`
 }
 
 // Clipboard with a fallback for contexts where the async API is unavailable
@@ -1642,7 +1723,7 @@ function openSearchPinPopup(m, lngLat, props, onSaveSpot) {
       <div style="font-size:13px;font-weight:600">${props.n}. ${esc(props.name || 'Result')}</div>
       ${tier ? `<div style="font-size:10.5px;color:rgba(var(--fg-rgb),.6);margin-top:3px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${tier.color};margin-right:5px"></span>${tier.text}</div>` : ''}
       ${weatherHtml()}
-      ${directionsHtml(lngLat.lat, lngLat.lng)}
+      ${directionsHtml(lngLat.lat, lngLat.lng, props.name)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
       <div style="font-size:9.5px;color:rgba(var(--fg-rgb),.35);margin-top:7px">Source: © OpenStreetMap contributors</div>
     </div>`
@@ -1684,7 +1765,7 @@ function openSitePopup(m, f, onSaveSpot) {
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${safeUrl(p.website) ? `<div style="margin-top:5px"><a href="${esc(safeUrl(p.website))}" target="_blank" rel="noreferrer" style="font-size:11.5px;color:#38bdf8">Website</a></div>` : ''}
       ${weatherHtml()}
-      ${directionsHtml(lat, lng)}
+      ${directionsHtml(lat, lng, p.name || kindLabel)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
       <div style="font-size:9.5px;color:rgba(var(--fg-rgb),.35);margin-top:7px">${p.elev_ft != null ? `${Number(p.elev_ft).toLocaleString()} ft · ` : ''}${SITE_SRC_CREDIT(p.src)}</div>
     </div>`
@@ -1757,7 +1838,7 @@ function openCommunitySitePopup(m, f, onSaveSpot) {
         </div>
       </div>` : ''}
       ${weatherHtml()}
-      ${directionsHtml(lat, lng)}
+      ${directionsHtml(lat, lng, p.name || kindLabel)}
       <button data-save-wp class="btn-primary" style="margin-top:9px;width:100%;padding:6px 10px;font-size:12px">Save as waypoint</button>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px">
         <span style="font-size:9.5px;color:rgba(var(--fg-rgb),.35)">Community-reported — verify before relying on it</span>

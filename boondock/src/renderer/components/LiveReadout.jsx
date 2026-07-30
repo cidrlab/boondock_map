@@ -1,124 +1,35 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { elevationAt } from '../../shared/elevation'
-import { useDeviceHeading } from '../../shared/useDeviceHeading'
+import { useEffect, useMemo, useRef } from 'react'
+import { useLiveSensors } from '../../shared/useLiveSensors'
+import { bearingTo, distanceMiles, relativeTurn, formatDistance } from '../../shared/geo'
 import './LiveReadout.css'
 
 // Live instrument cluster (VISION row 89): elevation + speed cells over a
-// sliding compass ribbon, all from the device's own sensors. Layout takes
-// its cue from Gaia GPS's trip bar (credited in README + Guide Credits);
-// the visual design is Boondock's glass system. Mounting starts the GPS
-// watch and the orientation listener; unmounting releases both, so the
-// toggle in Map.jsx is also the sensor kill switch.
+// sliding compass ribbon, all from the device's own sensors (now via the
+// shared useLiveSensors hook). Layout takes its cue from Gaia GPS's trip bar
+// (credited in README + Guide Credits); the visual design is Boondock's glass.
+//
+// When a navigation target is set (VISION row 90) the ribbon also shows a green
+// target pip and the cluster grows a nav row with straight-line distance and a
+// turn hint — beeline guidance, honestly labeled as as-the-crow-flies.
 
 const PX_PER_DEG = 2
+const RIBBON_HALF_DEG = 72   // target pip clamps here, then becomes an edge arrow
 const CARDINALS_8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
 const CARDINALS_16 = [
   'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
   'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW',
 ]
 
-export default function LiveReadout() {
-  const [fix, setFix] = useState(null)          // {lat,lng,speed,heading,altitude,at}
-  const [geoState, setGeoState] = useState('waiting') // 'waiting'|'ok'|'denied'|'unavailable'
-  const [elev, setElev] = useState(null)        // {ft, src:'dem'|'gps'}
-  const [stale, setStale] = useState(false)
-  const [magQuiet, setMagQuiet] = useState(false)
-  const { heading: magHeading, state: magState, request: requestCompass } = useDeviceHeading()
-  const fixRef = useRef(null)
-  const movingRef = useRef(false)
-  const lastSampleRef = useRef(null)
-  const sampleSeqRef = useRef(0)
-  const elevRef = useRef(null)
+export default function LiveReadout({ navTarget = null, onFix, onCancelNav }) {
+  const { fix, geoState, elev, stale, heading, headingSrc, magState, magQuiet, requestCompass, mph } = useLiveSensors()
   const tapeRef = useRef(null)
   const contRef = useRef(null)                  // unwrapped heading driving the tape
 
-  // ── GPS watch — same options as track recording ─────────────────────────
+  // Report the live position up so the map can draw the beeline (row 90) —
+  // only while navigating, so idle use doesn't re-render App every fix
   useEffect(() => {
-    if (!navigator.geolocation) { setGeoState('unavailable'); return }
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        const c = pos.coords
-        // Hysteresis: a phone magnetometer inside a vehicle is not
-        // trustworthy, and GPS course is excellent at speed — so above
-        // ~5.6 mph the ribbon follows the GPS course instead
-        if (Number.isFinite(c.speed)) {
-          if (c.speed >= 2.5) movingRef.current = true
-          else if (c.speed < 1.0) movingRef.current = false
-        }
-        const f = {
-          lat: c.latitude, lng: c.longitude,
-          speed: c.speed, heading: c.heading, altitude: c.altitude,
-          at: Date.now(),
-        }
-        fixRef.current = f
-        setFix(f)
-        setGeoState('ok')
-        setStale(false)
-      },
-      (err) => {
-        if (err.code === 1) setGeoState('denied')
-        else if (err.code === 2) setGeoState('unavailable')
-        // Timeouts (code 3) keep waiting; the stale dim covers a feed that stops
-      },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
-    )
-    return () => navigator.geolocation.clearWatch(id)
-  }, [])
-
-  // A fix older than 15 s dims the cells that depend on it
-  useEffect(() => {
-    const t = setInterval(() => {
-      setStale(fixRef.current != null && Date.now() - fixRef.current.at > 15000)
-    }, 5000)
-    return () => clearInterval(t)
-  }, [])
-
-  useEffect(() => { elevRef.current = elev }, [elev])
-
-  // ── Elevation — the app's DEM at the live fix, GPS altitude offline ─────
-  // A fix arrives every second or faster; a tile fetch on cellular can take
-  // longer. Cancelling the lookup on each new fix therefore left the cell
-  // permanently blank on a real phone (office repro, VISION row 89) — so
-  // in-flight lookups are never cancelled. A sequence number keeps the
-  // newest sample's answer, except that when nothing is on screen yet any
-  // answer beats blank (the fix has moved under 20 m anyway).
-  useEffect(() => {
-    if (!fix) return
-    const last = lastSampleRef.current
-    if (last && elevRef.current != null) {
-      const dx = (fix.lng - last.lng) * 111320 * Math.cos(fix.lat * Math.PI / 180)
-      const dy = (fix.lat - last.lat) * 110540
-      if (dx * dx + dy * dy < 20 * 20) return   // re-sample after ~20 m
-    }
-    lastSampleRef.current = { lat: fix.lat, lng: fix.lng }
-    const fallback = Number.isFinite(fix.altitude)
-      ? { ft: Math.round(fix.altitude * 3.28084), src: 'gps' }
-      : null
-    // GPS altitude shows immediately while the DEM tile loads
-    if (fallback) setElev(prev => prev ?? fallback)
-    const seq = ++sampleSeqRef.current
-    elevationAt(fix.lng, fix.lat)
-      .then((m) => setElev(prev => {
-        const val = m == null ? fallback : { ft: Math.round(m * 3.28084), src: 'dem' }
-        return seq === sampleSeqRef.current ? val : prev ?? val
-      }))
-      .catch(() => setElev(prev => seq === sampleSeqRef.current ? fallback : prev ?? fallback))
-  }, [fix])
-
-  // Desktop browsers implement the orientation event but ship no
-  // magnetometer — the listener attaches and nothing ever fires. Call it
-  // after a few quiet seconds rather than showing "Reading compass…" forever.
-  useEffect(() => {
-    if (magState !== 'granted' || magHeading != null) { setMagQuiet(false); return }
-    const t = setTimeout(() => setMagQuiet(true), 4000)
-    return () => clearTimeout(t)
-  }, [magState, magHeading])
-
-  // ── Heading source ──────────────────────────────────────────────────────
-  const gpsHeading = Number.isFinite(fix?.heading) ? fix.heading : null
-  const useGps = movingRef.current && gpsHeading != null
-  const heading = useGps ? gpsHeading : magHeading
-  const headingSrc = useGps ? 'gps' : magHeading != null ? 'mag' : null
+    if (navTarget) onFix?.(fix ? { lat: fix.lat, lng: fix.lng } : null)
+  }, [fix, navTarget, onFix])
 
   // Slide the tape the short way round, staying inside its three rendered
   // turns: jumping by a whole turn is pixel-identical, so it's done with the
@@ -175,8 +86,22 @@ export default function LiveReadout() {
     return marks
   }, [])
 
+  // ── Navigation to a target (row 90) ──────────────────────────────────────
+  const nav = useMemo(() => {
+    if (!navTarget || !fix) return null
+    const target = bearingTo(fix, navTarget)
+    const dist = distanceMiles(fix, navTarget)
+    const turn = heading == null ? null : relativeTurn(heading, target)
+    return { target, dist, turn }
+  }, [navTarget, fix, heading])
+
+  const turnHint = (() => {
+    if (!nav || nav.turn == null) return null
+    if (Math.abs(nav.turn) < 8) return 'straight ahead'
+    return `${Math.round(Math.abs(nav.turn))}° ${nav.turn < 0 ? 'left' : 'right'}`
+  })()
+
   const spd = Number.isFinite(fix?.speed) ? fix.speed : null
-  const mph = spd == null ? null : Math.round((spd < 0.45 ? 0 : spd) * 2.23694)
 
   return (
     <div className="live-readout" role="status" aria-live="off">
@@ -190,6 +115,15 @@ export default function LiveReadout() {
         </div>
       ) : (
         <div className={stale ? 'lr-stale' : undefined}>
+          {navTarget && (
+            <div className="lr-nav">
+              <svg className="lr-nav-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+              <span className="lr-nav-name">{navTarget.name || 'Target'}</span>
+              <span className="lr-nav-dist">{nav ? formatDistance(nav.dist) : '—'}</span>
+              {turnHint && <span className="lr-nav-turn">{turnHint}</span>}
+              <button className="lr-nav-close" onClick={onCancelNav} aria-label="Stop navigating" title="Stop navigating">×</button>
+            </div>
+          )}
           <div className="lr-cells">
             <div className="lr-cell">
               <span className="lr-label">Elevation</span>
@@ -212,6 +146,15 @@ export default function LiveReadout() {
               <>
                 <svg ref={tapeRef} className="lr-tape" width={2160} height={28}>{tape}</svg>
                 <div className="lr-caret" />
+                {nav && (() => {
+                  const off = Math.abs(nav.turn) > RIBBON_HALF_DEG
+                  const clamped = Math.max(-RIBBON_HALF_DEG, Math.min(RIBBON_HALF_DEG, nav.turn))
+                  return (
+                    <div className={`lr-target ${off ? 'lr-target-edge' : ''}`} style={{ left: `calc(50% + ${clamped * PX_PER_DEG}px)` }}>
+                      {off ? (nav.turn < 0 ? '‹' : '›') : '▾'}
+                    </div>
+                  )
+                })()}
                 <div className={headingSrc === 'gps' ? 'lr-reading lr-fix' : 'lr-reading'}>
                   {Math.round(heading)}° {CARDINALS_16[Math.round(heading / 22.5) % 16]}
                   <span className="lr-tag">{headingSrc}</span>

@@ -155,6 +155,52 @@
 
 .lr-stale .lr-fix { opacity: 0.55; transition: opacity 0.3s; }
 
+/* ── Navigation to a target (VISION row 90) ─────────────────────────────── */
+.lr-nav {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px 6px 11px;
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 11.5px;
+}
+.lr-nav-ico { flex: none; color: #34d399; }
+.lr-nav-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.lr-nav-dist { flex: none; font-variant-numeric: tabular-nums; color: var(--text-primary); font-weight: 600; }
+.lr-nav-turn { flex: none; color: #34d399; font-weight: 600; }
+.lr-nav-close {
+  flex: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.lr-nav-close:hover { color: var(--text-primary); }
+
+/* Green target pip riding the compass ribbon, pointing at the target bearing */
+.lr-target {
+  position: absolute;
+  top: -1px;
+  transform: translateX(-50%);
+  color: #34d399;
+  font-size: 15px;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+}
+.lr-target-edge { font-size: 18px; font-weight: 700; }
+
 /* ── The cluster's toggle button (a hand-rolled control in Map.jsx) ─────── */
 .maplibregl-ctrl-group button.live-toggle-btn {
   display: flex !important;

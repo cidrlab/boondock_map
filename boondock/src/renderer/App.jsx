@@ -11,6 +11,7 @@ import DownloadModal from './components/DownloadModal'
 import StatusBar from './components/StatusBar'
 import LiveReadout from './components/LiveReadout'
 import AddWaypointMenu from './components/AddWaypointMenu'
+import FullScreenInstruments from './components/FullScreenInstruments'
 import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
 import { elevationAt } from '../shared/elevation'
 import { matchesWpFilter } from '../shared/waypointMeta'
@@ -39,6 +40,8 @@ export default function App() {
   const [addMenuOpen, setAddMenuOpen] = useState(false)       // "Add waypoint" chooser (VISION row 93)
   const [pickMode, setPickMode] = useState(false)             // next map tap drops a waypoint
   const [editingWaypointId, setEditingWaypointId] = useState(null)  // its pin is draggable (VISION row 94)
+  const [navTarget, setNavTarget] = useState(null)   // beeline compass target (VISION row 90)
+  const [userFix, setUserFix] = useState(null)       // live GPS position, reported up by the readout
   const [searchPins, setSearchPins] = useState([])   // numbered POI/search results shown on the map
   const [hoverPin, setHoverPin] = useState(null)     // index sync: list row ↔ map pin
   const [searchArea, setSearchArea] = useState(null) // {run} when the map moved away from the last POI search
@@ -52,6 +55,7 @@ export default function App() {
   const [wpColors, setWpColors] = useState({})       // per-category pin color overrides
   const [editRequestId, setEditRequestId] = useState(null)   // popup "Edit waypoint" → sidebar
   const [showFeedback, setShowFeedback] = useState(false)
+  const [showInstruments, setShowInstruments] = useState(false)   // full-screen instrument mode (VISION row 95)
   const [downloadMode, setDownloadMode] = useState(false)
   const [downloadBbox, setDownloadBbox] = useState(null)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
@@ -171,6 +175,15 @@ export default function App() {
   }, [])
 
   const toggleLiveReadout = useCallback(() => setLiveReadoutOn(v => !v), [])
+
+  // ── Beeline navigation (VISION row 90) ───────────────────────────────────
+  // "Guide me here" on any point card sets a target and shows the readout;
+  // the ribbon points the way and the map draws the straight line.
+  const onNavigate = useCallback((t) => { setNavTarget(t); setLiveReadoutOn(true) }, [])
+  const cancelNav = useCallback(() => setNavTarget(null), [])
+  const handleFix = useCallback((f) => setUserFix(f), [])
+  // Putting the readout away also ends navigation, so the line can't freeze
+  useEffect(() => { if (!liveReadoutOn) setNavTarget(null) }, [liveReadoutOn])
 
   // Stable reference unless the set actually changes. Without this the .filter()
   // ran on every render (each mousemove fires setMapCursor), handing Map a fresh
@@ -346,6 +359,7 @@ export default function App() {
         onToggleHelp={(which) => setHelpPanel(p => p === which ? null : which)}
         onFeedback={() => setShowFeedback(true)}
         feedbackEnabled={feedbackEnabled()}
+        onOpenInstruments={() => setShowInstruments(true)}
         isRecordingTrack={isRecordingTrack}
         onStartTrack={startTrack}
         onStopTrack={stopTrack}
@@ -459,10 +473,13 @@ export default function App() {
           addActive={addMenuOpen || pickMode}
           editingWaypointId={editingWaypointId}
           onWaypointRelocate={relocateWaypoint}
+          navTarget={navTarget}
+          userFix={userFix}
+          onNavigate={onNavigate}
         />
         <Legend open={helpPanel === 'legend'} onClose={() => setHelpPanel(null)} />
         <Guide open={helpPanel === 'guide'} onClose={() => setHelpPanel(null)} />
-        {liveReadoutOn && <LiveReadout />}
+        {liveReadoutOn && <LiveReadout navTarget={navTarget} onFix={handleFix} onCancelNav={cancelNav} />}
         {addMenuOpen && (
           <AddWaypointMenu
             onAtLocation={dropAtLocation}
@@ -498,6 +515,8 @@ export default function App() {
           onSubmitted={(feature) => mapRef.current?.addCommunityFeature?.(feature)}
         />
       )}
+
+      {showInstruments && <FullScreenInstruments onClose={() => setShowInstruments(false)} />}
 
       {showDownloadModal && (
         <DownloadModal

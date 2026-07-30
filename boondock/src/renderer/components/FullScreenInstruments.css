@@ -1,0 +1,133 @@
+/* Full-screen instrument mode (VISION row 95). Follows the app theme (dark by
+   default, dim red in Night Red — good for night driving). Portrait stacks the
+   compass over the readouts; landscape sets them side by side. */
+
+.fi-root {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fi-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  flex: none;
+}
+.fi-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.fi-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: inline-flex;
+}
+.fi-icon-btn:hover { color: var(--text-primary); background: var(--glass-hover); }
+.fi-icon-btn.active { color: var(--accent); }
+
+.fi-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4vh;
+  padding: 2vh 4vw;
+}
+.fi-stale { opacity: 0.55; transition: opacity 0.3s; }
+
+/* ── Compass ─────────────────────────────────────────────────────────────── */
+.fi-compass { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.fi-dial { width: min(76vw, 56vh); height: auto; display: block; }
+.fi-dial-face { fill: none; stroke: var(--glass-border); stroke-width: 1.5; }
+.fi-tick { stroke: var(--text-muted); stroke-width: 1.4; }
+.fi-tick-maj { stroke: var(--text-secondary); stroke-width: 2; }
+.fi-tick-n { stroke: var(--accent); stroke-width: 3; }
+.fi-card { fill: var(--text-secondary); font-size: 11px; font-weight: 600; text-anchor: middle; font-family: -apple-system, system-ui, sans-serif; }
+.fi-card-n { fill: var(--accent); font-size: 13px; }
+.fi-pointer { fill: var(--accent); }
+.fi-target-mark { fill: #34d399; }
+.fi-dial-deg { fill: var(--text-primary); font-size: 30px; font-weight: 700; text-anchor: middle; font-variant-numeric: tabular-nums; font-family: -apple-system, system-ui, sans-serif; }
+.fi-dial-card { fill: var(--text-secondary); font-size: 15px; font-weight: 600; text-anchor: middle; letter-spacing: 0.1em; font-family: -apple-system, system-ui, sans-serif; }
+.fi-dial-src { fill: var(--text-muted); font-size: 8px; text-anchor: middle; letter-spacing: 0.15em; text-transform: uppercase; font-family: -apple-system, system-ui, sans-serif; }
+
+.fi-numbers { text-align: center; }
+.fi-num-deg { font-size: min(34vw, 26vh); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.fi-num-unit { font-size: 0.4em; color: var(--text-muted); }
+.fi-num-card { font-size: min(9vw, 7vh); font-weight: 600; letter-spacing: 0.15em; color: var(--text-secondary); margin-top: 4px; }
+.fi-src { font-size: 0.4em; color: var(--text-muted); margin-left: 0.5em; letter-spacing: 0.15em; text-transform: uppercase; }
+
+.fi-turn { display: flex; align-items: baseline; gap: 12px; }
+.fi-turn-b { font-size: 15px; font-weight: 600; color: #34d399; font-variant-numeric: tabular-nums; }
+.fi-turn-h { font-size: 14px; color: var(--text-secondary); }
+
+.fi-nocompass, .fi-gps-note { color: var(--text-secondary); font-size: 14px; text-align: center; max-width: 22ch; }
+.fi-enable {
+  background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-muted); border-radius: 10px;
+  padding: 12px 20px; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+
+/* ── Readouts ────────────────────────────────────────────────────────────── */
+.fi-readouts { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: 6vw; }
+.fi-readout { display: flex; flex-direction: column; align-items: center; }
+.fi-r-label { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.fi-r-value { font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; font-size: 2.4rem; }
+.fi-r-unit { font-size: 0.42em; color: var(--text-muted); margin-left: 0.25em; font-weight: 600; }
+.fi-r-coords { font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+/* Landscape: compass beside the readouts */
+@media (orientation: landscape) {
+  .fi-stage { flex-direction: row; gap: 6vw; }
+  .fi-dial { width: min(44vw, 78vh); }
+  .fi-readouts { flex-direction: column; align-items: flex-start; gap: 3vh; }
+  .fi-num-deg { font-size: min(22vw, 40vh); }
+}
+
+/* ── Settings panel ──────────────────────────────────────────────────────── */
+.fi-panel {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 48px);
+  right: 12px;
+  width: min(300px, calc(100% - 24px));
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fi-panel-hdr { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 7px; }
+.fi-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fi-chip {
+  background: var(--glass-hover); color: var(--text-secondary);
+  border: 1px solid var(--glass-border); border-radius: 100px;
+  padding: 5px 11px; font-size: 12px; cursor: pointer;
+}
+.fi-chip.on { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-muted); }
+.fi-range { width: 100%; accent-color: var(--accent); }
+.fi-bearing {
+  width: 56px; background: var(--glass-hover); color: var(--text-primary);
+  border: 1px solid var(--glass-border); border-radius: 8px; padding: 5px 8px; font-size: 12px;
+}

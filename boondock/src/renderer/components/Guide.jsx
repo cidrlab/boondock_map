@@ -92,6 +92,18 @@ const TABS = [
           data, or straight from GPS (marked <em>gps</em>) when you&apos;re
           offline. Tap the gauge again to put it away. The sensors need a
           phone — on a desktop the strip shows elevation only.</li>
+          <li><strong>Guide me here</strong> — every point card (waypoints,
+          sites, search results, map clicks) has a green <em>Guide me here</em>
+          button. Tap it and the app draws a straight line to that spot, shows
+          the live distance, and puts a green marker on the compass ribbon so
+          you know which way to turn. It&apos;s a <strong>beeline</strong>, as
+          the crow flies, not turn-by-turn road directions — the honest simple
+          version. Close the readout (or its ×) to stop.</li>
+          <li><strong>Full-screen instruments</strong> — the expand button in
+          the top bar opens a standalone compass, speed, and elevation screen,
+          like a handheld compass, in portrait or landscape. Its gear lets you
+          turn each readout on or off, switch the compass between a dial and big
+          numbers, size the speed, and punch in a bearing to steer toward.</li>
           <li><strong>Record</strong> (top bar) starts a GPS track: your path
           draws on the map as you move, and <em>Stop</em> names and saves it
           to the Tracks tab. Tracks ride along in GPX export.</li>
