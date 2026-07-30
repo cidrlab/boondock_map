@@ -16,6 +16,7 @@ export default defineConfig({
       'maplibre-gl': dep('maplibre-gl'),
       'react-dom': dep('react-dom'),
       react: dep('react'),
+      pmtiles: dep('pmtiles'),
     },
   },
   build: {
