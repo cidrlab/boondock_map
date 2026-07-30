@@ -21,6 +21,7 @@
   "dependencies": {
     "electron-store": "^8.1.0",
     "maplibre-gl": "^4.7.1",
+    "pmtiles": "^3.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sql.js": "^1.12.0",
@@ -31,7 +32,10 @@
     "productName": "Boondock Map",
     "mac": {
       "category": "public.app-category.navigation",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "files": [
       "dist/**/*",

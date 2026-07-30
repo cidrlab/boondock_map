@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl'
 import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../../shared/layers'
 import { buildBoondockStyle, BOONDOCK_GLYPHS } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
+import { Protocol as PMTilesProtocol } from 'pmtiles'
 import { elevationAt } from '../../shared/elevation'
 import { pointForecast, wmoInfo, fetchTempGrid, gridMargins, gridToGeoJSON, marginAt, criteriaActive } from '../../shared/weather'
 import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/waypointMeta'
@@ -13,6 +14,11 @@ import { communityEnabled, submitCheckin, flagSpot, loadCommunityFeatures, prune
 // All tile requests go through boondock:// so downloaded offline packs are
 // used first and the network is the fallback (see shared/offlineTiles.js)
 installProtocol(maplibregl)
+
+// Self-hosted vector tiles (RoadCore, VISION row 98) read from a single
+// .pmtiles archive over HTTP range requests — no tile server, works offline.
+// Register the protocol once for the whole app.
+maplibregl.addProtocol('pmtiles', new PMTilesProtocol().tile)
 
 // SVG path data for each waypoint icon (used in DOM markers)
 const MARKER_SVG = {
@@ -293,6 +299,7 @@ const Map = forwardRef(function Map(
       addPackAreasLayer()
       refreshPackAreas()
       addSitesLayers()
+      addRoadcoreLayers()
       addZonesLayers()
       addTempLayers()
       addSearchPinsLayers()
@@ -386,6 +393,15 @@ const Map = forwardRef(function Map(
           return
         }
       }
+      if (overlaysRef.current.roadcore && m.getZoom() >= 9) {
+        const rcLayers = ['roadcore-open', 'roadcore-closed'].filter(id => m.getLayer(id))
+        const box = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]]
+        const feats = rcLayers.length ? m.queryRenderedFeatures(box, { layers: rcLayers }) : []
+        if (feats.length) {
+          openRoadcorePopup(m, e.lngLat, feats[0])
+          return
+        }
+      }
       if (overlaysRef.current['usfs-trails'] && m.getZoom() >= 10) {
         const trail = await identifyTrail(m, e.lngLat)
         if (trail && map.current === m) {
@@ -461,6 +477,7 @@ const Map = forwardRef(function Map(
       addPackAreasLayer()
       refreshPackAreas()
       addSitesLayers()
+      addRoadcoreLayers()
       addZonesLayers()
       addTempLayers()
       applyTempData()
@@ -534,15 +551,55 @@ const Map = forwardRef(function Map(
         ? SITES_LAYER_IDS
         : id === 'zones'
           ? ['zones-fill', 'zones-line']
-          : def?.parts
-            ? def.parts.map(p => `${id}-${p.key}-layer`)
-            : [`${id}-layer`]
+          : id === 'roadcore'
+            ? ['roadcore-open', 'roadcore-closed']
+            : def?.parts
+              ? def.parts.map(p => `${id}-${p.key}-layer`)
+              : [`${id}-layer`]
       ids.forEach(layerId => {
         if (m.getLayer(layerId)) {
           m.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none')
         }
       })
     })
+  }
+
+  // ── RoadCore — all FS roads, self-hosted vector PMTiles (VISION row 98) ───
+  // Two line layers off one vector source: closed roads (maintenance level ≤1)
+  // as faded grey dashes underneath, open roads (level ≥2) solid khaki on top,
+  // so "a road exists" never reads as "you may drive it".
+  function addRoadcoreLayers() {
+    const m = map.current
+    if (!m) return
+    if (!m.getSource('roadcore')) {
+      const url = `pmtiles://${new URL(import.meta.env.BASE_URL + 'data/roadcore.pmtiles', location.href).href}`
+      m.addSource('roadcore', { type: 'vector', url })
+    }
+    const vis = overlaysRef.current.roadcore ? 'visible' : 'none'
+    const lvl = ['to-number', ['coalesce', ['get', 'maint'], 0]]
+    if (!m.getLayer('roadcore-closed')) {
+      m.addLayer({
+        id: 'roadcore-closed', type: 'line', source: 'roadcore', 'source-layer': 'roadcore',
+        filter: ['<', lvl, 2], minzoom: 7,
+        layout: { visibility: vis, 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#8a8f98', 'line-opacity': 0.5,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.4, 12, 1.3],
+          'line-dasharray': [2, 2],
+        },
+      })
+    }
+    if (!m.getLayer('roadcore-open')) {
+      m.addLayer({
+        id: 'roadcore-open', type: 'line', source: 'roadcore', 'source-layer': 'roadcore',
+        filter: ['>=', lvl, 2], minzoom: 7,
+        layout: { visibility: vis, 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#c2b280', 'line-opacity': 0.9,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.6, 12, 1.9],
+        },
+      })
+    }
   }
 
   // ── Sites — the spots database layer ──────────────────────────────────────
@@ -1695,6 +1752,32 @@ function openBlmPopup(m, lngLat, result) {
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng, name === 'BLM road' ? '' : name)}
+    </div>`
+  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
+}
+
+function openRoadcorePopup(m, lngLat, feature) {
+  const p = feature.properties || {}
+  const name = titleCase(p.NAME || '') || 'Forest road'
+  const closed = (Number(p.maint) || 0) < 2
+  const cleanCode = (v) => {
+    const s = String(v ?? '').trim()
+    return titleCase(s.split(' - ').slice(1).join(' - ') || s)
+  }
+  const rows = []
+  if (p.OPER_MAINT) rows.push(`Maintenance: ${esc(cleanCode(p.OPER_MAINT))}`)
+  if (p.SURFACE_TY) rows.push(`Surface: ${esc(cleanCode(p.SURFACE_TY))}`)
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:170px">
+      <div style="font-size:13px;font-weight:600">${esc(name)}</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin:2px 0 5px">USFS RoadCore · ${closed ? 'Closed to vehicles' : 'Open road'}</div>
+      <div style="font-size:11px;color:${closed ? '#f87171' : 'rgba(var(--fg-rgb),.6)'};line-height:1.45;margin-bottom:2px">${closed
+        ? 'Closed to motor vehicles (maintenance level 1). A road existing here is not permission to drive it.'
+        : 'Existing FS road. Cross-check the MVUM and local rules for legal public use before driving it.'}</div>
+      ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      ${weatherHtml()}
+      ${directionsHtml(lngLat.lat, lngLat.lng, name === 'Forest road' ? '' : name)}
     </div>`
   const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
   attachWeather(popup, lngLat.lat, lngLat.lng, m)

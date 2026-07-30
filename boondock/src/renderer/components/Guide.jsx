@@ -128,6 +128,13 @@ const TABS = [
           designation. Off by default, so switch it on in the Overlays. Like
           MVUM, it&apos;s drawn live from the agency&apos;s server, so it needs a
           connection.</li>
+          <li><strong>All FS roads</strong> — every Forest Service road
+          (RoadCore), self-hosted so it works <em>offline</em>, unlike MVUM.
+          It&apos;s the full network, well beyond MVUM&apos;s legal-motorized
+          subset: khaki solid where a road is open to some vehicle, faded grey
+          dashes where it&apos;s closed. A road appearing here is <strong>not</strong>
+          permission to drive it, so cross-check the MVUM and local rules. Off
+          by default. This is our first offline vector-tile layer.</li>
           <li><strong>Hiking trails</strong> — dashed light-blue lines from the
           USFS trails system.</li>
           <li><strong>Topo lines</strong> — contours only, no background.

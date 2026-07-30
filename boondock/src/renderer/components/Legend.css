@@ -89,6 +89,16 @@
   border-top: 2px solid #c87830;
   height: 0;
 }
+.legend-roadcore-open {
+  background: transparent;
+  border-top: 2px solid #c2b280;
+  height: 0;
+}
+.legend-roadcore-closed {
+  background: transparent;
+  border-top: 2px dashed #8a8f98;
+  height: 0;
+}
 
 .legend-img {
   width: 20px;

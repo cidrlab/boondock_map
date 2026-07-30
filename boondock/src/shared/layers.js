@@ -142,6 +142,13 @@ export const OVERLAY_LAYERS = {
       [11, 0.95],
     ],
   },
+  'roadcore': {
+    id: 'roadcore',
+    label: 'All FS Roads',
+    description: 'Every Forest Service road (USFS RoadCore), self-hosted as vector tiles so it works offline. The full network, well beyond the legal-motorized MVUM subset: solid = open to some vehicle, faded dashes = closed. A road being here is not permission to drive it.',
+    roadcore: true,   // vector PMTiles overlay, handled in Map.jsx
+    attribution: 'USFS RoadCore',
+  },
   'sites': {
     id: 'sites',
     label: 'Sites',
@@ -234,6 +241,7 @@ export const DEFAULT_OVERLAYS = {
   'mvum': true,
   'usfs-trails': true,
   'blm-roads': false,
+  'roadcore': false,
   'sites': true,
   'zones': false,
   'names': false,

@@ -71,8 +71,8 @@
         "etag": "\"19c029e3-634df4b1d1551\"",
         "content_length": 432024035
       },
-      "checked": "2026-07-27",
-      "built_from": null,
+      "checked": "2026-07-30",
+      "built_from": "Sun, 11 May 2025 17:11:42 GMT",
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
         "held": true,
