@@ -300,6 +300,7 @@ const Map = forwardRef(function Map(
       refreshPackAreas()
       addSitesLayers()
       addRoadcoreLayers()
+      addWildfireLayers()
       addZonesLayers()
       addTempLayers()
       addSearchPinsLayers()
@@ -425,6 +426,14 @@ const Map = forwardRef(function Map(
           return
         }
       }
+      // Inside an active wildfire perimeter — surface the fire (VISION row 69)
+      if (overlaysRef.current.wildfire && m.getLayer('wildfire-fill')) {
+        const wf = m.queryRenderedFeatures(e.point, { layers: ['wildfire-fill'] })
+        if (wf.length) {
+          openWildfirePopup(m, e.lngLat, wf[0])
+          return
+        }
+      }
       // Empty ground: show the spot's numbers first; saving is one tap more.
       // Clicking near an open card dismisses it; clicking elsewhere replaces
       // it. Inside a Boondock Zone the card carries the heuristic's disclaimer.
@@ -485,6 +494,7 @@ const Map = forwardRef(function Map(
       refreshPackAreas()
       addSitesLayers()
       addRoadcoreLayers()
+      addWildfireLayers()
       addZonesLayers()
       addTempLayers()
       applyTempData()
@@ -495,6 +505,7 @@ const Map = forwardRef(function Map(
       applyOverlayVisibility()
       applyPackAreasVisibility()
       applySiteElevFilter()
+      if (overlaysRef.current.wildfire) loadWildfire()   // base swap wiped the fetched perimeters
     }
     const waitReady = () => {
       if (map.current !== m) return
@@ -560,9 +571,11 @@ const Map = forwardRef(function Map(
           ? ['zones-fill', 'zones-line']
           : id === 'roadcore'
             ? ['roadcore-open', 'roadcore-closed']
-            : def?.parts
-              ? def.parts.map(p => `${id}-${p.key}-layer`)
-              : [`${id}-layer`]
+            : id === 'wildfire'
+              ? ['wildfire-fill', 'wildfire-line']
+              : def?.parts
+                ? def.parts.map(p => `${id}-${p.key}-layer`)
+                : [`${id}-layer`]
       ids.forEach(layerId => {
         if (m.getLayer(layerId)) {
           m.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none')
@@ -608,6 +621,47 @@ const Map = forwardRef(function Map(
       })
     }
   }
+
+  // ── Wildfires — current NIFC perimeters, fetched live (VISION row 69) ──────
+  // Off by default; the ~360 KB GeoJSON is fetched only when the layer is
+  // switched on (the NIFC service is shared + rate-limited). Red areas are
+  // actively burning; the popup carries a safety note, no directions.
+  const wildfireLoadedRef = useRef(false)
+  function addWildfireLayers() {
+    const m = map.current
+    if (!m) return
+    if (!m.getSource('wildfire-perimeters')) {
+      m.addSource('wildfire-perimeters', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+      wildfireLoadedRef.current = false   // fresh source (e.g. after a base-layer swap) needs a re-fetch
+    }
+    const vis = overlaysRef.current.wildfire ? 'visible' : 'none'
+    if (!m.getLayer('wildfire-fill')) {
+      m.addLayer({ id: 'wildfire-fill', type: 'fill', source: 'wildfire-perimeters', layout: { visibility: vis }, paint: { 'fill-color': '#ef4444', 'fill-opacity': 0.22 } })
+    }
+    if (!m.getLayer('wildfire-line')) {
+      m.addLayer({ id: 'wildfire-line', type: 'line', source: 'wildfire-perimeters', layout: { visibility: vis }, paint: { 'line-color': '#dc2626', 'line-width': 1.5, 'line-opacity': 0.9 } })
+    }
+  }
+
+  async function loadWildfire() {
+    const m = map.current
+    if (!m?.getSource('wildfire-perimeters') || wildfireLoadedRef.current) return
+    wildfireLoadedRef.current = true
+    const url = 'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query?where=1%3D1&outFields=poly_IncidentName,attr_IncidentName,poly_GISAcres,attr_CalculatedAcres,attr_PercentContained&returnGeometry=true&outSR=4326&maxAllowableOffset=0.005&f=geojson'
+    try {
+      const r = await fetch(url)
+      if (!r.ok) throw new Error(r.status)
+      const gj = await r.json()
+      map.current?.getSource('wildfire-perimeters')?.setData(gj)
+    } catch {
+      wildfireLoadedRef.current = false   // let a re-toggle retry
+      showToast(mapContainer.current, "Couldn't load current wildfires — the fire service may be busy. Turn the layer off and on to retry.")
+    }
+  }
+
+  useEffect(() => {
+    if (mapReady && overlays.wildfire) loadWildfire()
+  }, [overlays, mapReady])
 
   // ── Sites — the spots database layer ──────────────────────────────────────
   async function addSitesLayers() {
@@ -1763,6 +1817,25 @@ function openBlmPopup(m, lngLat, result) {
     </div>`
   const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
   attachWeather(popup, lngLat.lat, lngLat.lng, m)
+}
+
+function openWildfirePopup(m, lngLat, feature) {
+  const p = feature.properties || {}
+  const name = titleCase(String(p.poly_IncidentName || p.attr_IncidentName || '').trim()) || 'Wildfire'
+  const acres = p.poly_GISAcres ?? p.attr_CalculatedAcres
+  const contained = p.attr_PercentContained
+  const rows = []
+  if (acres != null && Number(acres) > 0) rows.push(`Size: ${Math.round(Number(acres)).toLocaleString()} acres`)
+  if (contained != null) rows.push(`Contained: ${Math.round(Number(contained))}%`)
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px">
+      <div style="font-size:13.5px;font-weight:600">${esc(name)} Fire</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#f87171;margin:2px 0 5px">Active wildfire · NIFC</div>
+      <div style="font-size:11px;color:rgba(var(--fg-rgb),.6);line-height:1.45;margin-bottom:2px">Current fire perimeter, updated every few minutes. Fire moves fast and conditions change — check official closures and never head toward an active fire.</div>
+      ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      <div style="font-size:9.5px;color:rgba(var(--fg-rgb),.35);margin-top:7px">Source: NIFC WFIGS (public domain)</div>
+    </div>`
+  new maplibregl.Popup({ offset: 8, maxWidth: '260px' }).setLngLat(lngLat).setHTML(html).addTo(m)
 }
 
 function openWadnrPopup(m, lngLat, result) {

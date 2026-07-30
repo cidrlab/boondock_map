@@ -179,6 +179,12 @@ const TABS = [
           dispersed camping is <em>likely</em> allowed. Each shows how much of
           it is reasonably flat. It&apos;s a computed hint, not a promise —
           always confirm district rules and closures.</li>
+          <li><strong>Wildfires</strong> — current active fire perimeters across
+          the US, drawn as red areas, from the National Interagency Fire Center
+          and refreshed every few minutes. A <strong>safety</strong> layer: it
+          loads when you switch it on, and tapping a fire shows its name, size,
+          and containment. Fire moves fast, so treat it as a heads-up, always
+          check official closures, and never head toward an active fire.</li>
           <li><strong>Temperature Filter</strong> (bottom of the Layers tab) —
           find where the weather will suit you. Pick a window (next 7–16
           days), then set any of: <em>no day hotter than</em>, <em>no night

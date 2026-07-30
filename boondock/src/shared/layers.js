@@ -172,6 +172,13 @@ export const OVERLAY_LAYERS = {
     roadcore: true,   // vector PMTiles overlay, handled in Map.jsx
     attribution: 'USFS RoadCore',
   },
+  'wildfire': {
+    id: 'wildfire',
+    label: 'Wildfires',
+    description: 'Current active wildfire perimeters across the US (NIFC, refreshed every few minutes). Red areas are actively burning. A safety layer — conditions change fast, so verify closures and never head toward an active fire. Loads when you switch it on.',
+    wildfire: true,   // GeoJSON fetched live from NIFC, handled in Map.jsx
+    attribution: 'NIFC WFIGS',
+  },
   'sites': {
     id: 'sites',
     label: 'Sites',
@@ -266,6 +273,7 @@ export const DEFAULT_OVERLAYS = {
   'blm-roads': false,
   'wadnr-roads': false,
   'roadcore': false,
+  'wildfire': false,
   'sites': true,
   'zones': false,
   'names': false,
