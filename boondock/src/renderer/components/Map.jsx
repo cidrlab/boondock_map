@@ -379,6 +379,13 @@ const Map = forwardRef(function Map(
           return
         }
       }
+      if (overlaysRef.current['blm-roads'] && m.getZoom() >= 9) {
+        const road = await identifyBlm(m, e.lngLat)
+        if (road && map.current === m) {
+          openBlmPopup(m, e.lngLat, road)
+          return
+        }
+      }
       if (overlaysRef.current['usfs-trails'] && m.getZoom() >= 10) {
         const trail = await identifyTrail(m, e.lngLat)
         if (trail && map.current === m) {
@@ -1620,6 +1627,7 @@ async function identifyArc(idUrl, layersParam, m, lngLat) {
 
 const identifyMvum = (m, lngLat) => identifyArc(OVERLAY_LAYERS.mvum.identifyUrl, 'visible:1,2', m, lngLat)
 const identifyTrail = (m, lngLat) => identifyArc(OVERLAY_LAYERS['usfs-trails'].identifyUrl, 'all', m, lngLat)
+const identifyBlm = (m, lngLat) => identifyArc(OVERLAY_LAYERS['blm-roads'].identifyUrl, 'all:0,1', m, lngLat)
 
 function titleCase(s) {
   return String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
@@ -1661,6 +1669,32 @@ function openMvumPopup(m, lngLat, result) {
       ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
       ${weatherHtml()}
       ${directionsHtml(lngLat.lat, lngLat.lng)}
+    </div>`
+  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
+}
+
+const BLM_ROAD_DESIGNATION = {
+  'Roads Managed for Public Motorized Use': 'Public motorized road',
+  'Roads Managed for Limited Public Motorized Use': 'Limited public motorized road',
+}
+
+function openBlmPopup(m, lngLat, result) {
+  const a = result.attributes || {}
+  const name = titleCase(a.ROUTE_PRMRY_NM || '') || 'BLM road'
+  const desig = BLM_ROAD_DESIGNATION[result.layerName] || 'BLM road'
+  const rows = []
+  if (a.PLAN_ASSET_CLASS && a.PLAN_ASSET_CLASS !== 'Null') rows.push(`Class: ${esc(titleCase(String(a.PLAN_ASSET_CLASS)))}`)
+  const season = String(a.PLAN_SEASON_RSTRCT_CODE ?? '').trim()
+  if (season && season !== 'Null') rows.push(`Season restriction: ${esc(season)}`)
+  const html = `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:170px">
+      <div style="font-size:13px;font-weight:600">${esc(name)}</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin:2px 0 5px">BLM · ${esc(desig)}</div>
+      <div style="font-size:11px;color:rgba(var(--fg-rgb),.6);line-height:1.45;margin-bottom:2px">Open to public motorized use. A road being here isn't permission — verify current rules, closures, and conditions locally.</div>
+      ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      ${weatherHtml()}
+      ${directionsHtml(lngLat.lat, lngLat.lng, name === 'BLM road' ? '' : name)}
     </div>`
   const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
   attachWeather(popup, lngLat.lat, lngLat.lng, m)

@@ -118,6 +118,30 @@ export const OVERLAY_LAYERS = {
       [11, 0.95],
     ],
   },
+  'blm-roads': {
+    id: 'blm-roads',
+    label: 'BLM Roads',
+    description: 'BLM roads open to public motorized use — the drive-able road network on BLM land, mostly across the West. Public domain (BLM GTLF). Tap a road for its details.',
+    // Live like MVUM: BLM's GTLF Public_Display MapServer renders per-tile via
+    // export. layers 0+1 = public + limited-public motorized ROADS (2–7 are
+    // trails, excluded). dynamicLayers restyles both to a burnt-orange line so
+    // they read on the dark base and stand apart from the sky-blue trails.
+    direct: true,
+    tileUrl: 'https://gis.blm.gov/arcgis/rest/services/transportation/BLM_Natl_GTLF_Public_Display/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&dynamicLayers='
+      + encodeURIComponent(JSON.stringify([
+          { id: 101, source: { type: 'mapLayer', mapLayerId: 0 }, drawingInfo: { renderer: { type: 'simple', symbol: { type: 'esriSLS', style: 'esriSLSSolid', color: [200, 120, 48, 255], width: 1.6 } }, showLabels: false } },
+          { id: 102, source: { type: 'mapLayer', mapLayerId: 1 }, drawingInfo: { renderer: { type: 'simple', symbol: { type: 'esriSLS', style: 'esriSLSDash', color: [200, 120, 48, 255], width: 1.4 } }, showLabels: false } },
+        ])),
+    identifyUrl: 'https://gis.blm.gov/arcgis/rest/services/transportation/BLM_Natl_GTLF_Public_Display/MapServer/identify',
+    attribution: 'BLM GTLF',
+    sourceMinzoom: 7,
+    sourceMaxzoom: 15,
+    zoomOpacity: [
+      [5,  0.0],
+      [7,  0.75],
+      [11, 0.95],
+    ],
+  },
   'sites': {
     id: 'sites',
     label: 'Sites',
@@ -209,6 +233,7 @@ export const SITE_KINDS = [
 export const DEFAULT_OVERLAYS = {
   'mvum': true,
   'usfs-trails': true,
+  'blm-roads': false,
   'sites': true,
   'zones': false,
   'names': false,

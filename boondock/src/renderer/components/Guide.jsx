@@ -121,6 +121,13 @@ const TABS = [
           <li><strong>MVUM roads</strong> — the Forest Service Motor Vehicle Use
           Map: the legal motorized routes, drawn in the official USFS colors
           (see the legend for classes).</li>
+          <li><strong>BLM roads</strong> — the drive-able road network on BLM
+          land, mostly across the West, where a lot of dispersed camping
+          happens. Burnt-orange lines for roads open to public motorized use
+          (solid) and limited public use (dashed); tap one for its name and
+          designation. Off by default, so switch it on in the Overlays. Like
+          MVUM, it&apos;s drawn live from the agency&apos;s server, so it needs a
+          connection.</li>
           <li><strong>Hiking trails</strong> — dashed light-blue lines from the
           USFS trails system.</li>
           <li><strong>Topo lines</strong> — contours only, no background.

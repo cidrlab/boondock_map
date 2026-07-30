@@ -84,6 +84,11 @@
   border-top: 2px dashed #8babd0;
   height: 0;
 }
+.legend-blm-road {
+  background: transparent;
+  border-top: 2px solid #c87830;
+  height: 0;
+}
 
 .legend-img {
   width: 20px;
