@@ -29,7 +29,7 @@
         "etag": "\"e0dbc1d-634df4c40bd5d\"",
         "content_length": 235781149
       },
-      "checked": "2026-07-27",
+      "checked": "2026-08-03",
       "built_from": null,
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
@@ -50,7 +50,7 @@
         "etag": "\"db473fa-634df4f1e0813\"",
         "content_length": 229929978
       },
-      "checked": "2026-07-27",
+      "checked": "2026-08-03",
       "built_from": null,
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
@@ -71,7 +71,7 @@
         "etag": "\"19c029e3-634df4b1d1551\"",
         "content_length": 432024035
       },
-      "checked": "2026-07-30",
+      "checked": "2026-08-03",
       "built_from": "Sun, 11 May 2025 17:11:42 GMT",
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
@@ -88,16 +88,41 @@
     "live_services (VISION row 97): overlays rendered straight off an agency",
     "server (not a mirrored bulk file), so 'freshness' here means 'is the",
     "service still up'. check_upstream.py GETs each metadata endpoint weekly and",
-    "flags a non-200 or an ArcGIS error body — the proactive version of the",
+    "flags a non-200 or an ArcGIS error body \u2014 the proactive version of the",
     "row-82 in-app outage toast. If one goes dark for good, that overlay needs a",
     "self-host (row 83) or removal."
   ],
   "live_services": [
-    { "id": "usfs-mvum-live", "label": "USFS MVUM roads (live render)", "url": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer?f=json", "risk": "row 82: this host (apps.fs.usda.gov) does 500 while the bulk host stays up" },
-    { "id": "usfs-trails-live", "label": "USFS trails (live render)", "url": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer?f=json", "risk": "same host as MVUM" },
-    { "id": "blm-roads-live", "label": "BLM roads overlay (row 96)", "url": "https://gis.blm.gov/arcgis/rest/services/transportation/BLM_Natl_GTLF_Public_Display/MapServer?f=json", "risk": "US federal live service" },
-    { "id": "wadnr-roads-live", "label": "WA DNR roads overlay (row 34)", "url": "https://gis.dnr.wa.gov/site3/rest/services/Public_Transportation/WADNR_PUBLIC_ENG_Roads/MapServer?f=json", "risk": "WA state live service" },
-    { "id": "nifc-wildfire-live", "label": "NIFC wildfire perimeters (row 69)", "url": "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0?f=json", "risk": "shared ArcGIS Online service, rate-limited" }
+    {
+      "id": "usfs-mvum-live",
+      "label": "USFS MVUM roads (live render)",
+      "url": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer?f=json",
+      "risk": "row 82: this host (apps.fs.usda.gov) does 500 while the bulk host stays up"
+    },
+    {
+      "id": "usfs-trails-live",
+      "label": "USFS trails (live render)",
+      "url": "https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer?f=json",
+      "risk": "same host as MVUM"
+    },
+    {
+      "id": "blm-roads-live",
+      "label": "BLM roads overlay (row 96)",
+      "url": "https://gis.blm.gov/arcgis/rest/services/transportation/BLM_Natl_GTLF_Public_Display/MapServer?f=json",
+      "risk": "US federal live service"
+    },
+    {
+      "id": "wadnr-roads-live",
+      "label": "WA DNR roads overlay (row 34)",
+      "url": "https://gis.dnr.wa.gov/site3/rest/services/Public_Transportation/WADNR_PUBLIC_ENG_Roads/MapServer?f=json",
+      "risk": "WA state live service"
+    },
+    {
+      "id": "nifc-wildfire-live",
+      "label": "NIFC wildfire perimeters (row 69)",
+      "url": "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0?f=json",
+      "risk": "shared ArcGIS Online service, rate-limited"
+    }
   ],
   "_comment_derived": [
     "derived_data (VISION row 97): data we BUILT from other sources and committed",
