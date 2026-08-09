@@ -76,9 +76,22 @@ time. A full national rebuild is several hours.
 
 `build_road_pmtiles.py` turns a national USFS shapefile into one `.pmtiles`
 archive served straight off Pages over range requests — no tile server, works
-offline, immune to `apps.fs.usda.gov` being down. Covers `mvum`, `trails`, and
-`roadcore` (the last already shipped; it's here so refreshing it is a command
-rather than the afternoon it was the first time).
+offline, immune to `apps.fs.usda.gov` being down. Covers `mvum`,
+`mvum-trails`, `trails`, and `roadcore`.
+
+Each dataset carries its own field projection in `DATASETS`, and that is the
+part worth reading before changing anything. It keeps codes rather than prose
+(`surf: "NAT"`, `sym: 3`) because a vector tile pools attribute values per
+tile, so a repeated short code is nearly free while the spelled-out sentence
+would ride on every road in the country; `boondock/src/shared/usfsCodes.js`
+turns them back into words in the app. **The two files are a pair — change one
+and the other has to follow.**
+
+It also drops records with no geometry, and says how many. That is not
+housekeeping: MVUM ships 340,885 records of which **189,864 (55.7%) have no
+line at all**, and the motorized-trail file is 705,944 records for 17,725
+geometries. Left unfiltered they become features tippecanoe discards without
+comment.
 
 Needs `ogr2ogr` (GDAL) and `tippecanoe`:
 
@@ -105,9 +118,9 @@ carries, labelling each as a styling candidate (few distinct values) or popup
 material (free text).
 
 ```
-python3 build_road_pmtiles.py --build mvum trails            # write the archives
-python3 build_road_pmtiles.py --build mvum --dry-run         # size check only
-python3 build_road_pmtiles.py --build mvum --fields NAME,SYMBOL_TYPE
+python3 build_road_pmtiles.py --build mvum mvum-trails trails   # write the archives
+python3 build_road_pmtiles.py --build mvum --dry-run            # size check only
+python3 build_road_pmtiles.py --build mvum --fields NAME,SYMBOL  # override the projection
 ```
 
 A build refuses to write anything over 90 MB, since GitHub rejects a file past

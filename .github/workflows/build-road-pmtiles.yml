@@ -15,15 +15,15 @@ on:
   workflow_dispatch:
     inputs:
       datasets:
-        description: 'Space-separated: mvum, trails, roadcore'
+        description: 'Space-separated: mvum, mvum-trails, trails, roadcore'
         required: true
-        default: 'mvum trails'
+        default: 'mvum mvum-trails trails'
       inspect:
         description: 'Dump each dataset schema + value frequencies first'
         type: boolean
         default: true
       fields:
-        description: 'Comma-separated attributes to keep (blank = all)'
+        description: 'Comma-separated attributes to keep (blank = the dataset projection in DATASETS)'
         required: false
         default: ''
       commit:

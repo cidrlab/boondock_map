@@ -1,37 +1,13 @@
-import { useState, useEffect } from 'react'
 import { communityEnabled } from '../../shared/community'
 import { SITE_KINDS } from '../../shared/layers'
 import { siteBadgeSvg } from '../../shared/siteIcons'
 import './Legend.css'
 
-// Swatches come from each service's own legend endpoint, so what the legend
-// shows is literally what the map draws — no hand-copied hex values to drift.
-const MVUM_LEGEND = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/legend?f=json'
-
-// "Couldn't load" is not the same as "you're offline" — saying the wrong one
-// sends people to check their signal when the provider is down (VISION row 87)
-const failReason = () =>
-  navigator.onLine === false ? 'offline' : 'unavailable'
-
-const swatch = (it) => `data:${it.contentType};base64,${it.imageData}`
-
-let mvumLegendPromise = null
-function fetchMvumLegend() {
-  if (!mvumLegendPromise) {
-    mvumLegendPromise = fetch(MVUM_LEGEND)
-      .then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
-      .then(d => {
-        const pick = (layerId, take) =>
-          (d.layers?.find(l => l.layerId === layerId)?.legend || [])
-            .filter(it => it.label)
-            .slice(0, take)
-            .map(it => ({ label: it.label, src: swatch(it) }))
-        return { roads: pick(1, 4), trails: pick(2, 3), failed: false }
-      })
-      .catch(() => ({ roads: [], trails: [], failed: failReason() }))
-  }
-  return mvumLegendPromise
-}
+// The MVUM rows used to be swatch images fetched from the service's /legend
+// endpoint. Since row 83 the map draws MVUM from our own vector tiles in our
+// own palette, so that legend described someone else's symbology — and it went
+// blank whenever the USFS host did. The rows are now plain CSS swatches in
+// Legend.css, matching the paint in Map.jsx, and they work offline.
 
 // BLM surface-management palette, taken from the renderer of
 // lands/BLM_Natl_SMA_LimitedScale (sibling of the cached tile service the map
@@ -67,12 +43,6 @@ const siteLabel = (k) => SITE_LABELS[k.id] || k.label
 const badge = (kind, opts) => ({ __html: siteBadgeSvg(kind, 18, opts) })
 
 export default function Legend({ open, onClose }) {
-  const [mvum, setMvum] = useState(null)
-
-  useEffect(() => {
-    if (open && !mvum) fetchMvumLegend().then(setMvum)
-  }, [open, mvum])
-
   return (
     <div className="legend-root">
       {open && (
@@ -140,20 +110,17 @@ export default function Legend({ open, onClose }) {
             the one you&apos;re parked on.
           </div>
 
-          <div className="legend-section">MVUM (official USFS legend)</div>
-          {!mvum && <div className="legend-note">Loading…</div>}
-          {mvum && [...mvum.roads, ...mvum.trails].map(it => (
-            <div className="legend-row" key={it.label}>
-              <img className="legend-img" src={it.src} alt="" />{it.label}
-            </div>
-          ))}
-          {mvum && !mvum.roads.length && (
-            <div className="legend-note">
-              {mvum.failed === 'offline'
-                ? 'Legend needs a connection.'
-                : "Legend unavailable — the USFS service isn't responding."}
-            </div>
-          )}
+          <div className="legend-section">MVUM — who may drive it</div>
+          <div className="legend-row"><span className="legend-swatch legend-mvum-all" />Open to all vehicles, including OHVs</div>
+          <div className="legend-row"><span className="legend-swatch legend-mvum-highway" />Highway-legal vehicles only</div>
+          <div className="legend-row"><span className="legend-swatch legend-mvum-special" />Special designation — read the forest&apos;s own map</div>
+          <div className="legend-row"><span className="legend-swatch legend-mvum-all-seasonal" />Dashed: open seasonally, not year-round</div>
+          <div className="legend-row"><span className="legend-swatch legend-mvum-trail" />Dotted, thinner: motorized trail, not a road</div>
+          <div className="legend-note">
+            Tap any route for the vehicle classes and dates USFS published for
+            it. That is a record of what was legal, not permission for today —
+            closure orders, gates and washouts all outrank it.
+          </div>
 
           <div className="legend-section">Lines</div>
           <div className="legend-row"><span className="legend-swatch legend-trail" />Hiking trail (USFS)</div>

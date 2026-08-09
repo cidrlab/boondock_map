@@ -64,6 +64,28 @@ MAX_OUTPUT_BYTES = 90 * 1024 * 1024
 # and the zoom window. z7 is where these layers first switch on in the app
 # (see sourceMinzoom in shared/layers.js); past z12 MapLibre overzooms the
 # top tiles, which is what RoadCore does today and it reads fine.
+#
+# `sql` is the field projection, and it is the load-bearing part. Three reasons
+# it is not just "keep every column":
+#
+#   1. These shapefiles are enormous in attributes, not geometry — MVUM's .dbf
+#      is 1.08 GB against a 274 MB .shp, ~3.2 KB of text per road. Most of it
+#      is per-vehicle "date source" prose we would never show.
+#   2. A vector tile pools attribute *values* per tile, so a long string that
+#      repeats ("NAT - NATIVE MATERIAL") is nearly free while a high-cardinality
+#      one (GUIDs, raw floats, begin/end mileposts) costs on every feature.
+#      So we drop RTE_CN/GLOBALID/BMP/EMP/SHAPE_LEN and keep the descriptive
+#      columns, rather than the other way round.
+#   3. Storing the *code* and expanding it in the app (NAT -> "native surface")
+#      keeps the tiles small without making the popup any poorer.
+#
+# `WHERE GEOMETRY IS NOT NULL` is not defensive boilerplate. 189,864 of MVUM's
+# 340,885 records (55.7%) carry attributes and no line at all, and 5,453 of the
+# trail records likewise. Verified 2026-08-09 that this is USFS's own gap and
+# not a broken export: the live MapServer returns exactly the same counts
+# (Deschutes NF 4,990 live = 4,990 with geometry here; Malheur NF 0 = 0). Left
+# in, they become features tippecanoe silently discards; filtered here, the
+# build can count and report them.
 DATASETS = {
     "mvum": {
         "source_id": "usfs-mvum",
@@ -71,7 +93,37 @@ DATASETS = {
         "layer_name": "mvum",
         "min_zoom": 7,
         "max_zoom": 12,
-        "note": "MVUM — the legal motorized routes, by vehicle class",
+        "note": "MVUM roads — the legal motorized network, by vehicle class",
+        # sym is the styling key: USFS's own MVUM symbology, 1/2 = open to all
+        # vehicles (yearlong/seasonal), 3/4 = highway-legal vehicles only,
+        # 11/12 = special designation. veh is a bitmask because the alternative
+        # is nine near-empty string columns; the bit order is mirrored in
+        # shared/mvumCodes.js and must stay in step with it.
+        "sql": """
+            SELECT GEOMETRY,
+                   NAME AS name,
+                   ID AS rte,
+                   CAST(SYMBOL AS integer) AS sym,
+                   CASE WHEN INSTR(SURFACETYP, ' - ') > 0
+                        THEN SUBSTR(SURFACETYP, 1, INSTR(SURFACETYP, ' - ') - 1)
+                        ELSE SURFACETYP END AS surf,
+                   CAST(SUBSTR(OPERATIONA, 1, 1) AS integer) AS oml,
+                   TA_SYMBOL AS road,
+                   FORESTNAME AS forest,
+                   ROUND(GIS_MILES, 2) AS miles,
+                   PASSENGE_1 AS season,
+                     (CASE WHEN UPPER(PASSENGERV) = 'OPEN' THEN 1   ELSE 0 END)
+                   + (CASE WHEN UPPER(HIGHCLEARA) = 'OPEN' THEN 2   ELSE 0 END)
+                   + (CASE WHEN UPPER(TRUCK)      = 'OPEN' THEN 4   ELSE 0 END)
+                   + (CASE WHEN UPPER(BUS)        = 'OPEN' THEN 8   ELSE 0 END)
+                   + (CASE WHEN UPPER(MOTORHOME)  = 'OPEN' THEN 16  ELSE 0 END)
+                   + (CASE WHEN UPPER(FOURWD_GT5) = 'OPEN' THEN 32  ELSE 0 END)
+                   + (CASE WHEN UPPER(TWOWD_GT50) = 'OPEN' THEN 64  ELSE 0 END)
+                   + (CASE WHEN UPPER(ATV)        = 'OPEN' THEN 128 ELSE 0 END)
+                   + (CASE WHEN UPPER(MOTORCYCLE) = 'OPEN' THEN 256 ELSE 0 END) AS veh
+              FROM "{layer}"
+             WHERE GEOMETRY IS NOT NULL
+        """,
     },
     "trails": {
         "source_id": "usfs-trails",
@@ -80,6 +132,79 @@ DATASETS = {
         "min_zoom": 7,
         "max_zoom": 12,
         "note": "National Forest trail system",
+        # `uses` is ALLOWED_TE, a digit string of the uses a trail is managed
+        # for. The digits were confirmed against the per-use columns rather
+        # than assumed (2026-08-09): rows reading '6321' light up only
+        # FOURWD_MAN and '5321' only ATV_MANAGE, which pins each digit on its
+        # own — 1 hiker, 2 pack/saddle, 3 bicycle, 4 motorcycle, 5 ATV,
+        # 6 4WD>50". That is what tells motorized from foot trails.
+        "sql": """
+            SELECT GEOMETRY,
+                   TRAIL_NAME AS name,
+                   TRAIL_NO AS trailno,
+                   TRAIL_TYPE AS type,
+                   TRAIL_CLAS AS cls,
+                   ALLOWED_TE AS uses,
+                   ALLOWED_SN AS snowuses,
+                   TERRA_MOTO AS moto,
+                   CASE WHEN INSTR(TRAIL_SURF, ' - ') > 0
+                        THEN SUBSTR(TRAIL_SURF, 1, INSTR(TRAIL_SURF, ' - ') - 1)
+                        ELSE TRAIL_SURF END AS surf,
+                   ACCESSIBIL AS access,
+                   SPECIAL_MG AS special,
+                   ROUND(GIS_MILES, 2) AS miles,
+                   HIKER_PEDE AS hike_s,
+                   BICYCLE_MA AS bike_s,
+                   MOTORCYCLE AS moto_s,
+                   ATV_MANAGE AS atv_s,
+                   FOURWD_MAN AS fwd_s
+              FROM "{layer}"
+             WHERE GEOMETRY IS NOT NULL
+        """,
+    },
+    "mvum-trails": {
+        "source_id": "usfs-mvum-trails",
+        "out": "mvum-trails.pmtiles",
+        "layer_name": "mvum_trails",
+        "min_zoom": 7,
+        "max_zoom": 12,
+        "note": "MVUM motorized trails — the other half of the MVUM overlay",
+        # Same columns as the roads file, so the veh bitmask below is bit-for-bit
+        # the same and one decoder serves both. sym is NOT the same code set
+        # though: roads run 1-4 + 11/12, trails run 5-12 + 16/17 (open to all
+        # vehicles / to vehicles 50" or less / to motorcycles / special
+        # designation, each yearlong or seasonal). Confirmed against the data.
+        #
+        # This file is the incomplete one. Only 17,725 of its 705,944 records
+        # carry a line, and unlike the roads file that is NOT what the live
+        # service holds: live MVUM trails is 63,056, and whole forests differ
+        # (Deschutes 250 live / 125 here, Ozark-St. Francis 161 live / 0 here).
+        # So what we tile is a floor, not the whole layer, and the app keeps
+        # drawing the live sublayer over the top to fill the rest in when
+        # there is a connection (Tim's call, 2026-08-09).
+        "sql": """
+            SELECT GEOMETRY,
+                   NAME AS name,
+                   ID AS rte,
+                   CAST(SYMBOL AS integer) AS sym,
+                   CASE WHEN INSTR(TRAILCLASS, ' - ') > 0
+                        THEN SUBSTR(TRAILCLASS, 1, INSTR(TRAILCLASS, ' - ') - 1)
+                        ELSE TRAILCLASS END AS cls,
+                   FORESTNAME AS forest,
+                   ROUND(GIS_MILES, 2) AS miles,
+                   COALESCE(ATV_DATESO, MOTORCYC_1, PASSENGE_1, HIGHCLEA_1) AS season,
+                     (CASE WHEN UPPER(PASSENGERV) = 'OPEN' THEN 1   ELSE 0 END)
+                   + (CASE WHEN UPPER(HIGHCLEARA) = 'OPEN' THEN 2   ELSE 0 END)
+                   + (CASE WHEN UPPER(TRUCK)      = 'OPEN' THEN 4   ELSE 0 END)
+                   + (CASE WHEN UPPER(BUS)        = 'OPEN' THEN 8   ELSE 0 END)
+                   + (CASE WHEN UPPER(MOTORHOME)  = 'OPEN' THEN 16  ELSE 0 END)
+                   + (CASE WHEN UPPER(FOURWD_GT5) = 'OPEN' THEN 32  ELSE 0 END)
+                   + (CASE WHEN UPPER(TWOWD_GT50) = 'OPEN' THEN 64  ELSE 0 END)
+                   + (CASE WHEN UPPER(ATV)        = 'OPEN' THEN 128 ELSE 0 END)
+                   + (CASE WHEN UPPER(MOTORCYCLE) = 'OPEN' THEN 256 ELSE 0 END) AS veh
+              FROM "{layer}"
+             WHERE GEOMETRY IS NOT NULL
+        """,
     },
     "roadcore": {
         "source_id": "usfs-roadcore",
@@ -188,6 +313,15 @@ def field_names(shp: Path):
     return names
 
 
+def feature_count(shp: Path):
+    """Records in the shapefile, from the header — geometry or not."""
+    res = subprocess.run(["ogrinfo", "-so", "-al", str(shp)], capture_output=True, text=True)
+    for line in res.stdout.splitlines():
+        if line.strip().startswith("Feature Count:"):
+            return int(line.split(":", 1)[1].strip())
+    return None
+
+
 def scalar_sql(shp: Path, sql):
     """One number out of an SQL query, or None if the query won't run."""
     res = subprocess.run(["ogrinfo", "-q", "-dialect", "SQLite", str(shp), "-sql", sql],
@@ -271,7 +405,7 @@ def build(name, fields=None, keep_work=False, dry_run=False):
     cfg = DATASETS[name]
     manifest = load_manifest()
     entry = source_entry(manifest, cfg["source_id"])
-    require_tools("ogr2ogr", "tippecanoe")
+    require_tools("ogr2ogr", "ogrinfo", "tippecanoe")
 
     work = Path(tempfile.mkdtemp(prefix=f"boondock-{name}-"))
     try:
@@ -284,9 +418,26 @@ def build(name, fields=None, keep_work=False, dry_run=False):
         geojson = work / f"{name}.geojsons"
         cmd = ["ogr2ogr", "-f", "GeoJSONSeq", str(geojson), str(shp), "-t_srs", "EPSG:4326"]
         if fields:
+            # An explicit --fields overrides the dataset's projection, which is
+            # how you try out a narrower set without editing the script
             cmd += ["-select", ",".join(fields)]
+        elif cfg.get("sql"):
+            cmd += ["-dialect", "SQLite", "-sql", cfg["sql"].format(layer=shp.stem)]
         run(cmd)
+
+        # How many records went in against how many features came out. These
+        # differ by design (the projection drops null-geometry records), but a
+        # gap that suddenly widens means upstream changed shape, and a silent
+        # 50% loss is exactly the failure this pipeline is meant to make loud.
+        total = feature_count(shp)
+        written = sum(1 for _ in geojson.open("rb"))
+        if total:
+            dropped = total - written
+            print(f"  {written:,} features to tile, from {total:,} source records"
+                  + (f" — {dropped:,} dropped ({100 * dropped / total:.1f}%, no geometry)" if dropped else ""))
         print(f"  intermediate: {geojson.stat().st_size / 1e6:.0f} MB")
+        if not written:
+            sys.exit("  nothing to tile — the projection matched no features")
 
         out = OUT_DIR / cfg["out"]
         tmp_out = work / cfg["out"]

@@ -30,7 +30,7 @@
         "content_length": 235781149
       },
       "checked": "2026-08-03",
-      "built_from": null,
+      "built_from": "Sun, 11 May 2025 17:12:01 GMT",
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
         "held": true,
@@ -39,7 +39,8 @@
         "date": "2026-07-25",
         "stamp": "Sun, 11 May 2025 17:12:01 GMT",
         "bytes": 235781149
-      }
+      },
+      "built_on": "2026-08-09"
     },
     {
       "id": "usfs-trails",
@@ -51,7 +52,7 @@
         "content_length": 229929978
       },
       "checked": "2026-08-03",
-      "built_from": null,
+      "built_from": "Sun, 11 May 2025 17:12:49 GMT",
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
         "held": true,
@@ -60,7 +61,31 @@
         "date": "2026-07-25",
         "stamp": "Sun, 11 May 2025 17:12:49 GMT",
         "bytes": 229929978
-      }
+      },
+      "built_on": "2026-08-09"
+    },
+    {
+      "id": "usfs-mvum-trails",
+      "label": "USFS MVUM motorized trails (national shapefile)",
+      "url": "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.Trail_MVUM.zip",
+      "seen": {
+        "last_modified": "Sun, 11 May 2025 17:12:57 GMT",
+        "etag": "\"6ea97a8-634df4f91ffce\"",
+        "content_length": 116037544
+      },
+      "checked": "2026-08-09",
+      "built_from": "Sun, 11 May 2025 17:12:57 GMT",
+      "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
+      "note": "The MVUM overlay has always drawn two sublayers: Road_MVUM (roads) and this (motorized trails, 63,056 live). Self-hosting only the roads would silently drop half the overlay.",
+      "backup": {
+        "held": true,
+        "location": "/Users/buffalo/data/cidrlab/boondock_map/S_USA.Trail_MVUM.zip",
+        "sha256": "be936ae102772a6c02dcea2c1f52e702f667138d9355452fac74df485213f38e",
+        "date": "2026-08-09",
+        "stamp": "Sun, 11 May 2025 17:12:57 GMT",
+        "bytes": 116037544
+      },
+      "built_on": "2026-08-09"
     },
     {
       "id": "usfs-roadcore",

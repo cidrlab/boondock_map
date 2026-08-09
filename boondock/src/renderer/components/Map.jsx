@@ -11,6 +11,10 @@ import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/w
 import { STATE_BOUNDS } from '../../shared/stateBounds'
 import { WAYPOINT_COLORS } from './Icons'
 import { communityEnabled, submitCheckin, flagSpot, loadCommunityFeatures, prunePendingReports } from '../../shared/community'
+import {
+  MVUM_ROAD_SYMBOL, MVUM_TRAIL_SYMBOL, SURFACE_CODES, MAINT_LEVELS, ROAD_CHARACTER,
+  TRAIL_CLASS, vehicleList, trailUses, trailIsMotorized, formatSeason, describeCode,
+} from '../../shared/usfsCodes'
 
 // All tile requests go through boondock:// so downloaded offline packs are
 // used first and the network is the fallback (see shared/offlineTiles.js)
@@ -301,6 +305,10 @@ const Map = forwardRef(function Map(
       refreshPackAreas()
       addSitesLayers()
       addRoadcoreLayers()
+      // After addOverlaySources(), so the live fill-in rasters sit underneath
+      // their own vector lines rather than painting over them
+      addMvumVectorLayers()
+      addTrailsVectorLayers()
       addWildfireLayers()
       addZonesLayers()
       addTempLayers()
@@ -380,8 +388,21 @@ const Map = forwardRef(function Map(
           return
         }
       }
-      // Tap a forest road or trail for its USFS details (quick identifies)
+      // Tap a forest road or trail for its USFS details. The self-hosted
+      // vector lines answer instantly and offline; the live identify is only
+      // the fallback for the motorized trails the bulk file has no geometry
+      // for, which is why it now asks about sublayer 2 alone (VISION row 83).
       if (overlaysRef.current.mvum && m.getZoom() >= 9) {
+        const roadHit = pickFeature(m, e.point, MVUM_PICK_LAYERS)
+        if (roadHit) {
+          openMvumRoadPopup(m, e.lngLat, roadHit)
+          return
+        }
+        const mtHit = pickFeature(m, e.point, MVUM_TRAIL_PICK_LAYERS)
+        if (mtHit) {
+          openMvumTrailPopup(m, e.lngLat, mtHit)
+          return
+        }
         const road = await identifyMvum(m, e.lngLat)
         if (road && map.current === m) {
           openMvumPopup(m, e.lngLat, road)
@@ -405,6 +426,11 @@ const Map = forwardRef(function Map(
         }
       }
       if (overlaysRef.current['usfs-trails'] && m.getZoom() >= 10) {
+        const hit = pickFeature(m, e.point, ['usfs-trails-line'])
+        if (hit) {
+          openTrailVectorPopup(m, e.lngLat, hit)
+          return
+        }
         const trail = await identifyTrail(m, e.lngLat)
         if (trail && map.current === m) {
           openTrailPopup(m, e.lngLat, trail)
@@ -488,6 +514,8 @@ const Map = forwardRef(function Map(
       refreshPackAreas()
       addSitesLayers()
       addRoadcoreLayers()
+      addMvumVectorLayers()
+      addTrailsVectorLayers()
       addWildfireLayers()
       addZonesLayers()
       addTempLayers()
@@ -559,17 +587,11 @@ const Map = forwardRef(function Map(
     const ov = overlaysRef.current
     Object.entries(ov).forEach(([id, visible]) => {
       const def = OVERLAY_LAYERS[id]
-      const ids = id === 'sites'
-        ? SITES_LAYER_IDS
-        : id === 'zones'
-          ? ['zones-fill', 'zones-line']
-          : id === 'roadcore'
-            ? ['roadcore-open', 'roadcore-closed']
-            : id === 'wildfire'
-              ? ['wildfire-fill', 'wildfire-line']
-              : def?.parts
-                ? def.parts.map(p => `${id}-${p.key}-layer`)
-                : [`${id}-layer`]
+      // One switch can own several map layers. MVUM and Trails each own a
+      // live raster (the online fill-in) plus their self-hosted vector lines,
+      // and all of them have to move together or the toggle half-works.
+      const ids = OVERLAY_LAYER_IDS[id]
+        || (def?.parts ? def.parts.map(p => `${id}-${p.key}-layer`) : [`${id}-layer`])
       ids.forEach(layerId => {
         if (m.getLayer(layerId)) {
           m.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none')
@@ -611,6 +633,126 @@ const Map = forwardRef(function Map(
         paint: {
           'line-color': '#c2b280', 'line-opacity': 0.9,
           'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.6, 12, 1.9],
+        },
+      })
+    }
+  }
+
+  // ── MVUM + trails — self-hosted vector PMTiles (VISION row 83) ────────────
+  // These three archives replace three per-tile server renders. Colour carries
+  // the one thing MVUM exists to tell you — who may legally drive a route —
+  // and a dashed line means the permission is seasonal, so a route you can
+  // only use part of the year never looks like a route you can always use.
+  // 'special' is the only class that gets its own hue, because it is the only
+  // one that means "this map cannot tell you — go read the forest's own".
+  // Vehicle-width classes (50" or less, motorcycles) stay in the amber family
+  // and are distinguished by the line weight and the popup, rather than by
+  // adding three more colours to a map that already carries five.
+  const MVUM_COLORS = {
+    all: '#f2c14e',       // open to all vehicles, OHVs included
+    narrow: '#f2c14e',    // vehicles 50" or less / wheeled OHV under 50"
+    moto: '#f2c14e',      // motorcycles only
+    highway: '#8fbf7f',   // street-legal vehicles only
+    special: '#c77dff',   // special designation — read the forest's own map
+  }
+  const TRAIL_COLOR = '#8babd0'   // the sky blue trails have always used
+
+  // Build a MapLibre match expression from one of the symbol tables, so the
+  // paint and the popup are driven by the same source of truth.
+  function symbolMatch(table, prop) {
+    const cases = []
+    Object.entries(table).forEach(([code, meta]) => {
+      cases.push(Number(code), MVUM_COLORS[meta.kind] || MVUM_COLORS.special)
+    })
+    return ['match', ['to-number', ['coalesce', ['get', prop], 0]], ...cases, MVUM_COLORS.special]
+  }
+
+  const seasonalCodes = (table) =>
+    Object.entries(table).filter(([, m]) => m.seasonal).map(([code]) => Number(code))
+
+  function addMvumVectorLayers() {
+    const m = map.current
+    if (!m) return
+    const pm = (file) => `pmtiles://${new URL(import.meta.env.BASE_URL + `data/${file}`, location.href).href}`
+    if (!m.getSource('mvum-vec')) m.addSource('mvum-vec', { type: 'vector', url: pm('mvum.pmtiles') })
+    if (!m.getSource('mvum-trails-vec')) m.addSource('mvum-trails-vec', { type: 'vector', url: pm('mvum-trails.pmtiles') })
+
+    const vis = overlaysRef.current.mvum ? 'visible' : 'none'
+    const sym = ['to-number', ['coalesce', ['get', 'sym'], 0]]
+
+    // Roads: seasonal ones dashed, yearlong solid. Two layers rather than one
+    // because line-dasharray is not data-driven in MapLibre.
+    const roadSeasonal = seasonalCodes(MVUM_ROAD_SYMBOL)
+    const roadPaint = {
+      'line-color': symbolMatch(MVUM_ROAD_SYMBOL, 'sym'),
+      'line-opacity': 0.92,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.6, 12, 2.1],
+    }
+    if (!m.getLayer('mvum-roads-seasonal')) {
+      m.addLayer({
+        id: 'mvum-roads-seasonal', type: 'line', source: 'mvum-vec', 'source-layer': 'mvum',
+        filter: ['in', sym, ['literal', roadSeasonal]], minzoom: 7,
+        layout: { visibility: vis, 'line-cap': 'butt', 'line-join': 'round' },
+        paint: { ...roadPaint, 'line-dasharray': [3, 2] },
+      })
+    }
+    if (!m.getLayer('mvum-roads')) {
+      m.addLayer({
+        id: 'mvum-roads', type: 'line', source: 'mvum-vec', 'source-layer': 'mvum',
+        filter: ['!', ['in', sym, ['literal', roadSeasonal]]], minzoom: 7,
+        layout: { visibility: vis, 'line-cap': 'round', 'line-join': 'round' },
+        paint: roadPaint,
+      })
+    }
+
+    // Motorized trails: same colour family, thinner and dotted, so a trail
+    // never reads as a road you could take a rig down.
+    const trailSeasonal = seasonalCodes(MVUM_TRAIL_SYMBOL)
+    const mtPaint = {
+      'line-color': symbolMatch(MVUM_TRAIL_SYMBOL, 'sym'),
+      'line-opacity': 0.9,
+      'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.4, 12, 1.4],
+    }
+    if (!m.getLayer('mvum-trails-seasonal')) {
+      m.addLayer({
+        id: 'mvum-trails-seasonal', type: 'line', source: 'mvum-trails-vec', 'source-layer': 'mvum_trails',
+        filter: ['in', sym, ['literal', trailSeasonal]], minzoom: 7,
+        layout: { visibility: vis, 'line-cap': 'butt', 'line-join': 'round' },
+        paint: { ...mtPaint, 'line-dasharray': [1, 2] },
+      })
+    }
+    if (!m.getLayer('mvum-trails-line')) {
+      m.addLayer({
+        id: 'mvum-trails-line', type: 'line', source: 'mvum-trails-vec', 'source-layer': 'mvum_trails',
+        filter: ['!', ['in', sym, ['literal', trailSeasonal]]], minzoom: 7,
+        layout: { visibility: vis, 'line-cap': 'butt', 'line-join': 'round' },
+        paint: { ...mtPaint, 'line-dasharray': [2, 1.5] },
+      })
+    }
+  }
+
+  function addTrailsVectorLayers() {
+    const m = map.current
+    if (!m) return
+    if (!m.getSource('usfs-trails-vec')) {
+      m.addSource('usfs-trails-vec', {
+        type: 'vector',
+        url: `pmtiles://${new URL(import.meta.env.BASE_URL + 'data/trails.pmtiles', location.href).href}`,
+      })
+    }
+    if (!m.getLayer('usfs-trails-line')) {
+      m.addLayer({
+        id: 'usfs-trails-line', type: 'line', source: 'usfs-trails-vec', 'source-layer': 'trails',
+        minzoom: 8,
+        layout: {
+          visibility: overlaysRef.current['usfs-trails'] ? 'visible' : 'none',
+          'line-cap': 'butt', 'line-join': 'round',
+        },
+        paint: {
+          'line-color': TRAIL_COLOR,
+          'line-opacity': ['interpolate', ['linear'], ['zoom'], 8, 0.6, 11, 0.95],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.7, 12, 1.8],
+          'line-dasharray': [2, 1.5],
         },
       })
     }
@@ -1447,6 +1589,21 @@ export default Map
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const SITES_LAYER_IDS = ['sites-clusters', 'sites-cluster-count', 'sites-points', 'sites-icons', 'sites-labels']
 
+// Overlays whose single switch drives more than one map layer. Anything absent
+// falls back to the plain `<id>-layer` raster convention.
+const OVERLAY_LAYER_IDS = {
+  'sites': SITES_LAYER_IDS,
+  'zones': ['zones-fill', 'zones-line'],
+  'roadcore': ['roadcore-open', 'roadcore-closed'],
+  'wildfire': ['wildfire-fill', 'wildfire-line'],
+  'mvum': ['mvum-layer', 'mvum-roads', 'mvum-roads-seasonal', 'mvum-trails-line', 'mvum-trails-seasonal'],
+  'usfs-trails': ['usfs-trails-layer', 'usfs-trails-line'],
+}
+
+// The self-hosted vector layers a tap should interrogate, per overlay
+const MVUM_PICK_LAYERS = ['mvum-roads', 'mvum-roads-seasonal']
+const MVUM_TRAIL_PICK_LAYERS = ['mvum-trails-line', 'mvum-trails-seasonal']
+
 // Site badges (shared/siteIcons.js). Below this zoom a dot is too small to
 // hold a logo legibly, so it stays the plain coloured dot and the glyph layer
 // switches off with it.
@@ -1824,7 +1981,21 @@ async function identifyArc(idUrl, layersParam, m, lngLat) {
   }
 }
 
-const identifyMvum = (m, lngLat) => identifyArc(OVERLAY_LAYERS.mvum.identifyUrl, 'visible:1,2', m, lngLat)
+/**
+ * Topmost rendered feature under a tap, with a few pixels of slack — a 1.5px
+ * line is not something a thumb hits exactly.
+ */
+function pickFeature(m, point, layerIds) {
+  const present = layerIds.filter(id => m.getLayer(id))
+  if (!present.length) return null
+  const pad = 6
+  const box = [[point.x - pad, point.y - pad], [point.x + pad, point.y + pad]]
+  return m.queryRenderedFeatures(box, { layers: present })[0] || null
+}
+
+// Only sublayer 2 now: the roads half is self-hosted and matches the service
+// exactly, so the live identify is left to answer for motorized trails alone
+const identifyMvum = (m, lngLat) => identifyArc(OVERLAY_LAYERS.mvum.identifyUrl, 'all:2', m, lngLat)
 const identifyTrail = (m, lngLat) => identifyArc(OVERLAY_LAYERS['usfs-trails'].identifyUrl, 'all', m, lngLat)
 const identifyBlm = (m, lngLat) => identifyArc(OVERLAY_LAYERS['blm-roads'].identifyUrl, 'all:0,1', m, lngLat)
 
@@ -1849,6 +2020,107 @@ function openTrailPopup(m, lngLat, result) {
       ${directionsHtml(lngLat.lat, lngLat.lng)}
     </div>`
   const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
+}
+
+// ── Popups for the self-hosted MVUM + trails vector layers (VISION row 83) ──
+// The tiles carry codes, not sentences; shared/usfsCodes.js turns them back
+// into words. Every one of these says the same thing in different words: the
+// map tells you what USFS recorded, not what you are allowed to do today.
+
+const MVUM_NOT_PERMISSION =
+  'What USFS published as legal use. Orders, gates and washouts change this — verify locally before you commit to a route.'
+
+function usfsPopupHtml({ title, kicker, kickerColor, caution, rows, lngLat, name }) {
+  return `
+    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px">
+      <div style="font-size:13px;font-weight:600">${esc(title)}</div>
+      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:${kickerColor || 'rgba(var(--fg-rgb),.55)'};margin:2px 0 5px">${esc(kicker)}</div>
+      <div style="font-size:11px;color:rgba(var(--fg-rgb),.6);line-height:1.45;margin-bottom:2px">${esc(caution)}</div>
+      ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
+      ${weatherHtml()}
+      ${directionsHtml(lngLat.lat, lngLat.lng, name || '')}
+    </div>`
+}
+
+function openMvumRoadPopup(m, lngLat, feature) {
+  const p = feature.properties || {}
+  const meta = MVUM_ROAD_SYMBOL[Number(p.sym)]
+  const name = titleCase(p.name || '') || (p.rte ? `Forest Road ${p.rte}` : 'Forest road')
+  const rows = []
+  const vehicles = vehicleList(p.veh)
+  if (vehicles.length) rows.push(`Open to: ${esc(vehicles.join(', '))}`)
+  const season = formatSeason(p.season)
+  if (season) rows.push(esc(season))
+  if (p.surf) rows.push(`Surface: ${esc(describeCode(SURFACE_CODES, p.surf))}`)
+  if (p.oml != null) rows.push(`Maintained for: ${esc(describeCode(MAINT_LEVELS, p.oml))}`)
+  if (p.road != null) rows.push(`Road type: ${esc(describeCode(ROAD_CHARACTER, p.road))}`)
+  if (p.miles) rows.push(`Length: ${Number(p.miles).toFixed(1)} mi`)
+  if (p.forest) rows.push(esc(p.forest))
+  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' })
+    .setLngLat(lngLat)
+    .setHTML(usfsPopupHtml({
+      title: name,
+      kicker: `USFS MVUM · ${meta ? meta.label : 'Forest road'}${meta?.seasonal ? ' (seasonal)' : ''}`,
+      caution: MVUM_NOT_PERMISSION,
+      rows,
+      lngLat,
+      name: name.startsWith('Forest Road') || name === 'Forest road' ? '' : name,
+    }))
+    .addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
+}
+
+function openMvumTrailPopup(m, lngLat, feature) {
+  const p = feature.properties || {}
+  const meta = MVUM_TRAIL_SYMBOL[Number(p.sym)]
+  const name = titleCase(p.name || '') || (p.rte ? `Trail ${p.rte}` : 'Motorized trail')
+  const rows = []
+  const vehicles = vehicleList(p.veh)
+  if (vehicles.length) rows.push(`Open to: ${esc(vehicles.join(', '))}`)
+  const season = formatSeason(p.season)
+  if (season) rows.push(esc(season))
+  if (p.cls) rows.push(`Trail class: ${esc(describeCode(TRAIL_CLASS, String(p.cls).replace(/^TC/, '')))}`)
+  if (p.miles) rows.push(`Length: ${Number(p.miles).toFixed(1)} mi`)
+  if (p.forest) rows.push(esc(p.forest))
+  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' })
+    .setLngLat(lngLat)
+    .setHTML(usfsPopupHtml({
+      title: name,
+      kicker: `USFS MVUM trail · ${meta ? meta.label : 'Motorized'}${meta?.seasonal ? ' (seasonal)' : ''}`,
+      caution: MVUM_NOT_PERMISSION,
+      rows,
+      lngLat,
+      name: name === 'Motorized trail' ? '' : name,
+    }))
+    .addTo(m)
+  attachWeather(popup, lngLat.lat, lngLat.lng, m)
+}
+
+function openTrailVectorPopup(m, lngLat, feature) {
+  const p = feature.properties || {}
+  const name = titleCase(p.name || '') || (p.trailno ? `Trail ${p.trailno}` : 'Forest trail')
+  const motorized = trailIsMotorized(p.uses, p.moto)
+  const uses = trailUses(p.uses)
+  const rows = []
+  if (uses.length) rows.push(`Managed for: ${esc(uses.join(', '))}`)
+  if (p.cls) rows.push(`Trail class: ${esc(describeCode(TRAIL_CLASS, p.cls))}`)
+  if (p.surf && p.surf !== 'N/A') rows.push(`Surface: ${esc(titleCase(p.surf))}`)
+  if (p.special && p.special !== 'N/A') rows.push(esc(titleCase(String(p.special).split(' - ').pop())))
+  if (p.miles) rows.push(`Length: ${Number(p.miles).toFixed(1)} mi`)
+  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' })
+    .setLngLat(lngLat)
+    .setHTML(usfsPopupHtml({
+      title: name,
+      kicker: `USFS trail · ${motorized ? 'Motorized use allowed' : 'Non-motorized'}`,
+      caution: motorized
+        ? 'Managed for motor vehicles. Cross-check the MVUM and current closures before riding it.'
+        : 'Foot, stock or bike trail as USFS records it. Conditions and closures change — verify locally.',
+      rows,
+      lngLat,
+      name: name === 'Forest trail' ? '' : name,
+    }))
+    .addTo(m)
   attachWeather(popup, lngLat.lat, lngLat.lng, m)
 }
 

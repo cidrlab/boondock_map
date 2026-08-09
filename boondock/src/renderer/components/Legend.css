@@ -111,10 +111,32 @@
   border-top: 2px dashed #8a8f98;
   height: 0;
 }
-
-.legend-img {
-  width: 20px;
-  flex-shrink: 0;
+/* MVUM, drawn from our own vector tiles (VISION row 83). Colour answers
+   "who may drive it", a dashed line means the permission is seasonal. */
+.legend-mvum-all {
+  background: transparent;
+  border-top: 2px solid #f2c14e;
+  height: 0;
+}
+.legend-mvum-all-seasonal {
+  background: transparent;
+  border-top: 2px dashed #f2c14e;
+  height: 0;
+}
+.legend-mvum-highway {
+  background: transparent;
+  border-top: 2px solid #8fbf7f;
+  height: 0;
+}
+.legend-mvum-special {
+  background: transparent;
+  border-top: 2px solid #c77dff;
+  height: 0;
+}
+.legend-mvum-trail {
+  background: transparent;
+  border-top: 2px dotted #f2c14e;
+  height: 0;
 }
 
 /* The BLM land tints are pale by design — several are near-white — so they

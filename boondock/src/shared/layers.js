@@ -73,18 +73,31 @@ export const OVERLAY_LAYERS = {
   'mvum': {
     id: 'mvum',
     label: 'MVUM Roads',
-    description: 'USFS Motor Vehicle Use Map — legal forest roads by vehicle type (National Forests only). Tap a road for its name and details.',
-    // Service has no tile cache; ArcGIS export renders per-tile via bbox.
-    // layers=show:1,2 = just roads+trails, skipping the low-zoom
-    // "Data Available" status watermark sublayers
+    description: 'USFS Motor Vehicle Use Map — the roads and motorized trails you may legally drive, by vehicle type (National Forests only). Self-hosted vector tiles, so it works offline. Tap a route for its legal class, vehicles, season, and surface.',
+    // Self-hosted vector tiles (VISION row 83): mvum.pmtiles (151,021 roads)
+    // and mvum-trails.pmtiles (17,725 motorized trails), added by
+    // addMvumVectorLayers() in Map.jsx.
+    //
+    // The live sublayer stays, drawn *under* the vector lines, and it is only
+    // the trails half (mapLayerId 2). Reason: the roads bulk file matches the
+    // live service exactly (Deschutes NF 4,990 either way, verified
+    // 2026-08-09), so self-hosting roads loses nothing — but the motorized
+    // trails bulk file carries geometry for just 17,725 of the 63,056 the
+    // service holds, and whole forests differ (Ozark-St. Francis: 161 live,
+    // 0 in the file). So we tile what exists and let the service fill in the
+    // rest when there's a connection (Tim's call, 2026-08-09). Offline, the
+    // raster simply doesn't draw and the vector lines remain.
     direct: true,
-    // dynamicLayers keeps the service's legal-class symbology but drops the
-    // raw route-ID labels that cluttered the map
+    // Restyled through dynamicLayers to the same amber the self-hosted
+    // motorized trails use, so the online fill-in and the offline layer read
+    // as one thing rather than two — USFS's own white symbology looked like a
+    // different dataset sitting on top of ours.
     tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&dynamicLayers='
-      + encodeURIComponent(JSON.stringify([
-          { id: 101, source: { type: 'mapLayer', mapLayerId: 1 }, drawingInfo: { showLabels: false } },
-          { id: 102, source: { type: 'mapLayer', mapLayerId: 2 }, drawingInfo: { showLabels: false } },
-        ])),
+      + encodeURIComponent(JSON.stringify([{
+          id: 102,
+          source: { type: 'mapLayer', mapLayerId: 2 },
+          drawingInfo: { renderer: { type: 'simple', symbol: { type: 'esriSLS', style: 'esriSLSDash', color: [242, 193, 78, 255], width: 1.2 } }, showLabels: false },
+        }])),
     identifyUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_01/MapServer/identify',
     attribution: 'USFS MVUM',
     sourceMinzoom: 7,   // don't request exports while the layer is invisible
@@ -98,9 +111,15 @@ export const OVERLAY_LAYERS = {
   'usfs-trails': {
     id: 'usfs-trails',
     label: 'Hiking Trails',
-    description: 'National Forest trail system',
-    // The old EDW_Trail_01 tile cache 404s; the publish service renders via
-    // export, restyled through dynamicLayers so trails read on the dark base
+    description: 'National Forest trail system — self-hosted vector tiles, so it works offline. Tap a trail for who it is managed for, its class, and surface.',
+    // Self-hosted vector tiles (VISION row 83): trails.pmtiles, 77,234 trails,
+    // added by addTrailsVectorLayers() in Map.jsx.
+    //
+    // Same arrangement as MVUM above, for the same reason: the bulk file holds
+    // geometry for 77,234 trails while the live service returns 86,303 — it is
+    // both geometry-complete and fresher than the 2025-05-11 export. The
+    // raster draws beneath the vector lines so the gap fills in online without
+    // hiding the crisper offline layer.
     direct: true,
     tileUrl: 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&dynamicLayers='
       + encodeURIComponent(JSON.stringify([{

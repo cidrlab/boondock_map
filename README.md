@@ -18,7 +18,7 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 - **Satellite base** (ESRI World Imagery) with a **Topo Overlay** blend — USGS contour lines and elevation figures over the imagery
 - **Sites database:** national camping layer — campsites, RV parks, dump stations, water fills, and trailheads as tappable, clustered map points with save-as-waypoint, each drawn as a circle ringed in its type's color carrying that type's logo (tent, RV, dump arrow, water drop, footprints) from about z10.5 (93,000+ places across all 50 states from OSM, Overture, Recreation.gov, and WA DNR; each state loads on demand as you pan)
 - **Community spots:** traveler-reported places (dump, water, camp…) with amber-ringed dots — anonymous in-app reports pass a spam/profanity filter, publish nightly as *unverified*, and dated check-ins ("still there" / "gone", with comments) promote them to *verified* after two independent confirmations; every card shows when a spot was last confirmed (submission API: `worker/`, publish: `data-pipeline/merge_community.py` + the `community-merge` Action)
-- **MVUM Roads overlay:** the true USFS Motor Vehicle Use Map — which forest roads are legal to drive
+- **MVUM Roads overlay:** the true USFS Motor Vehicle Use Map — which forest roads are legal to drive, and in what; self-hosted vector tiles, so it works with no signal
 - **More overlays:** Hiking Trails (USFS/NPS), Names & Labels, BLM Public Land status
 - **Waypoints:** Save, edit, categorize, and color-code locations with icons (camp, trailhead, viewpoint, fuel, water, dump, hazard, etc.)
 - **GPX import:** Load existing GPX files for tracks and waypoints
@@ -167,8 +167,8 @@ All tile and data sources are free and require no API key.
 
 | Name | Source | Notes |
 |---|---|---|
-| MVUM Roads | USFS Motor Vehicle Use Map (export rendering) | Legal forest roads by vehicle type, z10+ |
-| Hiking Trails | USFS / NPS National Trails | |
+| MVUM Roads | USFS Motor Vehicle Use Map, self-hosted PMTiles | Legal forest routes by vehicle class — works offline. 151,021 roads + 17,725 motorized trails, z7+. The live service still fills in the motorized trails USFS's bulk file has no geometry for |
+| Hiking Trails | USFS National Forest trails, self-hosted PMTiles | 77,234 trails with their managed uses — works offline; live service fills the remainder |
 | BLM Roads | BLM GTLF Public Display (export rendering) | Public + limited public motorized use, z7+; off by default |
 | All FS Roads | USFS RoadCore, self-hosted PMTiles | Every FS road, open and closed — works offline; off by default |
 | Wildfires | NIFC WFIGS current perimeters (live GeoJSON) | Active fire perimeters, fetched when switched on; off by default |

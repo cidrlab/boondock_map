@@ -81,9 +81,10 @@ const TABS = [
           days-9–16 outlook. Forecasts are Open-Meteo model data — mountain
           microclimates can differ, so treat them as planning guidance.</li>
           <li>Click an <strong>MVUM road</strong> (zoomed in past ~z9) for its
-          route name and vehicle class; click a <strong>trail</strong> (past
-          ~z10) to see whether it&apos;s hiking or motorized, plus surface
-          info.</li>
+          name, the vehicle classes it&apos;s open to, the season, surface and
+          length; click a <strong>trail</strong> (past ~z10) to see whether
+          it&apos;s hiking or motorized, plus its class and surface. Both
+          answer instantly and work with no signal.</li>
           <li>Zoom buttons and the locate-me button are on the right edge, with
           an <strong>add-pin button</strong> that drops a waypoint at your
           location or a point you tap (see the Waypoints tab).</li>
@@ -137,24 +138,35 @@ const TABS = [
         the map stays clean when zoomed out:</p>
         <ul>
           <li><strong>MVUM roads</strong> — the Forest Service Motor Vehicle Use
-          Map: the legal motorized routes, drawn in the official USFS colors
-          (see the legend for classes).</li>
+          Map: the routes you may legally drive, and in what. Self-hosted, so
+          it works <em>offline</em>. Colour answers the question the MVUM
+          exists to answer — amber is open to all vehicles including OHVs,
+          green is highway-legal vehicles only, violet is a special designation
+          you should read the forest&apos;s own map for. A dashed line means the
+          permission is seasonal, and thinner dotted amber is a motorized trail
+          rather than a road. Tap any route for its vehicle classes and dates.
+          One caveat worth knowing: USFS&apos;s bulk file carries geometry for
+          only about a quarter of the motorized trails its live service draws,
+          so with a connection the map fills the rest in from that service, and
+          offline you see the ones we could pre-load.</li>
           <li><strong>BLM roads</strong> — the drive-able road network on BLM
           land, mostly across the West, where a lot of dispersed camping
           happens. Burnt-orange lines for roads open to public motorized use
           (solid) and limited public use (dashed); tap one for its name and
-          designation. Off by default, so switch it on in the Overlays. Like
-          MVUM, it&apos;s drawn live from the agency&apos;s server, so it needs a
+          designation. Off by default, so switch it on in the Overlays. This
+          one is still drawn live from BLM&apos;s server, so it needs a
           connection.</li>
           <li><strong>All FS roads</strong> — every Forest Service road
-          (RoadCore), self-hosted so it works <em>offline</em>, unlike MVUM.
-          It&apos;s the full network, well beyond MVUM&apos;s legal-motorized
-          subset: khaki solid where a road is open to some vehicle, faded grey
-          dashes where it&apos;s closed. A road appearing here is <strong>not</strong>
+          (RoadCore), self-hosted so it works <em>offline</em>. It&apos;s the
+          full network, well beyond MVUM&apos;s legal-motorized subset: khaki
+          solid where a road is open to some vehicle, faded grey dashes where
+          it&apos;s closed. A road appearing here is <strong>not</strong>
           permission to drive it, so cross-check the MVUM and local rules. Off
-          by default. This is our first offline vector-tile layer.</li>
+          by default.</li>
           <li><strong>Hiking trails</strong> — dashed light-blue lines from the
-          USFS trails system.</li>
+          USFS trails system, self-hosted so they work <em>offline</em> too.
+          Tap one for who it&apos;s managed for (hiking, stock, bike,
+          motorcycle, ATV, 4WD), its class and surface.</li>
           <li><strong>Topo lines</strong> — contours only, no background.
           A light terrain texture appears from about z9, index lines from z10,
           and 50–100&nbsp;ft detail fills in as you zoom closer.</li>
@@ -291,6 +303,10 @@ const TABS = [
           <li>Downloadable today: <strong>USGS Topo</strong> and
           <strong> BLM land status</strong>. Offline packs for the Boondock
           basemap and satellite are on the roadmap.</li>
+          <li>Some layers need no pack at all — <strong>MVUM roads</strong>,
+          <strong> hiking trails</strong> and <strong>all FS roads</strong>
+          ship with the app as vector tiles and draw with no signal, fetching
+          only the small slice of the file your screen covers.</li>
           <li>Downloaded areas are outlined on the map while you&apos;re in the
           Offline tab; the tab lists each pack with its size, and you can
           delete packs anytime.</li>
