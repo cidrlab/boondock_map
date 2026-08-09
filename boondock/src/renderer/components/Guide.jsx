@@ -58,9 +58,10 @@ const TABS = [
           interface drops to dim red and the map itself is tinted red, because
           red light at low brightness doesn&apos;t wreck your night vision the
           way a bright screen does. The trade is color: the map and the site
-          dots go red, so you can&apos;t tell a campsite dot from a water dot
-          by color until you switch back or tap it. Your own saved waypoint
-          pins keep their colors.</li>
+          badges go red, so color stops telling a campsite from a water fill
+          until you switch back. The <em>logo</em> inside each site circle
+          still does, once you&apos;re zoomed in past about z10.5. Your own
+          saved waypoint pins keep their colors.</li>
         </ul>
         <p><strong>Reading the map:</strong></p>
         <ul>
@@ -148,7 +149,12 @@ const TABS = [
           and 50–100&nbsp;ft detail fills in as you zoom closer.</li>
           <li><strong>Sites</strong> — the campsite database: green campsites,
           purple RV parks, orange dump stations, blue water fills, pink
-          trailheads. Numbered circles are clusters — click to zoom in. Click
+          trailheads. Each site is a circle ringed in its type&apos;s color,
+          and from about z10.5 the circle carries that type&apos;s logo — a
+          tent, an RV, a dump arrow, a water drop, footprints — so you can read
+          a spot without going by color alone. Zoomed further out they stay
+          plain colored dots, too small for a logo.
+          Numbered circles are clusters — click to zoom in. Click
           any dot for details, its data source, and directions —
           <em> Save as waypoint</em> opens the usual waypoint dialog with the
           site&apos;s name filled in, ready to edit. The

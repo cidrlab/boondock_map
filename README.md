@@ -16,7 +16,7 @@ Waypoints and tracks sync automatically to iCloud Drive, making your saved spots
 
 - **The Boondock basemap:** our own designed terrain map — vector tiles + hillshade relief in the CiDR palette, hairline roads, mountain peaks labeled with elevation in feet
 - **Satellite base** (ESRI World Imagery) with a **Topo Overlay** blend — USGS contour lines and elevation figures over the imagery
-- **Sites database:** national camping layer — campsites, RV parks, dump stations, water fills, and trailheads as tappable, clustered map points with save-as-waypoint (93,000+ places across all 50 states from OSM, Overture, Recreation.gov, and WA DNR; each state loads on demand as you pan)
+- **Sites database:** national camping layer — campsites, RV parks, dump stations, water fills, and trailheads as tappable, clustered map points with save-as-waypoint, each drawn as a circle ringed in its type's color carrying that type's logo (tent, RV, dump arrow, water drop, footprints) from about z10.5 (93,000+ places across all 50 states from OSM, Overture, Recreation.gov, and WA DNR; each state loads on demand as you pan)
 - **Community spots:** traveler-reported places (dump, water, camp…) with amber-ringed dots — anonymous in-app reports pass a spam/profanity filter, publish nightly as *unverified*, and dated check-ins ("still there" / "gone", with comments) promote them to *verified* after two independent confirmations; every card shows when a spot was last confirmed (submission API: `worker/`, publish: `data-pipeline/merge_community.py` + the `community-merge` Action)
 - **MVUM Roads overlay:** the true USFS Motor Vehicle Use Map — which forest roads are legal to drive
 - **More overlays:** Hiking Trails (USFS/NPS), Names & Labels, BLM Public Land status

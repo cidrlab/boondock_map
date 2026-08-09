@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { communityEnabled } from '../../shared/community'
+import { SITE_KINDS } from '../../shared/layers'
+import { siteBadgeSvg } from '../../shared/siteIcons'
 import './Legend.css'
 
 // Swatches come from each service's own legend endpoint, so what the legend
@@ -55,13 +57,14 @@ const SMA_AGENCIES = [
   ['#ffffff', 'Private or unknown'],
 ]
 
-const SITE_DOTS = [
-  ['#22c55e', 'Campsite'],
-  ['#a78bfa', 'RV park'],
-  ['#fb923c', 'Dump station'],
-  ['#38bdf8', 'Water fill'],
-  ['#f472b6', 'Trailhead'],
-]
+// Site rows draw the real badge from shared/siteIcons.js, so the legend can
+// only ever show what the map actually draws. Labels are spelled out here —
+// SITE_KINDS' short chip labels ("Dump", "Water") are too terse for a legend.
+const SITE_LABELS = { dump: 'Dump station', water: 'Water fill' }
+const siteLabel = (k) => SITE_LABELS[k.id] || k.label
+
+// 18px badge — the width the cluster bubble and area swatches already use
+const badge = (kind, opts) => ({ __html: siteBadgeSvg(kind, 18, opts) })
 
 export default function Legend({ open, onClose }) {
   const [mvum, setMvum] = useState(null)
@@ -80,17 +83,22 @@ export default function Legend({ open, onClose }) {
           </div>
 
           <div className="legend-section">Sites</div>
-          {SITE_DOTS.map(([c, label]) => (
-            <div className="legend-row" key={label}>
-              <span className="legend-dot" style={{ background: c }} />{label}
+          {SITE_KINDS.map(k => (
+            <div className="legend-row" key={k.id}>
+              <span className="legend-badge" dangerouslySetInnerHTML={badge(k.id)} />{siteLabel(k)}
             </div>
           ))}
+          <div className="legend-note">
+            Each site is a circle ringed in its type&apos;s color, with that
+            type&apos;s logo inside from about z10.5 — zoomed further out they
+            stay plain colored dots.
+          </div>
           <div className="legend-row">
             <span className="legend-cluster">7</span>Several sites — tap to zoom in
           </div>
           {communityEnabled() && (
             <div className="legend-row">
-              <span className="legend-dot" style={{ background: '#19222C', border: '2px solid #fbbf24' }} />
+              <span className="legend-badge" dangerouslySetInnerHTML={badge('campsite', { ring: '#fbbf24' })} />
               Amber ring — community-reported
             </div>
           )}

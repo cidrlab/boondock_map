@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
-import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM } from '../../shared/layers'
+import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM, SITE_KINDS } from '../../shared/layers'
+import { SITE_BADGE_KINDS, SITE_FALLBACK_KIND, drawSiteGlyph } from '../../shared/siteIcons'
 import { buildBoondockStyle, BOONDOCK_GLYPHS } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
 import { Protocol as PMTilesProtocol } from 'pmtiles'
@@ -664,9 +665,30 @@ const Map = forwardRef(function Map(
   }, [overlays, mapReady])
 
   // ── Sites — the spots database layer ──────────────────────────────────────
+  // Each kind's logo, painted once into a MapLibre image. Only the glyph is
+  // baked; the disc and its coloured ring are the circle layer underneath, so
+  // they stay vector-crisp and keep growing with zoom. Synchronous on purpose
+  // — layer order depends on these layers landing in the load sequence where
+  // they were added, not a tick later. Images are style-scoped, so a basemap
+  // switch re-paints them.
+  function addSiteGlyphImages(m) {
+    const px = SITE_GLYPH_PX * SITE_GLYPH_RATIO
+    for (const kind of SITE_BADGE_KINDS) {
+      const id = siteGlyphImageId(kind)
+      if (m.hasImage(id)) continue
+      const cv = document.createElement('canvas')
+      cv.width = px
+      cv.height = px
+      const ctx = cv.getContext('2d')
+      drawSiteGlyph(ctx, kind, px)
+      m.addImage(id, ctx.getImageData(0, 0, px, px), { pixelRatio: SITE_GLYPH_RATIO })
+    }
+  }
+
   async function addSitesLayers() {
     const m = map.current
     if (!m) return
+    addSiteGlyphImages(m)
     if (!m.getSource('sites')) {
       m.addSource('sites', { type: 'geojson', data: getSitesData(), cluster: true, clusterRadius: 46, clusterMaxZoom: 11 })
     }
@@ -703,17 +725,36 @@ const Map = forwardRef(function Map(
         filter: ['!', ['has', 'point_count']],
         layout: { visibility: vis },
         paint: {
-          'circle-color': ['match', ['get', 'kind'],
-            'campsite', '#22c55e',
-            'rv_park', '#a78bfa',
-            'dump', '#fb923c',
-            'water', '#38bdf8',
-            'trailhead', '#f472b6',
-            '#e8eef4'],
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 13, 6],
-          // Amber ring = community-reported (pending ones from this device too)
-          'circle-stroke-color': ['case', ['==', ['get', 'src'], 'community'], '#fbbf24', '#10151c'],
-          'circle-stroke-width': ['case', ['==', ['get', 'src'], 'community'], 1.8, 1.4],
+          // Zoomed out it stays the solid coloured dot it always was — a logo
+          // has nowhere to live at 4 px. From SITE_ICON_MINZOOM it becomes the
+          // dark disc the glyph sits on, the two fading into each other.
+          'circle-color': ['interpolate', ['linear'], ['zoom'],
+            SITE_ICON_MINZOOM - 1, SITE_KIND_COLOR,
+            SITE_ICON_MINZOOM, SITE_DISC_FILL],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.8, SITE_ICON_MINZOOM, 6.5, 14, 9.5],
+          // Ring carries the kind; amber overrides it for community-reported
+          // spots (pending ones from this device too), whose kind is now on the
+          // logo instead
+          'circle-stroke-color': ['case', ['==', ['get', 'src'], 'community'], '#fbbf24', SITE_KIND_COLOR],
+          'circle-stroke-width': ['interpolate', ['linear'], ['zoom'],
+            8, ['case', ['==', ['get', 'src'], 'community'], 1.8, 1.4],
+            11, ['case', ['==', ['get', 'src'], 'community'], 2.6, 2.1]],
+        },
+      })
+    }
+    if (!m.getLayer('sites-icons')) {
+      m.addLayer({
+        id: 'sites-icons', type: 'symbol', source: 'sites', minzoom: SITE_ICON_MINZOOM,
+        filter: ['!', ['has', 'point_count']],
+        layout: {
+          visibility: vis,
+          'icon-image': SITE_GLYPH_IMAGE,
+          'icon-size': ['interpolate', ['linear'], ['zoom'],
+            SITE_ICON_MINZOOM, 0.38, 12, 0.48, 14, 0.6],
+          // The disc under it already claimed the space — never drop the logo
+          // off a dot that is being drawn
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
         },
       })
     }
@@ -726,7 +767,7 @@ const Map = forwardRef(function Map(
           'text-field': ['coalesce', ['get', 'name'], ''],
           'text-font': ['Noto Sans Regular'],
           'text-size': 10,
-          'text-offset': [0, 1.1],
+          'text-offset': [0, 1.6],   // clears the badge, which is bigger than the old dot
           'text-anchor': 'top',
           'text-optional': true,
         },
@@ -1398,7 +1439,26 @@ const Map = forwardRef(function Map(
 export default Map
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const SITES_LAYER_IDS = ['sites-clusters', 'sites-cluster-count', 'sites-points', 'sites-labels']
+const SITES_LAYER_IDS = ['sites-clusters', 'sites-cluster-count', 'sites-points', 'sites-icons', 'sites-labels']
+
+// Site badges (shared/siteIcons.js). Below this zoom a dot is too small to
+// hold a logo legibly, so it stays the plain coloured dot and the glyph layer
+// switches off with it.
+const SITE_ICON_MINZOOM = 10.5
+const SITE_GLYPH_PX = 22      // CSS px the glyph is drawn at, before icon-size
+const SITE_GLYPH_RATIO = 3    // oversampled bitmap so it stays crisp on retina
+
+const siteGlyphImageId = (kind) => `site-glyph-${kind}`
+
+const SITE_GLYPH_IMAGE = ['match', ['get', 'kind'],
+  ...SITE_KINDS.flatMap(k => [k.id, siteGlyphImageId(k.id)]),
+  siteGlyphImageId(SITE_FALLBACK_KIND)]
+
+const SITE_KIND_COLOR = ['match', ['get', 'kind'],
+  ...SITE_KINDS.flatMap(k => [k.id, k.color]),
+  '#e8eef4']
+
+const SITE_DISC_FILL = 'rgba(16, 21, 28, 0.92)'
 
 // Every state has a spots + zones file in web/public/data (see
 // shared/stateBounds.js). They load lazily as the viewport reaches each

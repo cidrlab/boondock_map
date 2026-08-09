@@ -52,6 +52,14 @@
   flex-shrink: 0;
 }
 
+/* Site badge — the same ringed logo the map draws (shared/siteIcons.js) */
+.legend-badge {
+  width: 18px; height: 18px;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.legend-badge svg { display: block; }
+
 .legend-cluster {
   width: 18px; height: 18px;
   border-radius: 50%;
