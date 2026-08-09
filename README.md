@@ -169,6 +169,9 @@ All tile and data sources are free and require no API key.
 |---|---|---|
 | MVUM Roads | USFS Motor Vehicle Use Map (export rendering) | Legal forest roads by vehicle type, z10+ |
 | Hiking Trails | USFS / NPS National Trails | |
+| BLM Roads | BLM GTLF Public Display (export rendering) | Public + limited public motorized use, z7+; off by default |
+| All FS Roads | USFS RoadCore, self-hosted PMTiles | Every FS road, open and closed — works offline; off by default |
+| Wildfires | NIFC WFIGS current perimeters (live GeoJSON) | Active fire perimeters, fetched when switched on; off by default |
 | Sites | OSM + Overture + Recreation.gov RIDB (+ WA DNR) | Camping/RV/dump/water/trailheads — all 50 states, lazy-loaded per state |
 | Community spots | In-app traveler reports (`worker/` → nightly merge) | Amber-ringed dots in the Sites layer; check-in validated, unverified → verified |
 | Boondock Zones β | Derived from USFS ownership + MVUM roads (`data-pipeline/`) | Heuristic dispersed-camping likelihood polygons, slope-graded — national (empty where no MVUM data exists) |

@@ -72,6 +72,55 @@ Alaska's far Aleutians (west of the antimeridian) are excluded.
 Zones is network-heavy (USFS ArcGIS): run states sequentially, one at a
 time. A full national rebuild is several hours.
 
+## Self-hosted road tilesets (VISION row 83)
+
+`build_road_pmtiles.py` turns a national USFS shapefile into one `.pmtiles`
+archive served straight off Pages over range requests — no tile server, works
+offline, immune to `apps.fs.usda.gov` being down. Covers `mvum`, `trails`, and
+`roadcore` (the last already shipped; it's here so refreshing it is a command
+rather than the afternoon it was the first time).
+
+Needs `ogr2ogr` (GDAL) and `tippecanoe`:
+
+```
+brew install gdal tippecanoe                 # macOS
+apt-get install gdal-bin                     # Ubuntu; build tippecanoe from source
+```
+
+Input comes from the mirror in `~/data/cidrlab/boondock_map` when we hold one
+(row 85), and is downloaded only when we don't — so a laptop with the backups
+does no network at all.
+
+**Inspect before tiling a dataset for the first time.** The app styles MVUM by
+vehicle class and puts road attributes in its popup; both need the real column
+names, and nothing in the app tells you what they are. Guessing produces a
+layer that renders nothing while looking correct in review.
+
+```
+python3 build_road_pmtiles.py --inspect mvum
+```
+
+It prints every field with how often it is populated and what values it
+carries, labelling each as a styling candidate (few distinct values) or popup
+material (free text).
+
+```
+python3 build_road_pmtiles.py --build mvum trails            # write the archives
+python3 build_road_pmtiles.py --build mvum --dry-run         # size check only
+python3 build_road_pmtiles.py --build mvum --fields NAME,SYMBOL_TYPE
+```
+
+A build refuses to write anything over 90 MB, since GitHub rejects a file past
+100 MB — narrow the attributes with `--fields`, or lower `max_zoom` in
+`DATASETS`. On success it stamps `built_from` in `upstream_sources.json`, which
+is what lets the weekly check distinguish *upstream moved* from *what we
+publish is behind*.
+
+**Or let CI do it.** The `Build road PMTiles` workflow (manual dispatch) has an
+open network and both tools. Run it with the defaults first: you get the schema
+report and the tiled sizes as artifacts without touching the repo. Re-run with
+`commit: true` once the numbers look right.
+
 ## App side
 
 `boondock/src/shared/stateBounds.js` (generated from the boundary polygons)

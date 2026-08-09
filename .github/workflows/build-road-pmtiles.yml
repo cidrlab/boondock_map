@@ -1,0 +1,118 @@
+# Build the self-hosted road/trail tilesets (VISION row 83).
+#
+# The pipeline needs ~450 MB downloaded from data.fs.usda.gov plus GDAL and
+# tippecanoe. A runner has all three and an open network, so nobody's laptop
+# has to. It also makes refreshing these a button rather than an afternoon —
+# which is the actual reason RoadCore is still pinned to a 2025-05-11 source.
+#
+# Manual only, and it does NOT commit unless you ask it to. Run it first with
+# the defaults: you get the real schema and the tiled size as artifacts,
+# without touching the repo. Then re-run with commit=true once the numbers and
+# the field list look right.
+name: Build road PMTiles
+
+on:
+  workflow_dispatch:
+    inputs:
+      datasets:
+        description: 'Space-separated: mvum, trails, roadcore'
+        required: true
+        default: 'mvum trails'
+      inspect:
+        description: 'Dump each dataset schema + value frequencies first'
+        type: boolean
+        default: true
+      fields:
+        description: 'Comma-separated attributes to keep (blank = all)'
+        required: false
+        default: ''
+      commit:
+        description: 'Commit the archives to the repo (leave off for a dry run)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-road-pmtiles
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Tiling a national road network is not quick; the default 6 h cap is
+    # plenty, but be explicit so a hung download doesn't burn it all.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GDAL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gdal-bin
+          ogr2ogr --version
+
+      # Not packaged for Ubuntu; it's a small C++ build and takes under a minute
+      - name: Build tippecanoe
+        run: |
+          git clone --depth 1 https://github.com/felt/tippecanoe.git /tmp/tippecanoe
+          make -C /tmp/tippecanoe -j"$(nproc)"
+          sudo make -C /tmp/tippecanoe install
+          tippecanoe --version
+
+      # Dispatch inputs go through the environment, never straight into the
+      # shell — the script validates the dataset names, and a quoted env var
+      # can't turn a text box into a command.
+      - name: Inspect source schemas
+        if: ${{ inputs.inspect }}
+        env:
+          DATASETS: ${{ inputs.datasets }}
+        run: |
+          mkdir -p /tmp/reports
+          for d in $DATASETS; do
+            echo "::group::$d schema"
+            python3 data-pipeline/build_road_pmtiles.py --inspect "$d" | tee "/tmp/reports/$d-schema.txt"
+            echo "::endgroup::"
+          done
+
+      - name: Tile
+        env:
+          DATASETS: ${{ inputs.datasets }}
+          FIELDS: ${{ inputs.fields }}
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          # Plain ifs, not `test && append`: a false test is a non-zero exit,
+          # and GitHub runs these under `bash -e`, so the chained form would
+          # abort the step precisely when commit is true.
+          ARGS=()
+          if [ -n "$FIELDS" ]; then ARGS+=(--fields "$FIELDS"); fi
+          if [ "$COMMIT" != "true" ]; then ARGS+=(--dry-run); fi
+          python3 data-pipeline/build_road_pmtiles.py --build $DATASETS "${ARGS[@]}"
+
+      - name: Report sizes
+        run: |
+          ls -lh web/public/data/*.pmtiles 2>/dev/null || echo "dry run — nothing written"
+
+      - name: Upload reports
+        if: ${{ inputs.inspect }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-schemas
+          path: /tmp/reports
+          if-no-files-found: ignore
+
+      - name: Commit the tilesets
+        if: ${{ inputs.commit }}
+        env:
+          DATASETS: ${{ inputs.datasets }}
+        run: |
+          if git diff --quiet -- web/public/data data-pipeline/upstream_sources.json; then
+            echo "Nothing changed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/public/data/*.pmtiles data-pipeline/upstream_sources.json
+          git commit -m "Rebuild self-hosted road PMTiles ($DATASETS)"
+          git push
