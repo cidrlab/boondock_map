@@ -65,8 +65,12 @@ const TABS = [
         </ul>
         <p><strong>Reading the map:</strong></p>
         <ul>
-          <li>Move the mouse and the bottom bar shows the cursor&apos;s
-          coordinates and elevation; the zoom level sits bottom-right.</li>
+          <li><strong>Map info</strong> — the bottom strip <em>starts
+          closed</em>, so the map gets the room. Tap <em>Map info</em> at the
+          bottom-right to open it: the cursor&apos;s coordinates and elevation,
+          plus the zoom level. Tap the caret again to put it away. It opens
+          closed again next launch. Track recording shows there either
+          way.</li>
           <li><strong>Click anywhere</strong> to get an info card — coordinates,
           elevation, and what&apos;s there — with a <em>Save waypoint</em>
           button and a <em>Copy coords</em> button for pasting the spot into
@@ -92,7 +96,16 @@ const TABS = [
           once you&apos;re moving. Elevation comes from the map&apos;s terrain
           data, or straight from GPS (marked <em>gps</em>) when you&apos;re
           offline. Tap the gauge again to put it away. The sensors need a
-          phone — on a desktop the strip shows elevation only.</li>
+          phone — on a desktop the strip shows elevation only. Two buttons sit
+          at the foot of it: <em>Full screen</em> for the instrument screen
+          below, and <em>Stay awake</em>.</li>
+          <li><strong>Stay awake</strong> — the second button under the compass
+          holds the screen on, so the map and gauge stay in front of you
+          instead of the phone going dark mid-drive. It survives locking and
+          unlocking the phone, and the setting is remembered. The same switch
+          is in the full-screen gear panel. It needs iOS&nbsp;16.4 or a recent
+          desktop browser; where the browser can&apos;t do it the button is
+          greyed out and says so rather than pretending.</li>
           <li><strong>Guide me here</strong> — every point card (waypoints,
           sites, search results, map clicks) has a green <em>Guide me here</em>
           button. Tap it and the app draws a straight line to that spot, shows
@@ -100,11 +113,15 @@ const TABS = [
           you know which way to turn. It&apos;s a <strong>beeline</strong>, as
           the crow flies, not turn-by-turn road directions — the honest simple
           version. Close the readout (or its ×) to stop.</li>
-          <li><strong>Full-screen instruments</strong> — the expand button in
-          the top bar opens a standalone compass, speed, and elevation screen,
+          <li><strong>Full-screen instruments</strong> — the <em>Full
+          screen</em> button under the live readout (open the gauge first) is
+          where this lives now, next to the compass it enlarges rather than
+          across the app in the top bar. It opens a standalone compass, speed,
+          and elevation screen,
           like a handheld compass, in portrait or landscape. Its gear lets you
           turn each readout on or off, switch the compass between a dial and big
-          numbers, size the speed, and punch in a bearing to steer toward.</li>
+          numbers, size the speed, keep the screen awake, and punch in a
+          bearing to steer toward.</li>
           <li><strong>Record</strong> (top bar) starts a GPS track: your path
           draws on the map as you move, and <em>Stop</em> names and saves it
           to the Tracks tab. Tracks ride along in GPX export.</li>
@@ -141,7 +158,12 @@ const TABS = [
           the state roads MVUM and the federal layers miss, like the blue
           state-land parcels in the Public Land overlay. Tap one for its name,
           surface, and public-access status. State trust land has its own rules
-          and often needs a <em>Discover Pass</em>. Off by default.</li>
+          and often needs a <em>Discover Pass</em>. Off by default. Two things
+          make it look broken when it isn&apos;t: it is <strong>Washington
+          only</strong>, and it doesn&apos;t draw until about <strong>z10</strong>
+          — outside either one the server returns empty tiles rather than an
+          error. Switch it on in the wrong place or too far out and the app now
+          says which of the two it is.</li>
           <li><strong>Hiking trails</strong> — dashed light-blue lines from the
           USFS trails system.</li>
           <li><strong>Topo lines</strong> — contours only, no background.

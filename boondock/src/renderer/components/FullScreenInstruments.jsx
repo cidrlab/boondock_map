@@ -53,7 +53,7 @@ function useRose() {
   }, [])
 }
 
-export default function FullScreenInstruments({ onClose }) {
+export default function FullScreenInstruments({ onClose, keepAwake, wakeLock, onToggleKeepAwake }) {
   const { fix, geoState, elev, stale, heading, headingSrc, magState, magQuiet, requestCompass, mph } = useLiveSensors()
   const rose = useRose()
 
@@ -190,6 +190,22 @@ export default function FullScreenInstruments({ onClose }) {
             <div className="fi-panel-hdr">Speed size</div>
             <input type="range" min="0.7" max="2" step="0.1" value={speedScale}
               onChange={e => setSpeedScale(+e.target.value)} className="fi-range" />
+          </div>
+          <div className="fi-panel-sec">
+            <div className="fi-panel-hdr">Screen</div>
+            <div className="fi-chips">
+              <button
+                className={`fi-chip ${keepAwake && wakeLock?.supported !== false ? 'on' : ''}`}
+                onClick={onToggleKeepAwake}
+                disabled={wakeLock?.supported === false}
+              >Stay awake</button>
+            </div>
+            {wakeLock?.supported === false && (
+              <div className="fi-panel-note">
+                This browser can&apos;t hold the screen on — it needs iOS&nbsp;16.4
+                or a recent desktop browser.
+              </div>
+            )}
           </div>
           <div className="fi-panel-sec">
             <div className="fi-panel-hdr">Steer toward a bearing</div>

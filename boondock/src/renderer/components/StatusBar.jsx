@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Activity } from './Icons'
+import { Activity, ChevronDown } from './Icons'
 import { elevationAt } from '../../shared/elevation'
 import './StatusBar.css'
+
+// Map info strip. Starts closed (VISION row 101) — cursor coordinates,
+// elevation and zoom are a look-something-up tool, not a permanent fixture, and
+// on the phone the bar was eating map for a readout nobody had asked for. It
+// opens from the caret at the right and stays open for the session; every
+// launch starts closed again, which is what "should start closed" asks for.
+// Track recording stays visible either way: it's live state, not a lookup.
 
 function formatDD(lat, lng) { return `${lat.toFixed(5)}, ${lng.toFixed(5)}` }
 function formatDMS(lat, lng) {
@@ -17,12 +24,15 @@ function formatDMS(lat, lng) {
 }
 
 export default function StatusBar({ cursor, zoom, isRecording, trackPoints }) {
+  const [open, setOpen] = useState(false)
   const [showDMS, setShowDMS] = useState(false)
   const [elevFt, setElevFt] = useState(null)
   const coordStr = showDMS ? formatDMS(cursor.lat, cursor.lng) : formatDD(cursor.lat, cursor.lng)
 
-  // Debounced elevation under the cursor, from browser-cached DEM tiles
+  // Debounced elevation under the cursor, from browser-cached DEM tiles.
+  // Closed means nobody is reading it, so the DEM lookups stop too.
   useEffect(() => {
+    if (!open) return
     if (!cursor.lat && !cursor.lng) return
     let live = true
     const t = setTimeout(() => {
@@ -31,10 +41,10 @@ export default function StatusBar({ cursor, zoom, isRecording, trackPoints }) {
         .catch(() => {})
     }, 120)
     return () => { live = false; clearTimeout(t) }
-  }, [cursor.lat, cursor.lng])
+  }, [open, cursor.lat, cursor.lng])
 
   return (
-    <footer className="statusbar">
+    <footer className={`statusbar ${open ? '' : 'sb-closed'}`}>
       <div className="sb-left">
         {isRecording && (
           <div className="sb-rec">
@@ -45,12 +55,22 @@ export default function StatusBar({ cursor, zoom, isRecording, trackPoints }) {
         )}
       </div>
       <div className="sb-right">
-        {zoom != null && <span className="sb-elev">z{zoom.toFixed(1)}</span>}
-        {elevFt != null && <span className="sb-elev">{elevFt.toLocaleString()} ft</span>}
-        <button className="sb-coord" onClick={() => setShowDMS(v => !v)}
-          title={showDMS ? 'Switch to DD' : 'Switch to DMS'}>
-          <span className="sb-coord-badge">{showDMS ? 'DMS' : 'DD'}</span>
-          <span>{coordStr}</span>
+        {open && (
+          <>
+            {zoom != null && <span className="sb-elev">z{zoom.toFixed(1)}</span>}
+            {elevFt != null && <span className="sb-elev">{elevFt.toLocaleString()} ft</span>}
+            <button className="sb-coord" onClick={() => setShowDMS(v => !v)}
+              title={showDMS ? 'Switch to DD' : 'Switch to DMS'}>
+              <span className="sb-coord-badge">{showDMS ? 'DMS' : 'DD'}</span>
+              <span>{coordStr}</span>
+            </button>
+          </>
+        )}
+        <button className="sb-toggle" onClick={() => setOpen(v => !v)}
+          aria-expanded={open}
+          title={open ? 'Hide map info' : 'Map info — coordinates, elevation, zoom'}>
+          {!open && <span className="sb-toggle-label">Map info</span>}
+          <ChevronDown size={13} className={open ? '' : 'sb-chev-up'} />
         </button>
       </div>
     </footer>

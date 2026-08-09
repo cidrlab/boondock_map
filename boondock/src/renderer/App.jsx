@@ -17,6 +17,7 @@ import { elevationAt } from '../shared/elevation'
 import { matchesWpFilter } from '../shared/waypointMeta'
 import { DEFAULT_THEME, THEME_IDS, applyTheme } from '../shared/theme'
 import { feedbackEnabled } from '../shared/feedback'
+import { useWakeLock } from '../shared/useWakeLock'
 import './styles/app.css'
 
 export default function App() {
@@ -56,6 +57,7 @@ export default function App() {
   const [editRequestId, setEditRequestId] = useState(null)   // popup "Edit waypoint" → sidebar
   const [showFeedback, setShowFeedback] = useState(false)
   const [showInstruments, setShowInstruments] = useState(false)   // full-screen instrument mode (VISION row 95)
+  const [keepAwake, setKeepAwake] = useState(false)               // hold the screen on (VISION row 100)
   const [downloadMode, setDownloadMode] = useState(false)
   const [downloadBbox, setDownloadBbox] = useState(null)
   const [showDownloadModal, setShowDownloadModal] = useState(false)
@@ -107,6 +109,7 @@ export default function App() {
         setTempFilter(f => ({ ...f, ...prefs.tempFilter }))
       }
       if (prefs.wpColors && typeof prefs.wpColors === 'object') setWpColors(prefs.wpColors)
+      if (typeof prefs.keepAwake === 'boolean') setKeepAwake(prefs.keepAwake)
       setInitialViewport({
         center: prefs.center || DEFAULT_CENTER,
         zoom: prefs.zoom ?? DEFAULT_ZOOM,
@@ -122,6 +125,10 @@ export default function App() {
   // Chrome theme: 'auto' resolves against the basemap, so picking Boondock
   // Day lightens the sidebar too (VISION rows 63/64)
   useEffect(() => { applyTheme(theme, baseLayer) }, [theme, baseLayer])
+
+  // Screen wake lock (row 100). Held here rather than in the readout so the
+  // screen stays on whichever instrument is up — or none of them.
+  const wakeLock = useWakeLock(keepAwake)
 
   // ── Auto-save waypoints whenever they change ─────────────────────────────
   useEffect(() => {
@@ -151,11 +158,12 @@ export default function App() {
       siteKinds,
       tempFilter,
       wpColors,
+      keepAwake,
     })
-  }, [baseLayer, theme, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors])
+  }, [baseLayer, theme, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors, keepAwake])
 
   // Save prefs when base layer, overlays, filters, or colors change
-  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, theme, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors])
+  useEffect(() => { if (api && initialViewport) savePrefs() }, [baseLayer, theme, overlays, siteMinElev, siteMaxElev, siteKinds, tempFilter, wpColors, keepAwake])
 
   // Expose a handler for Map to call on moveend (debounced)
   const handleViewportChange = useCallback(() => {
@@ -359,7 +367,6 @@ export default function App() {
         onToggleHelp={(which) => setHelpPanel(p => p === which ? null : which)}
         onFeedback={() => setShowFeedback(true)}
         feedbackEnabled={feedbackEnabled()}
-        onOpenInstruments={() => setShowInstruments(true)}
         isRecordingTrack={isRecordingTrack}
         onStartTrack={startTrack}
         onStopTrack={stopTrack}
@@ -479,7 +486,17 @@ export default function App() {
         />
         <Legend open={helpPanel === 'legend'} onClose={() => setHelpPanel(null)} />
         <Guide open={helpPanel === 'guide'} onClose={() => setHelpPanel(null)} />
-        {liveReadoutOn && <LiveReadout navTarget={navTarget} onFix={handleFix} onCancelNav={cancelNav} />}
+        {liveReadoutOn && (
+          <LiveReadout
+            navTarget={navTarget}
+            onFix={handleFix}
+            onCancelNav={cancelNav}
+            onOpenInstruments={() => setShowInstruments(true)}
+            keepAwake={keepAwake}
+            wakeLock={wakeLock}
+            onToggleKeepAwake={() => setKeepAwake(v => !v)}
+          />
+        )}
         {addMenuOpen && (
           <AddWaypointMenu
             onAtLocation={dropAtLocation}
@@ -516,7 +533,14 @@ export default function App() {
         />
       )}
 
-      {showInstruments && <FullScreenInstruments onClose={() => setShowInstruments(false)} />}
+      {showInstruments && (
+        <FullScreenInstruments
+          onClose={() => setShowInstruments(false)}
+          keepAwake={keepAwake}
+          wakeLock={wakeLock}
+          onToggleKeepAwake={() => setKeepAwake(v => !v)}
+        />
+      )}
 
       {showDownloadModal && (
         <DownloadModal

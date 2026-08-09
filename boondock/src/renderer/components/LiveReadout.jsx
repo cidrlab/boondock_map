@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useLiveSensors } from '../../shared/useLiveSensors'
 import { bearingTo, distanceMiles, relativeTurn, formatDistance } from '../../shared/geo'
+import { Maximize, Eye } from './Icons'
 import './LiveReadout.css'
 
 // Live instrument cluster (VISION row 89): elevation + speed cells over a
@@ -11,6 +12,11 @@ import './LiveReadout.css'
 // When a navigation target is set (VISION row 90) the ribbon also shows a green
 // target pip and the cluster grows a nav row with straight-line distance and a
 // turn hint — beeline guidance, honestly labeled as as-the-crow-flies.
+//
+// A control row at the foot carries the two things you want with the gauge in
+// front of you: full-screen instruments (row 103 — it used to be a toolbar
+// button, a long way from the compass it opens) and keep-screen-awake
+// (row 100).
 
 const PX_PER_DEG = 2
 const RIBBON_HALF_DEG = 72   // target pip clamps here, then becomes an edge arrow
@@ -20,7 +26,10 @@ const CARDINALS_16 = [
   'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW',
 ]
 
-export default function LiveReadout({ navTarget = null, onFix, onCancelNav }) {
+export default function LiveReadout({
+  navTarget = null, onFix, onCancelNav,
+  onOpenInstruments, keepAwake, wakeLock, onToggleKeepAwake,
+}) {
   const { fix, geoState, elev, stale, heading, headingSrc, magState, magQuiet, requestCompass, mph } = useLiveSensors()
   const tapeRef = useRef(null)
   const contRef = useRef(null)                  // unwrapped heading driving the tape
@@ -174,6 +183,25 @@ export default function LiveReadout({ navTarget = null, onFix, onCancelNav }) {
           </div>
         </div>
       )}
+      <div className="lr-controls">
+        <button className="lr-ctl" onClick={onOpenInstruments}
+          title="Full-screen instruments — compass, speed, elevation">
+          <Maximize size={13} />
+          <span>Full screen</span>
+        </button>
+        <button
+          className={`lr-ctl ${keepAwake && wakeLock?.supported !== false ? 'active' : ''}`}
+          onClick={onToggleKeepAwake}
+          disabled={wakeLock?.supported === false}
+          title={wakeLock?.supported === false
+            ? "This browser can't hold the screen on — it needs iOS 16.4 or a recent desktop browser"
+            : keepAwake
+              ? 'Screen is being kept on — tap to let it sleep normally'
+              : 'Keep the screen on while the map is up'}>
+          <Eye size={13} />
+          <span>Stay awake</span>
+        </button>
+      </div>
     </div>
   )
 }

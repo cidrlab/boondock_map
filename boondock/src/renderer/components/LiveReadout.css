@@ -201,6 +201,32 @@
 }
 .lr-target-edge { font-size: 18px; font-weight: 700; }
 
+/* ── Control row: full screen + stay awake (VISION rows 103 / 100) ─────── */
+.lr-controls {
+  display: flex;
+  border-top: 1px solid var(--glass-border);
+}
+.lr-ctl {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 6px;
+  min-height: 36px;          /* thumb target on the phone */
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.lr-ctl + .lr-ctl { border-left: 1px solid var(--glass-border); }
+.lr-ctl:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); }
+.lr-ctl.active { color: var(--accent); background: var(--accent-dim); }
+.lr-ctl:disabled { opacity: 0.45; cursor: default; }
+
 /* ── The cluster's toggle button (a hand-rolled control in Map.jsx) ─────── */
 .maplibregl-ctrl-group button.live-toggle-btn {
   display: flex !important;

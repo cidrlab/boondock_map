@@ -1117,9 +1117,23 @@ const Map = forwardRef(function Map(
   }, [])
 
   // ── Overlay toggle effect ───────────────────────────────────────────────
+  const prevOverlaysRef = useRef(overlays)
   useEffect(() => {
+    // Tracked before the ready guard, so restoring saved overlays during boot
+    // counts as "already on" rather than a toast-worthy switch-on
+    const prev = prevOverlaysRef.current
+    prevOverlaysRef.current = overlays
     if (!mapReady) return
     applyOverlayVisibility()
+    // A layer that covers one state, or starts at a zoom you aren't at yet,
+    // draws nothing and looks broken — the service answers with a valid empty
+    // tile, so the source-error toast never fires (VISION row 102). Say which
+    // it is, once, at the moment it's switched on.
+    Object.entries(overlays).forEach(([id, on]) => {
+      if (!on || prev[id]) return
+      const reason = whyOverlayIsBlank(map.current, OVERLAY_LAYERS[id])
+      if (reason) showToast(mapContainer.current, reason)
+    })
   }, [overlays, mapReady])
 
   // ── Downloaded-pack footprints ────────────────────────────────────────────
@@ -1459,6 +1473,26 @@ const SITE_KIND_COLOR = ['match', ['get', 'kind'],
   '#e8eef4']
 
 const SITE_DISC_FILL = 'rgba(16, 21, 28, 0.92)'
+
+// Why a just-enabled overlay has nothing to draw here — or null when it should
+// be drawing and any failure is the service's, which the source-error toast
+// already reports (VISION row 102). Regional layers are the case that used to
+// fail in silence: switch WA DNR Roads on in Oregon and the server cheerfully
+// returns empty tiles.
+function whyOverlayIsBlank(m, layer) {
+  if (!m || !layer) return null
+  const { coverage, sourceMinzoom, label } = layer
+  if (coverage?.bbox) {
+    const b = m.getBounds()
+    const [w, s, e, n] = coverage.bbox
+    const apart = b.getWest() > e || b.getEast() < w || b.getSouth() > n || b.getNorth() < s
+    if (apart) return `${label} covers ${coverage.label} only — nothing to draw where you're looking.`
+  }
+  if (sourceMinzoom != null && m.getZoom() < sourceMinzoom) {
+    return `${label} draws from about z${sourceMinzoom} — zoom in to see it.`
+  }
+  return null
+}
 
 // Every state has a spots + zones file in web/public/data (see
 // shared/stateBounds.js). They load lazily as the viewport reaches each

@@ -157,6 +157,10 @@ export const OVERLAY_LAYERS = {
         ])),
     identifyUrl: 'https://gis.dnr.wa.gov/site3/rest/services/Public_Transportation/WADNR_PUBLIC_ENG_Roads/MapServer/identify',
     attribution: 'WA DNR',
+    // Washington only, and nothing below z10 — outside either the service just
+    // returns empty tiles, which reads as a broken layer (VISION row 102).
+    // Map.jsx says which of the two it is when the overlay is switched on.
+    coverage: { bbox: [-124.85, 45.5, -116.9, 49.05], label: 'Washington' },
     sourceMinzoom: 10,   // the service hides roads above ~1:250k (≈ z10)
     sourceMaxzoom: 16,
     zoomOpacity: [
