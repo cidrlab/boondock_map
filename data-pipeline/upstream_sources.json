@@ -112,12 +112,6 @@
       "risk": "US federal live service"
     },
     {
-      "id": "wadnr-roads-live",
-      "label": "WA DNR roads overlay (row 34)",
-      "url": "https://gis.dnr.wa.gov/site3/rest/services/Public_Transportation/WADNR_PUBLIC_ENG_Roads/MapServer?f=json",
-      "risk": "WA state live service"
-    },
-    {
       "id": "nifc-wildfire-live",
       "label": "NIFC wildfire perimeters (row 69)",
       "url": "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0?f=json",

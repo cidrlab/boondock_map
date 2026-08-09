@@ -153,17 +153,6 @@ const TABS = [
           dashes where it&apos;s closed. A road appearing here is <strong>not</strong>
           permission to drive it, so cross-check the MVUM and local rules. Off
           by default. This is our first offline vector-tile layer.</li>
-          <li><strong>WA DNR roads</strong> (Washington only) — forest and
-          state-trust-land roads managed by WA DNR, drawn in violet. These are
-          the state roads MVUM and the federal layers miss, like the blue
-          state-land parcels in the Public Land overlay. Tap one for its name,
-          surface, and public-access status. State trust land has its own rules
-          and often needs a <em>Discover Pass</em>. Off by default. Two things
-          make it look broken when it isn&apos;t: it is <strong>Washington
-          only</strong>, and it doesn&apos;t draw until about <strong>z10</strong>
-          — outside either one the server returns empty tiles rather than an
-          error. Switch it on in the wrong place or too far out and the app now
-          says which of the two it is.</li>
           <li><strong>Hiking trails</strong> — dashed light-blue lines from the
           USFS trails system.</li>
           <li><strong>Topo lines</strong> — contours only, no background.

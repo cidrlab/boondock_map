@@ -158,7 +158,6 @@ export default function Legend({ open, onClose }) {
           <div className="legend-section">Lines</div>
           <div className="legend-row"><span className="legend-swatch legend-trail" />Hiking trail (USFS)</div>
           <div className="legend-row"><span className="legend-swatch legend-blm-road" />BLM road — public motorized use</div>
-          <div className="legend-row"><span className="legend-swatch legend-wadnr-road" />WA DNR road — state trust land</div>
           <div className="legend-row"><span className="legend-swatch legend-roadcore-open" />All FS road — open to some vehicle</div>
           <div className="legend-row"><span className="legend-swatch legend-roadcore-closed" />All FS road — closed to vehicles</div>
           <div className="legend-note">Topo Lines: brown USGS contours with elevation figures.</div>

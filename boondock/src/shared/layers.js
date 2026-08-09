@@ -142,33 +142,6 @@ export const OVERLAY_LAYERS = {
       [11, 0.95],
     ],
   },
-  'wadnr-roads': {
-    id: 'wadnr-roads',
-    label: 'WA DNR Roads',
-    description: 'Washington DNR forest and state-trust-land roads (WA only) — the state roads MVUM and the federal layers miss. DNR-managed public + selected private roads. Tap a road for its details. State trust land has its own rules and often needs a Discover Pass.',
-    // Live export off WA DNR's roads MapServer. Layers 2 (major/forest roads,
-    // from ~1:250k) + 5 (active roads, from ~1:100k) cover the zoom range;
-    // dynamicLayers restyles both violet and drops the road-number labels.
-    direct: true,
-    tileUrl: 'https://gis.dnr.wa.gov/site3/rest/services/Public_Transportation/WADNR_PUBLIC_ENG_Roads/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=96&transparent=true&format=png32&f=image&dynamicLayers='
-      + encodeURIComponent(JSON.stringify([
-          { id: 101, source: { type: 'mapLayer', mapLayerId: 2 }, drawingInfo: { renderer: { type: 'simple', symbol: { type: 'esriSLS', style: 'esriSLSSolid', color: [168, 85, 247, 255], width: 1.4 } }, showLabels: false } },
-          { id: 102, source: { type: 'mapLayer', mapLayerId: 5 }, drawingInfo: { renderer: { type: 'simple', symbol: { type: 'esriSLS', style: 'esriSLSSolid', color: [168, 85, 247, 255], width: 1.4 } }, showLabels: false } },
-        ])),
-    identifyUrl: 'https://gis.dnr.wa.gov/site3/rest/services/Public_Transportation/WADNR_PUBLIC_ENG_Roads/MapServer/identify',
-    attribution: 'WA DNR',
-    // Washington only, and nothing below z10 — outside either the service just
-    // returns empty tiles, which reads as a broken layer (VISION row 102).
-    // Map.jsx says which of the two it is when the overlay is switched on.
-    coverage: { bbox: [-124.85, 45.5, -116.9, 49.05], label: 'Washington' },
-    sourceMinzoom: 10,   // the service hides roads above ~1:250k (≈ z10)
-    sourceMaxzoom: 16,
-    zoomOpacity: [
-      [9,  0.0],
-      [10.5, 0.85],
-      [13, 0.95],
-    ],
-  },
   'roadcore': {
     id: 'roadcore',
     label: 'All FS Roads',
@@ -275,7 +248,6 @@ export const DEFAULT_OVERLAYS = {
   'mvum': true,
   'usfs-trails': true,
   'blm-roads': false,
-  'wadnr-roads': false,
   'roadcore': false,
   'wildfire': false,
   'sites': true,

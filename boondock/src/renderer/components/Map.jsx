@@ -395,13 +395,6 @@ const Map = forwardRef(function Map(
           return
         }
       }
-      if (overlaysRef.current['wadnr-roads'] && m.getZoom() >= 10) {
-        const road = await identifyWadnr(m, e.lngLat)
-        if (road && map.current === m) {
-          openWadnrPopup(m, e.lngLat, road)
-          return
-        }
-      }
       if (overlaysRef.current.roadcore && m.getZoom() >= 9) {
         const rcLayers = ['roadcore-open', 'roadcore-closed'].filter(id => m.getLayer(id))
         const box = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]]
@@ -1125,10 +1118,9 @@ const Map = forwardRef(function Map(
     prevOverlaysRef.current = overlays
     if (!mapReady) return
     applyOverlayVisibility()
-    // A layer that covers one state, or starts at a zoom you aren't at yet,
-    // draws nothing and looks broken — the service answers with a valid empty
-    // tile, so the source-error toast never fires (VISION row 102). Say which
-    // it is, once, at the moment it's switched on.
+    // A layer that starts at a zoom you aren't at yet draws nothing and looks
+    // broken — the service answers with a valid empty tile, so the source-error
+    // toast never fires (VISION row 102). Say so once, as it's switched on.
     Object.entries(overlays).forEach(([id, on]) => {
       if (!on || prev[id]) return
       const reason = whyOverlayIsBlank(map.current, OVERLAY_LAYERS[id])
@@ -1476,23 +1468,18 @@ const SITE_DISC_FILL = 'rgba(16, 21, 28, 0.92)'
 
 // Why a just-enabled overlay has nothing to draw here — or null when it should
 // be drawing and any failure is the service's, which the source-error toast
-// already reports (VISION row 102). Regional layers are the case that used to
-// fail in silence: switch WA DNR Roads on in Oregon and the server cheerfully
-// returns empty tiles.
+// already reports (VISION row 102). Switching a layer on below the zoom its
+// service starts at looks identical to a broken layer: the server answers with
+// a valid empty tile, a 200, so nothing else says a word.
 function whyOverlayIsBlank(m, layer) {
   if (!m || !layer) return null
-  const { coverage, sourceMinzoom, label } = layer
-  if (coverage?.bbox) {
-    const b = m.getBounds()
-    const [w, s, e, n] = coverage.bbox
-    const apart = b.getWest() > e || b.getEast() < w || b.getSouth() > n || b.getNorth() < s
-    if (apart) return `${label} covers ${coverage.label} only — nothing to draw where you're looking.`
-  }
+  const { sourceMinzoom, label } = layer
   if (sourceMinzoom != null && m.getZoom() < sourceMinzoom) {
     return `${label} draws from about z${sourceMinzoom} — zoom in to see it.`
   }
   return null
 }
+
 
 // Every state has a spots + zones file in web/public/data (see
 // shared/stateBounds.js). They load lazily as the viewport reaches each
@@ -1840,7 +1827,6 @@ async function identifyArc(idUrl, layersParam, m, lngLat) {
 const identifyMvum = (m, lngLat) => identifyArc(OVERLAY_LAYERS.mvum.identifyUrl, 'visible:1,2', m, lngLat)
 const identifyTrail = (m, lngLat) => identifyArc(OVERLAY_LAYERS['usfs-trails'].identifyUrl, 'all', m, lngLat)
 const identifyBlm = (m, lngLat) => identifyArc(OVERLAY_LAYERS['blm-roads'].identifyUrl, 'all:0,1', m, lngLat)
-const identifyWadnr = (m, lngLat) => identifyArc(OVERLAY_LAYERS['wadnr-roads'].identifyUrl, 'all:2,5', m, lngLat)
 
 function titleCase(s) {
   return String(s || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
@@ -1930,29 +1916,6 @@ function openWildfirePopup(m, lngLat, feature) {
       <div style="font-size:9.5px;color:rgba(var(--fg-rgb),.35);margin-top:7px">Source: NIFC WFIGS (public domain)</div>
     </div>`
   new maplibregl.Popup({ offset: 8, maxWidth: '260px' }).setLngLat(lngLat).setHTML(html).addTo(m)
-}
-
-function openWadnrPopup(m, lngLat, result) {
-  const a = result.attributes || {}
-  const name = titleCase(String(a['Road Name'] || a['Road Number'] || '').trim()) || 'WA DNR road'
-  const rows = []
-  const surface = String(a['Surface Label'] || '').trim()
-  const access = String(a['Public Access Label'] || '').trim()
-  const status = String(a['Status Label'] || '').trim()
-  if (surface && surface !== 'Unknown') rows.push(`Surface: ${esc(surface)}`)
-  if (access && access !== 'Unknown') rows.push(`Public access: ${esc(access)}`)
-  if (status && status !== 'Unknown') rows.push(`Status: ${esc(status)}`)
-  const html = `
-    <div style="font-family:-apple-system,system-ui,sans-serif;min-width:170px">
-      <div style="font-size:13px;font-weight:600">${esc(name)}</div>
-      <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);margin:2px 0 5px">WA DNR · state trust road</div>
-      <div style="font-size:11px;color:rgba(var(--fg-rgb),.6);line-height:1.45;margin-bottom:2px">On WA state trust land, where rules differ from federal land — a Discover Pass is often required and gates/closures are common. Verify access locally.</div>
-      ${rows.length ? `<div style="font-size:11.5px;color:rgba(var(--fg-rgb),.75);line-height:1.5">${rows.join('<br>')}</div>` : ''}
-      ${weatherHtml()}
-      ${directionsHtml(lngLat.lat, lngLat.lng, name === 'WA DNR road' ? '' : name)}
-    </div>`
-  const popup = new maplibregl.Popup({ offset: 8, maxWidth: '280px' }).setLngLat(lngLat).setHTML(html).addTo(m)
-  attachWeather(popup, lngLat.lat, lngLat.lng, m)
 }
 
 function openRoadcorePopup(m, lngLat, feature) {
