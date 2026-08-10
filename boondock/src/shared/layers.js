@@ -70,6 +70,17 @@ export const PACK_LAYERS = {
 }
 
 export const OVERLAY_LAYERS = {
+  // First deliberately: this is the layer that answers the question the app
+  // exists for — where might I be able to camp — so it leads the list rather
+  // than sitting seventh (Tim, 2026-08-09). Order here drives the Overlays
+  // list; it does not affect map draw order, because zones are added by
+  // addZonesLayers() rather than by the raster loop in addOverlaySources().
+  'zones': {
+    id: 'zones',
+    label: 'Boondock Zones β',
+    description: 'Beta heuristic: USFS-owned land within ~300 m of a legal MVUM road. Not a statement of legality — always verify rules and closures locally.',
+    zones: true,    // GeoJSON polygon layer, handled in Map.jsx
+  },
   'mvum': {
     id: 'mvum',
     label: 'MVUM Roads',
@@ -181,12 +192,6 @@ export const OVERLAY_LAYERS = {
     description: 'Campsites, RV parks, dump stations, water fills, trailheads — 93,000+ places across all 50 states from OSM, Overture, Recreation.gov, and WA DNR',
     sites: true,    // GeoJSON spots layer, handled in Map.jsx
   },
-  'zones': {
-    id: 'zones',
-    label: 'Boondock Zones β',
-    description: 'Beta heuristic: USFS-owned land within ~300 m of a legal MVUM road. Not a statement of legality — always verify rules and closures locally.',
-    zones: true,    // GeoJSON polygon layer, handled in Map.jsx
-  },
   'names': {
     id: 'names',
     label: 'Names & Labels',
@@ -264,13 +269,14 @@ export const SITE_KINDS = [
 ]
 
 export const DEFAULT_OVERLAYS = {
+  // Same order as OVERLAY_LAYERS above, so the two read together
+  'zones': false,
   'mvum': true,
   'usfs-trails': true,
   'blm-roads': false,
   'roadcore': false,
   'wildfire': false,
   'sites': true,
-  'zones': false,
   'names': false,
   'blm-land': false,
   'contours': false,
