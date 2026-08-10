@@ -77,8 +77,12 @@ const TABS = [
           any other app. Click the same spot again to dismiss it.</li>
           <li>Every point card (map clicks, sites, waypoints, roads, trails,
           search results) also carries a <strong>weather card</strong>: current
-          conditions, an 8-day forecast strip (tap a day for detail), and the
-          days-9–16 outlook. Forecasts are Open-Meteo model data — mountain
+          conditions, an 8-day forecast strip (tap a day for detail), the
+          days-9–16 outlook, and an <strong>air &amp; smoke</strong> line —
+          current US AQI and PM2.5, with a second line when the air is forecast
+          to get categorically worse in the next few days, which is the version
+          of the question that matters when you&apos;re picking a campsite for
+          Friday. Forecasts are Open-Meteo model data — mountain
           microclimates can differ, so treat them as planning guidance.</li>
           <li>Click an <strong>MVUM road</strong> (zoomed in past ~z9) for its
           name, the vehicle classes it&apos;s open to, the season, surface and
@@ -238,15 +242,23 @@ const TABS = [
         <ul>
           <li>The search box takes place names, your waypoint names, or raw
           coordinates (like <code>48.5, -121.9</code>).</li>
-          <li>The chips below it (Gas, Water, Camp, Dump/RV…) find what&apos;s
-          near the map center. Results are numbered in the list <em>and</em> on
-          the map; hovering one highlights the other.</li>
+          <li>Under it, <strong>Find nearby</strong> folds open into chips
+          (Gas, Water, Camp, Dump/RV, Rest stop, <strong>Ranger</strong>…) that
+          find what&apos;s near the map center. Results are numbered in the list
+          <em>and</em> on the map; hovering one highlights the other. The block
+          starts folded so it isn&apos;t eating the top of every tab, and it
+          remembers how you left it — when it&apos;s folded with a search
+          running, the header says which one.</li>
+          <li><strong>Ranger</strong> finds ranger stations and forest offices,
+          which is where you go for a fire ban, a road closure, or a permit —
+          the things this map keeps telling you to verify locally.</li>
           <li>Pan away and a <strong>Search this area</strong> pill appears up
           top to re-run the search where you&apos;re looking.</li>
-          <li><strong>Site Filter</strong> (Layers tab): type checkboxes plus
-          Min / Max elevation sliders filter the site dots — handy for staying
-          below snow line, or showing only water and dump stations on a supply
-          run. The <strong>Temperature Filter</strong> below it goes further:
+          <li><strong>Site Filter</strong> (Layers tab): tap a type to show
+          only that one, tap more to add them, and <em>All</em> (or selecting
+          every type) goes back to everything. Min / Max elevation sliders
+          filter the site dots too — handy for staying below snow line, or
+          showing only water and dump stations on a supply run. The <strong>Temperature Filter</strong> below it goes further:
           it hides sites whose 7–16-day forecast breaks your heat, cold, or
           average-temperature limits, and shades the areas that qualify.</li>
           <li>Every result card names its <strong>data source</strong> with a

@@ -31,6 +31,15 @@ export const POI_CATEGORIES = [
   // ["highway"~"rest_area"] found nothing. Rest stops are rural and sparse,
   // hence the wide radius.
   { id: 'rest_area',   label: 'Rest stop',    tags: ['"highway"="rest_area"', '"highway"="services"'], radius: 60000 },
+  // Ranger stations and forest offices (VISION row 111) — where you go for a
+  // fire ban, a road closure, or a permit, which is exactly the information
+  // this map tells you to verify locally. Two exact selectors rather than a
+  // regex, for the reason noted above. Coverage checked before building
+  // (2026-08-09, Overpass over CONUS): amenity=ranger_station 1,564 and
+  // office=forestry 223, most of them mapped as buildings rather than points,
+  // which is why the query asks for ways as well as nodes. Wide radius —
+  // there is usually one per ranger district, not one per town.
+  { id: 'ranger',      label: 'Ranger',       tags: ['"amenity"="ranger_station"', '"office"="forestry"'], radius: 50000 },
 ]
 
 // Map OSM tags to display info
@@ -47,6 +56,7 @@ function categorize(tags) {
   if (tags.tourism === 'picnic_site') return { category: 'picnic', icon: 'viewpoint' }
   if (tags.tourism === 'viewpoint') return { category: 'viewpoint', icon: 'viewpoint' }
   if (tags.tourism === 'hotel' || tags.tourism === 'motel') return { category: 'lodging', icon: 'generic' }
+  if (tags.amenity === 'ranger_station' || tags.office === 'forestry') return { category: 'ranger', icon: 'trailhead' }
   return { category: 'poi', icon: 'generic' }
 }
 
