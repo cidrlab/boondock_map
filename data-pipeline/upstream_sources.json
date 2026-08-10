@@ -17,7 +17,8 @@
     "laptop; anything larger goes to ~/data/cidrlab/boondock_map, since GitHub",
     "warns past 50 MB and refuses past 100 MB per file.",
     "",
-    "Adding a source: append an object with id/label/url/risk. The checker fills the rest."
+    "Adding a source: append an object with id/label/url/risk. The checker fills the rest.",
+    "Backup locations are recorded with '~' rather than an absolute path: this file is committed, and /Users/<name>/... is both meaningless on another machine and needlessly personal in a public repo. Readers expanduser() it."
   ],
   "sources": [
     {
@@ -34,7 +35,7 @@
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
         "held": true,
-        "location": "/Users/buffalo/data/cidrlab/boondock_map/S_USA.Road_MVUM.zip",
+        "location": "~/data/cidrlab/boondock_map/S_USA.Road_MVUM.zip",
         "sha256": "b950e22a4ef928a525642d3e48e5612dde4a1082c67d0194be2540c1318866cb",
         "date": "2026-07-25",
         "stamp": "Sun, 11 May 2025 17:12:01 GMT",
@@ -56,7 +57,7 @@
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
         "held": true,
-        "location": "/Users/buffalo/data/cidrlab/boondock_map/S_USA.TrailNFS_Publish.zip",
+        "location": "~/data/cidrlab/boondock_map/S_USA.TrailNFS_Publish.zip",
         "sha256": "3ef74da7adc6e7febd95562999b8981e1b7001a5ca11ea92764a419c3829ffd1",
         "date": "2026-07-25",
         "stamp": "Sun, 11 May 2025 17:12:49 GMT",
@@ -79,7 +80,7 @@
       "note": "The MVUM overlay has always drawn two sublayers: Road_MVUM (roads) and this (motorized trails, 63,056 live). Self-hosting only the roads would silently drop half the overlay.",
       "backup": {
         "held": true,
-        "location": "/Users/buffalo/data/cidrlab/boondock_map/S_USA.Trail_MVUM.zip",
+        "location": "~/data/cidrlab/boondock_map/S_USA.Trail_MVUM.zip",
         "sha256": "be936ae102772a6c02dcea2c1f52e702f667138d9355452fac74df485213f38e",
         "date": "2026-08-09",
         "stamp": "Sun, 11 May 2025 17:12:57 GMT",
@@ -101,7 +102,7 @@
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
         "held": true,
-        "location": "/Users/buffalo/data/cidrlab/boondock_map/S_USA.RoadCore_FS.zip",
+        "location": "~/data/cidrlab/boondock_map/S_USA.RoadCore_FS.zip",
         "sha256": "e7ae4ad218459c18d700b97f935b8b9a9d7fc289bd69a61391f308a6c36bb38a",
         "date": "2026-07-25",
         "stamp": null,

@@ -98,7 +98,7 @@ DATASETS = {
         # vehicles (yearlong/seasonal), 3/4 = highway-legal vehicles only,
         # 11/12 = special designation. veh is a bitmask because the alternative
         # is nine near-empty string columns; the bit order is mirrored in
-        # shared/mvumCodes.js and must stay in step with it.
+        # shared/usfsCodes.js and must stay in step with it.
         "sql": """
             SELECT GEOMETRY,
                    NAME AS name,
@@ -240,7 +240,7 @@ def resolve_input(entry, work: Path):
     if location:
         # The recorded path is from whichever machine mirrored it; also try the
         # same filename under this user's home, so CI and a second laptop work
-        candidates = [Path(location), Path.home() / "data" / "cidrlab" / "boondock_map" / Path(location).name]
+        candidates = [Path(location).expanduser(), Path.home() / "data" / "cidrlab" / "boondock_map" / Path(location).name]
         for c in candidates:
             if c.is_file():
                 return c, "mirror"

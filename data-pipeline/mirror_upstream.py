@@ -41,6 +41,19 @@ CHUNK = 1 << 20
 IN_REPO_MAX_BYTES = 20 * 1024 * 1024
 
 
+def portable(path):
+    """A '~'-relative path when it sits under home, else the path as given.
+
+    upstream_sources.json is committed, so recording /Users/<name>/... would
+    put a machine-specific — and needlessly personal — absolute path into a
+    public repo. Everything that reads this field expanduser()s it.
+    """
+    try:
+        return "~/" + str(Path(path).resolve().relative_to(Path.home()))
+    except ValueError:
+        return str(path)
+
+
 def sha256_of(path):
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -140,7 +153,7 @@ def main():
 
         src["backup"] = {
             "held": True,
-            "location": str(path),
+            "location": portable(path),
             "sha256": sha256_of(path),
             "date": date.today().isoformat(),
             "stamp": upstream_stamp,
