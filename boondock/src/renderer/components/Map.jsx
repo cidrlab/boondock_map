@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallba
 import maplibregl from 'maplibre-gl'
 import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM, SITE_KINDS } from '../../shared/layers'
 import { SITE_BADGE_KINDS, SITE_FALLBACK_KIND, drawSiteGlyph } from '../../shared/siteIcons'
-import { buildBoondockStyle, BOONDOCK_GLYPHS, buildRoadShieldLayer, OMT_SOURCE } from '../../shared/boondockStyle'
+import { buildBoondockStyle, BOONDOCK_GLYPHS, buildRoadShieldLayer, omtSource, refreshOmtTemplate } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
 import { Protocol as PMTilesProtocol, PMTiles } from 'pmtiles'
 import { CachingSource } from '../../shared/pmtilesCache'
@@ -32,6 +32,10 @@ installProtocol(maplibregl)
 // (VISION row 123).
 const pmProtocol = new PMTilesProtocol()
 maplibregl.addProtocol('pmtiles', pmProtocol.tile)
+
+// Learn OpenFreeMap's rotating tile template while we can, so a later launch
+// with no signal can still build a style that loads (VISION row 126).
+refreshOmtTemplate()
 
 const pmRegistered = new Set()
 function cachedPMTilesUrl(file) {
@@ -203,7 +207,7 @@ const Map = forwardRef(function Map(
         // reference tiles label places and counties but carry no highway
         // numbers at all — verified over the Willamette Valley, where Salem,
         // Albany and Corvallis are named and I-5 running between them is not.
-        omt: OMT_SOURCE,
+        omt: omtSource(),
       },
       layers: [
         { id: 'base-layer', type: 'raster', source: 'base' },
@@ -305,6 +309,14 @@ const Map = forwardRef(function Map(
     // apps.fs.usda.gov/arcx returned HTTP 500 for both MVUM and Trails). The
     // layer then simply doesn't draw, which reads as a bug in this app. Name
     // what actually happened instead, once per source (VISION row 82).
+    const BASE_SOURCES = new Set(['base', 'omt'])
+    map.current.on('error', (e) => {
+      if (BASE_SOURCES.has(e?.sourceId)) noteBaseTileFailure()
+    })
+    map.current.on('sourcedata', (e) => {
+      if (BASE_SOURCES.has(e?.sourceId) && e.isSourceLoaded) noteBaseTileSuccess()
+    })
+
     const reportedBadSources = new Set()
     map.current.on('error', (e) => {
       const srcId = e?.sourceId
@@ -1330,6 +1342,44 @@ const Map = forwardRef(function Map(
   }, [siteMinElev, siteMaxElev, mapReady])
 
   // ── Offline fallback: saved USGS packs appear when the network is gone ────
+  // `navigator.onLine` only reports that an interface exists. It stays true on
+  // campground wifi that never reaches the internet and on one bar of LTE that
+  // cannot finish a request — precisely when someone needs the map they
+  // downloaded. Gating the saved pack on it kept the pack hidden exactly when
+  // it mattered (VISION row 126).
+  //
+  // So the signal is the basemap's own tiles failing. With hysteresis: MapLibre
+  // raises `error` per failed tile, and a single flaky one must not swap the
+  // map out from under you.
+  const baseFailuresRef = useRef(0)
+  const baseFailedRef = useRef(false)
+  const BASE_FAIL_THRESHOLD = 4
+
+  function offlineFallbackShouldShow() {
+    return baseFailedRef.current || navigator.onLine === false
+  }
+
+  function applyOfflineFallback() {
+    const m = map.current
+    if (!m?.getLayer('usgs-offline-layer')) return
+    m.setLayoutProperty('usgs-offline-layer', 'visibility', offlineFallbackShouldShow() ? 'visible' : 'none')
+  }
+
+  function noteBaseTileFailure() {
+    baseFailuresRef.current += 1
+    if (baseFailedRef.current || baseFailuresRef.current < BASE_FAIL_THRESHOLD) return
+    baseFailedRef.current = true
+    applyOfflineFallback()
+    showToast(mapContainer.current, 'Map tiles are not loading — showing your saved packs where you have them')
+  }
+
+  function noteBaseTileSuccess() {
+    baseFailuresRef.current = 0
+    if (!baseFailedRef.current) return
+    baseFailedRef.current = false
+    applyOfflineFallback()
+  }
+
   function addOfflineFallbackLayer() {
     const m = map.current
     if (!m) return
@@ -1339,18 +1389,13 @@ const Map = forwardRef(function Map(
     if (!m.getLayer('usgs-offline-layer')) {
       m.addLayer({
         id: 'usgs-offline-layer', type: 'raster', source: 'usgs-offline',
-        layout: { visibility: navigator.onLine ? 'none' : 'visible' },
+        layout: { visibility: offlineFallbackShouldShow() ? 'visible' : 'none' },
       })
     }
   }
 
   useEffect(() => {
-    const apply = () => {
-      const m = map.current
-      if (m?.getLayer('usgs-offline-layer')) {
-        m.setLayoutProperty('usgs-offline-layer', 'visibility', navigator.onLine ? 'none' : 'visible')
-      }
-    }
+    const apply = () => applyOfflineFallback()
     const onOffline = () => {
       apply()
       showToast(mapContainer.current, 'Offline — showing saved map packs where available')

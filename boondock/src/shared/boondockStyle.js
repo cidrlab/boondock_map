@@ -126,11 +126,68 @@ export function buildRoadShieldLayer(mode, id, visibility) {
   }
 }
 
-export const OMT_SOURCE = {
-  type: 'vector',
-  url: 'https://tiles.openfreemap.org/planet',
-  attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors',
+// The basemap's vector source, and the single most important thing in this
+// file for offline use.
+//
+// Defining it with `url:` means MapLibre must fetch a TileJSON before the
+// style can finish loading — and when that fetch fails, the map's `load`
+// event never fires, so **none** of the app's layers are ever added. Not the
+// roads, not the sites, not the saved offline pack. Verified 2026-08-09:
+// blocking tiles.openfreemap.org alone, with everything else reachable, left
+// the map completely blank (VISION row 126).
+//
+// So the source is defined inline from a cached tile template whenever we
+// have one, which needs no network to construct. The template is remembered
+// because OpenFreeMap's URL carries a dated build path
+// (…/planet/20260802_080001_pt/…) that rotates, so it cannot simply be
+// hardcoded — we learn it while online and keep it.
+const OMT_TILES_KEY = 'boondock-omt-tiles'
+const OMT_TILEJSON = 'https://tiles.openfreemap.org/planet'
+const OMT_ATTRIBUTION = '© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors'
+
+function cachedOmt() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(OMT_TILES_KEY))
+    if (raw?.tiles?.length) return raw
+  } catch { /* private mode, or nothing stored yet */ }
+  return null
 }
+
+/**
+ * Learn (or refresh) the tile template while we have a connection, so the
+ * next launch can build the style without asking anyone's permission. Safe to
+ * call on every start; a failure leaves whatever we already knew.
+ */
+export async function refreshOmtTemplate() {
+  try {
+    const res = await fetch(OMT_TILEJSON)
+    if (!res.ok) return
+    const j = await res.json()
+    if (!j?.tiles?.length) return
+    localStorage.setItem(OMT_TILES_KEY, JSON.stringify({
+      tiles: j.tiles,
+      minzoom: j.minzoom ?? 0,
+      maxzoom: j.maxzoom ?? 14,
+    }))
+  } catch { /* offline, or blocked — keep the old template */ }
+}
+
+export function omtSource() {
+  const hit = cachedOmt()
+  if (hit) {
+    return {
+      type: 'vector',
+      tiles: hit.tiles,
+      minzoom: hit.minzoom,
+      maxzoom: hit.maxzoom,
+      attribution: OMT_ATTRIBUTION,
+    }
+  }
+  // First run with nothing cached: the TileJSON is the only way to learn the
+  // template, and a first-ever run with no network cannot work regardless.
+  return { type: 'vector', url: OMT_TILEJSON, attribution: OMT_ATTRIBUTION }
+}
+
 
 export function buildBoondockStyle(mode = 'night') {
   const C = mode === 'day' ? DAY : NIGHT
@@ -138,7 +195,7 @@ export function buildBoondockStyle(mode = 'night') {
     version: 8,
     glyphs: GLYPHS,
     sources: {
-      omt: OMT_SOURCE,
+      omt: omtSource(),
       dem: {
         type: 'raster-dem',
         tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],

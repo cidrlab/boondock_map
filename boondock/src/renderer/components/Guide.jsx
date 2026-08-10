@@ -342,10 +342,14 @@ const TABS = [
           ourselves, fetching only the small slice your screen covers — so
           they&apos;re fast, and immune to the Forest Service&apos;s servers
           going down. <strong>Anywhere you&apos;ve looked at once is kept on
-          your device</strong>, so those roads are still there if you lose
-          signal later. The basemap under them still needs either a
-          connection or a downloaded pack, so grab a USGS Topo pack for the
-          area before you head out.</li>
+          your device</strong>, so those roads are still drawn when you lose
+          signal.</li>
+          <li><strong>What a no-signal day actually looks like:</strong>
+          download a USGS Topo pack for the area first. With no connection at
+          all, the app opens, your saved pack draws as the map, and the forest
+          roads, trails and sites you&apos;ve looked at are drawn on top of it.
+          If tiles stop loading the app switches to your saved pack on its own
+          and tells you it has — you don&apos;t have to notice first.</li>
           <li>Downloaded areas are outlined on the map while you&apos;re in the
           Offline tab; the tab lists each pack with its size, and you can
           delete packs anytime.</li>
