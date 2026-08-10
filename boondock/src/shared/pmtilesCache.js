@@ -23,7 +23,8 @@
  * over data people cannot re-download in the field.
  */
 
-import { FetchSource } from 'pmtiles'
+import { FetchSource, PMTiles, Protocol } from 'pmtiles'
+import { tilesInBbox } from './offlineTiles'
 
 const DB_NAME = 'boondock-pmtiles'
 const CHUNKS = 'chunks'
@@ -183,4 +184,68 @@ export async function cachedBytes() {
 export async function clearCachedTilesets() {
   await idb(CHUNKS, 'readwrite', (s) => s.clear())
   await idb(META, 'readwrite', (s) => s.clear())
+}
+
+
+// ── The archives themselves, and downloading an area of them ────────────────
+//
+// The protocol and its PMTiles instances live here rather than in the map
+// component so the Offline tab can reach the same objects: "download this
+// area" is just asking each archive for the tiles in a bounding box and
+// letting CachingSource above store the byte ranges it reads on the way
+// through (VISION row 127).
+
+export const pmProtocol = new Protocol()
+
+const instances = new Map()
+
+/** The `pmtiles://…` URL for an archive, registering it on first use. */
+export function pmtilesUrl(baseUrl, file) {
+  const url = new URL(`${baseUrl}data/${file}`, location.href).href
+  if (!instances.has(file)) {
+    const p = new PMTiles(new CachingSource(url))
+    instances.set(file, p)
+    pmProtocol.add(p)
+  }
+  return `pmtiles://${url}`
+}
+
+/**
+ * Pull every tile of `archives` covering `bbox` into the on-device cache.
+ *
+ * Deliberately routed through the ordinary read path: getZxy resolves a tile
+ * through CachingSource, which stores whatever ranges it had to fetch. So a
+ * download and a browse populate the cache identically, and there is only one
+ * code path that can be wrong.
+ */
+export async function downloadVectorArea({ baseUrl, archives, bbox, minZoom, maxZoom, signal }, onProgress) {
+  const tiles = tilesInBbox(bbox, minZoom, maxZoom)
+  const total = tiles.length * archives.length
+  let done = 0
+  let failed = 0
+  const before = await cachedBytes()
+
+  for (const file of archives) {
+    pmtilesUrl(baseUrl, file)
+    const archive = instances.get(file)
+    for (const t of tiles) {
+      if (signal?.aborted) {
+        const err = new Error('canceled')
+        err.canceled = true
+        throw err
+      }
+      try {
+        await archive.getZxy(t.z, t.x, t.y)
+      } catch {
+        failed++          // a tile with no data here is normal, not a failure
+      }
+      done++
+      if (done % 10 === 0 || done === total) {
+        onProgress?.({ done, total, bytes: Math.max(0, (await cachedBytes()) - before) })
+      }
+    }
+  }
+  const bytes = Math.max(0, (await cachedBytes()) - before)
+  onProgress?.({ done: total, total, bytes })
+  return { count: total - failed, failed, bytes }
 }

@@ -4,8 +4,7 @@ import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM, SITE_KINDS }
 import { SITE_BADGE_KINDS, SITE_FALLBACK_KIND, drawSiteGlyph } from '../../shared/siteIcons'
 import { buildBoondockStyle, BOONDOCK_GLYPHS, buildRoadShieldLayer, omtSource, refreshOmtTemplate } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
-import { Protocol as PMTilesProtocol, PMTiles } from 'pmtiles'
-import { CachingSource } from '../../shared/pmtilesCache'
+import { pmProtocol, pmtilesUrl } from '../../shared/pmtilesCache'
 import { elevationAt, fetchElevGrid, elevMargins } from '../../shared/elevation'
 import { pointForecast, airQuality, aqiBand, wmoInfo, fetchTempGrid, gridMargins, gridToGeoJSON, marginAt, criteriaActive } from '../../shared/weather'
 import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/waypointMeta'
@@ -30,22 +29,13 @@ installProtocol(maplibregl)
 // signal: the browser Cache API cannot store the 206 responses a range
 // request produces, so nothing else in the stack could hold them
 // (VISION row 123).
-const pmProtocol = new PMTilesProtocol()
 maplibregl.addProtocol('pmtiles', pmProtocol.tile)
 
 // Learn OpenFreeMap's rotating tile template while we can, so a later launch
 // with no signal can still build a style that loads (VISION row 126).
 refreshOmtTemplate()
 
-const pmRegistered = new Set()
-function cachedPMTilesUrl(file) {
-  const url = new URL(import.meta.env.BASE_URL + `data/${file}`, location.href).href
-  if (!pmRegistered.has(url)) {
-    pmRegistered.add(url)
-    pmProtocol.add(new PMTiles(new CachingSource(url)))
-  }
-  return `pmtiles://${url}`
-}
+const cachedPMTilesUrl = (file) => pmtilesUrl(import.meta.env.BASE_URL, file)
 
 // SVG path data for each waypoint icon (used in DOM markers)
 const MARKER_SVG = {

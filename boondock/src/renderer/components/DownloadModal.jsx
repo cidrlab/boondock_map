@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { PACK_LAYERS } from '../../shared/layers'
 import { downloadPack, tilesInBbox } from '../../shared/offlineTiles'
+import { downloadVectorArea } from '../../shared/pmtilesCache'
 import { Download, Box, Crosshair } from './Icons'
 import './DownloadModal.css'
 
@@ -17,8 +18,15 @@ export default function DownloadModal({ bbox: bboxProp, getViewBbox, onClose, on
   const [result, setResult] = useState(null)
   const abortRef = useRef(null)
 
-  const tileCount = bbox ? tilesInBbox(bbox, minZoom, maxZoom).length : 0
-  const estMB = Math.round(tileCount * 0.015)
+  const layer = PACK_LAYERS[selectedLayer]
+  // Our own tilesets stop at z12, and asking for deeper zooms would just
+  // fetch the same bytes again under a different tile id
+  const cappedMax = layer?.maxZoom ? Math.min(maxZoom, layer.maxZoom) : maxZoom
+  const perLayer = bbox ? tilesInBbox(bbox, minZoom, cappedMax).length : 0
+  const tileCount = perLayer * (layer?.archives?.length || 1)
+  // Vector tiles are far smaller than raster ones, and much of a road tile is
+  // empty ground — measured against the built archives rather than guessed
+  const estMB = Math.max(1, Math.round(tileCount * (layer?.vectorPack ? 0.004 : 0.015)))
 
   const startDownload = async () => {
     if (!bbox) return
@@ -27,10 +35,20 @@ export default function DownloadModal({ bbox: bboxProp, getViewBbox, onClose, on
     setProgress({ done: 0, total: tileCount, bytes: 0 })
     abortRef.current = new AbortController()
     try {
-      const pack = await downloadPack(
-        { name, layerId: selectedLayer, bbox, minZoom, maxZoom, signal: abortRef.current.signal },
-        setProgress
-      )
+      const pack = layer?.vectorPack
+        ? await downloadVectorArea(
+            {
+              baseUrl: import.meta.env.BASE_URL,
+              archives: layer.archives,
+              bbox, minZoom, maxZoom: cappedMax,
+              signal: abortRef.current.signal,
+            },
+            setProgress
+          )
+        : await downloadPack(
+            { name, layerId: selectedLayer, bbox, minZoom, maxZoom, signal: abortRef.current.signal },
+            setProgress
+          )
       setResult(pack)
       onStartDownload()
     } catch (e) {

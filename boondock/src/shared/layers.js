@@ -67,6 +67,19 @@ export const PACK_LAYERS = {
     maxZoom: 15,
     offlineOk: true,
   },
+  // Our own tilesets, downloadable as one pack (VISION row 127). These cache
+  // themselves as you browse, but browsing is not planning: you should be able
+  // to say "save the roads for this whole area" before leaving the driveway
+  // rather than having to pan over every valley first.
+  'forest-roads': {
+    id: 'forest-roads',
+    label: 'Forest roads & trails (MVUM, trails, all FS roads)',
+    vectorPack: true,
+    archives: ['mvum.pmtiles', 'mvum-trails.pmtiles', 'trails.pmtiles', 'roadcore.pmtiles'],
+    attribution: 'USFS',
+    maxZoom: 12,     // the zoom the tilesets are built to; past this MapLibre overzooms
+    offlineOk: true,
+  },
 }
 
 export const OVERLAY_LAYERS = {

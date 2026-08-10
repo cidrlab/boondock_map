@@ -334,9 +334,12 @@ const TABS = [
           <li>Frame the area you want on screen, open Offline →
           <em> Download</em>, pick the layer and zoom depth, and it saves to
           the device. Bigger zoom depth = more detail = more storage.</li>
-          <li>Downloadable today: <strong>USGS Topo</strong> and
-          <strong> BLM land status</strong>. Offline packs for the Boondock
-          basemap and satellite are on the roadmap.</li>
+          <li>Downloadable today: <strong>USGS Topo</strong>,
+          <strong> BLM land status</strong>, and <strong>Forest roads &amp;
+          trails</strong> — the last one saves our own MVUM, trail and all-FS-
+          roads tilesets for the area in one go, so you don&apos;t have to pan
+          over every valley first. Offline packs for the Boondock basemap and
+          satellite are still on the roadmap.</li>
           <li><strong>MVUM roads</strong>, <strong>hiking trails</strong> and
           <strong> all FS roads</strong> come from vector tilesets we host
           ourselves, fetching only the small slice your screen covers — so
