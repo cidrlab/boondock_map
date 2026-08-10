@@ -5,8 +5,10 @@
  * Free for non-commercial use, no API key (terms verified 2026-07-14);
  * credited in the Guide's Credits tab and the README acknowledgments.
  *
- * Two consumers:
+ * Three consumers:
  *   pointForecast(lat, lng)  16-day forecast + current conditions for popups
+ *   airQuality(lat, lng)     current US AQI / PM2.5 and the worst hour ahead —
+ *                            the wildfire-smoke readout (VISION row 69)
  *   fetchTempGrid(bounds)    lattice of daily max/min/mean °F over the
  *                            viewport, contoured (gridToGeoJSON) into the
  *                            area where the user's temperature limits hold
@@ -39,6 +41,32 @@ async function getJson(url) {
   }
 }
 
+// Air quality lives on a sibling host, same provider and same terms, no key
+// (VISION row 69). Kept as its own call rather than folded into the forecast:
+// it is a different endpoint, and a point card should still show its weather
+// when this one fails.
+const AIR_API = 'https://air-quality-api.open-meteo.com/v1/air-quality'
+
+// US AQI breakpoints and EPA's own colours. The words carry the meaning — the
+// colour is a second channel, not the message — so the two darkest official
+// swatches (#8f3f97, #7e0023) are lightened here to stay legible on the dark
+// popup without changing which band a number falls in.
+export const AQI_BANDS = [
+  [50, 'Good', '#4ade80'],
+  [100, 'Moderate', '#facc15'],
+  [150, 'Unhealthy for sensitive groups', '#fb923c'],
+  [200, 'Unhealthy', '#f87171'],
+  [300, 'Very unhealthy', '#c084fc'],
+  [Infinity, 'Hazardous', '#fb7185'],
+]
+
+export function aqiBand(aqi) {
+  const n = Number(aqi)
+  if (!Number.isFinite(n)) return null
+  const [, label, color] = AQI_BANDS.find(([max]) => n <= max)
+  return { label, color }
+}
+
 // Open-Meteo's maximum forecast horizon
 export const FORECAST_DAYS = 16
 
@@ -64,6 +92,7 @@ export function wmoInfo(code) {
 // ── Point forecasts for popups ───────────────────────────────────────────────
 
 const pointCache = new Map()  // ~2 km buckets → {at, data} | {promise}
+const airCache = new Map()    // same bucketing, for airQuality()
 const POINT_TTL = 30 * 60 * 1000
 
 export function pointForecast(lat, lng) {
@@ -109,6 +138,50 @@ export function pointForecast(lat, lng) {
     })
   p.catch(() => { if (pointCache.get(key)?.promise === p) pointCache.delete(key) })
   pointCache.set(key, { promise: p })
+  return p
+}
+
+/**
+ * Current air quality plus the worst hour ahead.
+ *
+ * `peak` is only set when the air is forecast to get *categorically* worse —
+ * a jump from 40 to 49 is noise, a jump from Good to Unhealthy is a reason to
+ * camp somewhere else, and that is the question this answers for a trip.
+ */
+export function airQuality(lat, lng) {
+  const key = `${Math.round(lat * 50)},${Math.round(lng * 50)}`
+  const hit = airCache.get(key)
+  if (hit?.promise) return hit.promise
+  if (hit && Date.now() - hit.at < POINT_TTL) return Promise.resolve(hit.data)
+  const params = new URLSearchParams({
+    latitude: lat.toFixed(4),
+    longitude: lng.toFixed(4),
+    current: 'us_aqi,pm2_5',
+    hourly: 'us_aqi',
+    forecast_days: '4',   // the API's ceiling for this product
+    timezone: 'auto',
+  })
+  const p = getJson(`${AIR_API}?${params}`)
+    .then(j => {
+      const aqi = j.current?.us_aqi ?? null
+      const hours = j.hourly?.time || []
+      const series = j.hourly?.us_aqi || []
+      let peak = null
+      for (let i = 0; i < series.length; i++) {
+        const v = series[i]
+        if (v == null) continue
+        if (!peak || v > peak.aqi) peak = { aqi: v, at: hours[i] }
+      }
+      // Only worth mentioning if it crosses into a worse band than right now
+      const nowBand = aqiBand(aqi)
+      if (!peak || !nowBand || aqiBand(peak.aqi)?.label === nowBand.label) peak = null
+      const data = { aqi, pm25: j.current?.pm2_5 ?? null, peak }
+      airCache.set(key, { at: Date.now(), data })
+      if (airCache.size > 300) airCache.delete(airCache.keys().next().value)
+      return data
+    })
+  p.catch(() => { if (airCache.get(key)?.promise === p) airCache.delete(key) })
+  airCache.set(key, { promise: p })
   return p
 }
 

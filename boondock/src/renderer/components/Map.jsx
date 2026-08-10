@@ -6,7 +6,7 @@ import { buildBoondockStyle, BOONDOCK_GLYPHS } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
 import { Protocol as PMTilesProtocol } from 'pmtiles'
 import { elevationAt } from '../../shared/elevation'
-import { pointForecast, wmoInfo, fetchTempGrid, gridMargins, gridToGeoJSON, marginAt, criteriaActive } from '../../shared/weather'
+import { pointForecast, airQuality, aqiBand, wmoInfo, fetchTempGrid, gridMargins, gridToGeoJSON, marginAt, criteriaActive } from '../../shared/weather'
 import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/waypointMeta'
 import { STATE_BOUNDS } from '../../shared/stateBounds'
 import { WAYPOINT_COLORS } from './Icons'
@@ -1814,7 +1814,32 @@ function weatherHtml() {
     <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(var(--overlay-rgb),0.08)">
       <div style="font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:rgba(var(--fg-rgb),.55);display:flex;justify-content:space-between"><span>Weather</span><span style="text-transform:none;letter-spacing:0">Open-Meteo</span></div>
       <div data-weather-body style="font-size:11px;color:rgba(var(--fg-rgb),.55);margin-top:3px">Loading forecast…</div>
+      <div data-air-body style="font-size:11px;margin-top:4px"></div>
     </div>`
+}
+
+// ── Smoke / air quality line (VISION row 69) ────────────────────────────────
+// Starts empty rather than "Loading…": it's a second, slower datum in a card
+// that already says something useful, and a spinner under a filled forecast
+// reads as the forecast being broken.
+function airBodyHtml(air) {
+  if (air?.aqi == null) return ''
+  const band = aqiBand(air.aqi)
+  const pm = air.pm25 != null ? ` · PM2.5 ${Number(air.pm25).toFixed(1)} µg/m³` : ''
+  // Only surfaced when the air gets categorically worse, so it means "this is
+  // about to change" rather than restating the current number
+  const peak = air.peak
+    ? (() => {
+        const b = aqiBand(air.peak.aqi)
+        const when = new Date(air.peak.at).toLocaleDateString(undefined, { weekday: 'short' })
+        return `<div style="font-size:10px;color:${b.color};margin-top:2px">Forecast to reach ${Math.round(air.peak.aqi)} — ${esc(b.label.toLowerCase())} by ${esc(when)}</div>`
+      })()
+    : ''
+  return `
+    <div style="display:flex;align-items:center;gap:5px;color:rgba(var(--fg-rgb),.85)">
+      <span style="color:${band.color};font-size:13px;line-height:1">●</span>
+      <span>Air ${Math.round(air.aqi)} · ${esc(band.label)}${pm}</span>
+    </div>${peak}`
 }
 
 function forecastBodyHtml(fc) {
@@ -1880,6 +1905,20 @@ function keepPopupInView(m, popup) {
 
 function attachWeather(popup, lat, lng, m) {
   const slotOf = () => popup.getElement()?.querySelector('[data-weather-body]')
+
+  // Air quality rides alongside the forecast but never blocks it — a failure
+  // here leaves the weather card exactly as it was, silently, because a point
+  // card is not the place to explain that a secondary feed is down.
+  airQuality(lat, lng)
+    .then(air => {
+      if (!popup.isOpen?.()) return
+      const slot = popup.getElement()?.querySelector('[data-air-body]')
+      if (!slot) return
+      slot.innerHTML = airBodyHtml(air)
+      if (m) keepPopupInView(m, popup)
+    })
+    .catch(() => {})
+
   const load = () => {
     pointForecast(lat, lng)
       .then(fc => {

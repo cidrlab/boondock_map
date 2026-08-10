@@ -26,13 +26,18 @@ export function parseCoords(raw) {
   if (!raw || raw.trim().length < 3) return null
   const s = raw.trim()
 
-  // ── Try DMS / DDM first (contains degree symbols or d/m/s letters) ──────
-  const dmsResult = tryDMS(s)
-  if (dmsResult) return dmsResult
-
-  // ── Try plain decimal degrees ─────────────────────────────────────────
+  // Decimal degrees first. This order matters and used to be the other way
+  // round, which silently put people on the wrong side of the planet: the DMS
+  // reader's number token is `[\d.]+`, which cannot match a minus sign, so
+  // "48.88844, -122.00262" parsed as 48.88844, **+**122.00262 — Washington
+  // State became western China, and the card looked perfectly confident about
+  // it (reported 2026-08-09). A signed decimal pair is unambiguous, so it is
+  // read first, and tryDMS now refuses anything without real DMS marks.
   const ddResult = tryDD(s)
   if (ddResult) return ddResult
+
+  const dmsResult = tryDMS(s)
+  if (dmsResult) return dmsResult
 
   return null
 }
@@ -81,43 +86,55 @@ function tryDD(s) {
 
 // ── DMS / DDM ────────────────────────────────────────────────────────────────
 function tryDMS(s) {
-  // Normalize: replace degree/minute/second symbols with space-separated tokens
+  // Only claim input that actually carries degree/minute/second marks or a
+  // hemisphere letter. Without this guard the reader below happily "parses"
+  // any pair of numbers, dropping their signs on the way through — which is
+  // how a plain decimal paste ended up mirrored across the prime meridian.
+  if (!/[°'"′″]|[NSEWnsew]\s*\d|\d\s*[NSEWnsew]/.test(s)) return null
+
+  // Hemisphere letters, in order, pulled out *before* anything else. They are
+  // read separately from the numbers because a letter sitting between two
+  // coordinates is genuinely ambiguous — the W in "48°…N 121°…W" suffixes its
+  // own coordinate, the W in "N48°… W121°…" prefixes the next one — and any
+  // rule deciding from position alone gets one of the two forms wrong. Taken
+  // in order they map 1:1 onto the coordinates either way.
+  // (S is also the seconds marker once upper-cased, which is exactly why the
+  // markers below are reduced to spaces rather than to letters.)
+  const dirs = (s.toUpperCase().match(/[NSEW]/g) || [])
+
   const norm = s
-    .replace(/°/g, ' d ')
-    .replace(/['''′]/g, ' m ')
-    .replace(/["""″]/g, ' s ')
+    .replace(/[\u00b0'\u2018\u2019\u2032"\u201c\u201d\u2033]/g, ' ')
+    .replace(/[NSEWnsew]/g, ' ')
     .replace(/[,;]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .toUpperCase()
 
-  // Pull out two coordinate chunks (lat and lng)
-  // Each chunk: digits + direction letter
-  const chunkRe = /([NSEW])?\s*([\d.]+)\s*[Dd]?\s*([\d.]+)?\s*[Mm]?\s*([\d.]+)?\s*[Ss]?\s*([NSEW])?/g
-  const chunks = []
-  let match
-  while ((match = chunkRe.exec(norm)) !== null && chunks.length < 2) {
-    const dir = (match[1] || match[5] || '').toUpperCase()
-    const deg = parseFloat(match[2] || 0)
-    const min = parseFloat(match[3] || 0)
-    const sec = parseFloat(match[4] || 0)
-    if (isNaN(deg)) continue
-    const dd = deg + min / 60 + sec / 3600
-    chunks.push({ dd, dir })
+  // What is left is numbers: degrees [minutes [seconds]] per coordinate. Split
+  // them evenly; an odd count means the two halves disagree about format,
+  // which is not something to guess at.
+  const nums = (norm.match(/[+-]?\d+(?:\.\d+)?/g) || []).map(Number)
+  if (nums.length < 2 || nums.length % 2 !== 0 || nums.length > 6) return null
+  const per = nums.length / 2
+
+  const toDD = (parts) => {
+    const [deg, min = 0, sec = 0] = parts
+    if (!Number.isFinite(deg)) return NaN
+    // Minutes and seconds are magnitudes; the degree carries the sign
+    return Math.sign(deg || 1) * (Math.abs(deg) + min / 60 + sec / 3600)
   }
-
-  if (chunks.length < 2) return null
+  const chunks = [
+    { dd: toDD(nums.slice(0, per)), dir: dirs[0] || '' },
+    { dd: toDD(nums.slice(per)), dir: dirs[1] || '' },
+  ]
 
   let lat = chunks[0].dd
   let lng = chunks[1].dd
 
-  // Apply hemisphere
-  if (chunks[0].dir === 'S') lat = -lat
-  if (chunks[1].dir === 'W') lng = -lng
-  // If no dir given and lng looks like it should be negative (US/Canada)
-  if (!chunks[1].dir && lng > 0 && lng < 180 && lat > 0 && lat < 90) {
-    // Ambiguous — leave as-is; user can add W if needed
-  }
+  // A hemisphere letter is the authority when present — take the magnitude and
+  // let the letter decide the sign, so "48 25.027 S" cannot come out positive
+  // and "-121 49.109 W" cannot double-negate back to the east.
+  if (chunks[0].dir) lat = Math.abs(lat) * (chunks[0].dir === 'S' ? -1 : 1)
+  if (chunks[1].dir) lng = Math.abs(lng) * (chunks[1].dir === 'W' ? -1 : 1)
 
   return validateLatLng(lat, lng)
 }
