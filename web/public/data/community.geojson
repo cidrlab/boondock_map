@@ -1,1 +1,3 @@
-{"type":"FeatureCollection","features":[]}
+{"type":"FeatureCollection","features":[
+{"geometry":{"coordinates":[-122.0026401320039,48.88850696394522],"type":"Point"},"properties":{"checkins":[],"desc":"Large clear area with views of Baker. Old forest clearing staging area.","id":"c_d5fdb49304","kind":"campsite","name":"Camp with Mt Baker View","reported":"2026-08-10","src":"community","status":"unverified"},"type":"Feature"}
+]}
