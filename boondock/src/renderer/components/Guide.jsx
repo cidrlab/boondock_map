@@ -29,6 +29,10 @@ const TABS = [
         <p>Flip through the tabs above for each part of the app. The
         <strong> ?</strong> button beside the book in the top bar is the map
         legend — what every color and symbol means.</p>
+        <p><strong>Don&apos;t take our word for the privacy part.</strong> The
+        whole app is open source under GPL-3.0, so you can read exactly what it
+        does and what it never sends anywhere:
+        <a href="https://github.com/cidrlab/boondock_map" target="_blank" rel="noreferrer"> github.com/cidrlab/boondock_map</a>.</p>
         {communityEnabled() && (
         <p><strong>Found a bug, or want something?</strong> The speech-bubble
         button in the top bar sends feedback straight to the project&apos;s
@@ -378,8 +382,12 @@ const TABS = [
     id: 'credits', label: 'Credits',
     body: (
       <>
-        <p>Boondock Map is GPL-3.0 open source, built on open data. Every
-        search result and site names its source on the card; the big ones:</p>
+        <p>Boondock Map is GPL-3.0 open source, built on open data. The code
+        is public — read it, check what it does with your data, file an issue,
+        or fork it:
+        <a href="https://github.com/cidrlab/boondock_map" target="_blank" rel="noreferrer"> github.com/cidrlab/boondock_map</a>.
+        Every search result and site names its source on the card; the big
+        ones:</p>
         <ul>
           <li><strong>OpenStreetMap</strong> contributors — basemap data and
           community-mapped sites (ODbL).</li>
@@ -457,7 +465,9 @@ const TABS = [
         with its source available, so nobody can take this work, close it up,
         and start charging for it. That is the point of the choice: the apps
         this one replaces got bought, paywalled, or shut down.</p>
-        <p>The full license text ships with the app as the
+        <p>The source is at
+        <a href="https://github.com/cidrlab/boondock_map" target="_blank" rel="noreferrer"> github.com/cidrlab/boondock_map</a>.
+        The full license text ships with the app as the
         <code> LICENSE</code> file and is published at
         <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noreferrer"> gnu.org/licenses/gpl-3.0</a>.
         Sections 15 and 16 there are the formal versions of the no-warranty and

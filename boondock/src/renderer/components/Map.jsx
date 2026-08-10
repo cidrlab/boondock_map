@@ -572,8 +572,14 @@ const Map = forwardRef(function Map(
     const m = map.current
     if (!m) return
     const ov = overlaysRef.current
+    // The Boondock bases draw their own place names and route numbers, so
+    // stacking ESRI's reference raster on top of them prints every town twice
+    // — "Lynden / Lynden" (VISION row 121). That overlay exists for imagery,
+    // where there are no labels at all, so it simply doesn't belong here.
+    const vectorBase = Boolean(BASE_LAYERS[baseLayerRef.current]?.custom)
     Object.entries(OVERLAY_LAYERS).forEach(([id, layer]) => {
       if (layer.sites || layer.zones) return
+      if (id === 'names' && vectorBase) return
       const parts = layer.parts || [{ key: null, tileUrl: layer.tileUrl, sourceMinzoom: layer.sourceMinzoom, sourceMaxzoom: layer.sourceMaxzoom, zoomOpacity: layer.zoomOpacity }]
       parts.forEach(p => {
         if (!p.tileUrl) return

@@ -673,3 +673,15 @@
   color: var(--text-muted);
   margin-top: 10px;
 }
+
+/* An overlay that does nothing on the current basemap — Names & Labels over
+   the Boondock bases, which already carry names (VISION row 121). Dimmed
+   rather than hidden, so the layer list doesn't reshuffle when you switch
+   basemaps and people can still see the option exists. */
+.overlay-btn-na {
+  opacity: 0.4;
+  cursor: default;
+}
+.overlay-btn-na:hover {
+  border-color: var(--border);
+}

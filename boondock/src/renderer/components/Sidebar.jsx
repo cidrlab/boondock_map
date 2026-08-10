@@ -723,16 +723,25 @@ export default function Sidebar({
 
             <Section id="overlay" title="Overlays" first={false} collapsed={collapsed.overlay} onToggle={toggleSection}>
             <div className="overlay-grid">
-              {Object.entries(OVERLAY_LAYERS).map(([id, layer]) => (
+              {Object.entries(OVERLAY_LAYERS).map(([id, layer]) => {
+                // Names & Labels is for imagery; the Boondock bases already
+                // carry names and route numbers, and switching it on there
+                // used to draw every town's name a second time (row 121).
+                const redundant = id === 'names' && BASE_LAYERS[baseLayer]?.custom
+                return (
                 <button
                   key={id}
-                  className={`overlay-btn ${overlays[id] ? 'active' : ''}`}
-                  onClick={() => setOverlays(o => ({ ...o, [id]: !o[id] }))}
-                  title={layer.description}
+                  className={`overlay-btn ${overlays[id] && !redundant ? 'active' : ''} ${redundant ? 'overlay-btn-na' : ''}`}
+                  onClick={() => { if (!redundant) setOverlays(o => ({ ...o, [id]: !o[id] })) }}
+                  disabled={redundant}
+                  title={redundant
+                    ? 'This map already has names and route numbers — the overlay is for Satellite'
+                    : layer.description}
                 >
                   <span className="overlay-btn-label">{layer.label}</span>
                 </button>
-              ))}
+                )
+              })}
             </div>
             </Section>
 
