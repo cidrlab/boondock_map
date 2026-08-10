@@ -84,7 +84,7 @@ export const OVERLAY_LAYERS = {
   'mvum': {
     id: 'mvum',
     label: 'MVUM Roads',
-    description: 'USFS Motor Vehicle Use Map — the roads and motorized trails you may legally drive, by vehicle type (National Forests only). Self-hosted vector tiles, so it works offline. Tap a route for its legal class, vehicles, season, and surface.',
+    description: 'USFS Motor Vehicle Use Map — the roads and motorized trails you may legally drive, by vehicle type (National Forests only). Self-hosted vector tiles, so it does not depend on Forest Service servers staying up. Tap a route for its legal class, vehicles, season, and surface.',
     // Self-hosted vector tiles (VISION row 83): mvum.pmtiles (151,021 roads)
     // and mvum-trails.pmtiles (17,725 motorized trails), added by
     // addMvumVectorLayers() in Map.jsx.
@@ -122,7 +122,7 @@ export const OVERLAY_LAYERS = {
   'usfs-trails': {
     id: 'usfs-trails',
     label: 'Hiking Trails',
-    description: 'National Forest trail system — self-hosted vector tiles, so it works offline. Tap a trail for who it is managed for, its class, and surface.',
+    description: 'National Forest trail system — self-hosted vector tiles, independent of agency uptime. Tap a trail for who it is managed for, its class, and surface.',
     // Self-hosted vector tiles (VISION row 83): trails.pmtiles, 77,234 trails,
     // added by addTrailsVectorLayers() in Map.jsx.
     //
@@ -175,7 +175,7 @@ export const OVERLAY_LAYERS = {
   'roadcore': {
     id: 'roadcore',
     label: 'All FS Roads',
-    description: 'Every Forest Service road (USFS RoadCore), self-hosted as vector tiles so it works offline. The full network, well beyond the legal-motorized MVUM subset: solid = open to some vehicle, faded dashes = closed. A road being here is not permission to drive it.',
+    description: 'Every Forest Service road (USFS RoadCore), self-hosted as vector tiles. The full network, well beyond the legal-motorized MVUM subset: solid = open to some vehicle, faded dashes = closed. A road being here is not permission to drive it.',
     roadcore: true,   // vector PMTiles overlay, handled in Map.jsx
     attribution: 'USFS RoadCore',
   },

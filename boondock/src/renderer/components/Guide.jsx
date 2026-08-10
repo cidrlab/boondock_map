@@ -92,7 +92,7 @@ const TABS = [
           name, the vehicle classes it&apos;s open to, the season, surface and
           length; click a <strong>trail</strong> (past ~z10) to see whether
           it&apos;s hiking or motorized, plus its class and surface. Both
-          answer instantly and work with no signal.</li>
+          answer instantly, with no round-trip to an agency server.</li>
           <li>Zoom buttons and the locate-me button are on the right edge, with
           an <strong>add-pin button</strong> that drops a waypoint at your
           location or a point you tap (see the Waypoints tab).</li>
@@ -147,7 +147,8 @@ const TABS = [
         <ul>
           <li><strong>MVUM roads</strong> — the Forest Service Motor Vehicle Use
           Map: the routes you may legally drive, and in what. Self-hosted, so
-          it works <em>offline</em>. Colour answers the question the MVUM
+          it doesn&apos;t depend on the Forest Service&apos;s servers being
+          up. Colour answers the question the MVUM
           exists to answer — amber is open to all vehicles including OHVs,
           green is highway-legal vehicles only, violet is a special designation
           you should read the forest&apos;s own map for. A dashed line means the
@@ -165,14 +166,15 @@ const TABS = [
           one is still drawn live from BLM&apos;s server, so it needs a
           connection.</li>
           <li><strong>All FS roads</strong> — every Forest Service road
-          (RoadCore), self-hosted so it works <em>offline</em>. It&apos;s the
+          (RoadCore), served from our own vector tiles rather than an agency
+          server. It&apos;s the
           full network, well beyond MVUM&apos;s legal-motorized subset: khaki
           solid where a road is open to some vehicle, faded grey dashes where
           it&apos;s closed. A road appearing here is <strong>not</strong>
           permission to drive it, so cross-check the MVUM and local rules. Off
           by default.</li>
           <li><strong>Hiking trails</strong> — dashed light-blue lines from the
-          USFS trails system, self-hosted so they work <em>offline</em> too.
+          USFS trails system, served from our own vector tiles too.
           Tap one for who it&apos;s managed for (hiking, stock, bike,
           motorcycle, ATV, 4WD), its class and surface.</li>
           <li><strong>Names &amp; labels</strong> — place names over Satellite,
@@ -335,10 +337,13 @@ const TABS = [
           <li>Downloadable today: <strong>USGS Topo</strong> and
           <strong> BLM land status</strong>. Offline packs for the Boondock
           basemap and satellite are on the roadmap.</li>
-          <li>Some layers need no pack at all — <strong>MVUM roads</strong>,
-          <strong> hiking trails</strong> and <strong>all FS roads</strong>
-          ship with the app as vector tiles and draw with no signal, fetching
-          only the small slice of the file your screen covers.</li>
+          <li><strong>MVUM roads</strong>, <strong>hiking trails</strong> and
+          <strong> all FS roads</strong> come from vector tilesets we host
+          ourselves, fetching only the small slice your screen covers. That
+          makes them fast and immune to the Forest Service&apos;s servers going
+          down — but they still need a connection today. Storing them for real
+          offline use is on the roadmap, alongside packs for the Boondock
+          basemap.</li>
           <li>Downloaded areas are outlined on the map while you&apos;re in the
           Offline tab; the tab lists each pack with its size, and you can
           delete packs anytime.</li>

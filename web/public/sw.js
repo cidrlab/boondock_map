@@ -8,9 +8,23 @@
  * app's own tile store, not this worker.
  */
 
-const CACHE = 'boondock-shell-v2'
+const CACHE = 'boondock-shell-v3'
 
-self.addEventListener('install', () => self.skipWaiting())
+// Precache the shell at install. Without this the shell was only cached once
+// the worker had *already* claimed a navigation — so someone who opened the
+// map once and then lost signal got the browser's error page, not the app
+// (verified 2026-08-09 by killing the origin server: title "localhost", no
+// canvas). The first visit is exactly the visit that needs to survive.
+const SHELL = ['./', './index.html', './manifest.webmanifest']
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => c.addAll(SHELL))
+      .catch(() => {})   // a missing entry must not block activation
+      .then(() => self.skipWaiting())
+  )
+})
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -29,7 +43,7 @@ self.addEventListener('fetch', (e) => {
       fetch(e.request)
         .then(res => {
           const copy = res.clone()
-          caches.open(CACHE).then(c => c.put(e.request, copy))
+          caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {})
           return res
         })
         .catch(() => caches.match(e.request))
@@ -41,9 +55,14 @@ self.addEventListener('fetch', (e) => {
     caches.match(e.request).then(cached => {
       const network = fetch(e.request)
         .then(res => {
-          if (res.ok) {
+          // 206 is `ok`, but Cache.put rejects on a partial response — and the
+          // .pmtiles road layers are fetched entirely by HTTP range, so this
+          // fired a TypeError on every tile read before it was guarded.
+          // Storing byte ranges needs the app's own tile store, not this
+          // cache (VISION row 123).
+          if (res.ok && res.status !== 206) {
             const copy = res.clone()
-            caches.open(CACHE).then(c => c.put(e.request, copy))
+            caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {})
           }
           return res
         })
