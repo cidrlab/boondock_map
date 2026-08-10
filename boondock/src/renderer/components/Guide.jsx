@@ -263,7 +263,10 @@ const TABS = [
           only that one, tap more to add them, and <em>All</em> (or selecting
           every type) goes back to everything. Min / Max elevation sliders
           filter the site dots too — handy for staying below snow line, or
-          showing only water and dump stations on a supply run. The <strong>Temperature Filter</strong> below it goes further:
+          showing only water and dump stations on a supply run. Set an
+          elevation limit and the ground in that band <strong>shades
+          violet</strong>, so you can see where the country sits even where
+          there are no sites to show. The <strong>Temperature Filter</strong> below it goes further:
           it hides sites whose 7–16-day forecast breaks your heat, cold, or
           average-temperature limits, and shades the areas that qualify.</li>
           <li>Every result card names its <strong>data source</strong> with a

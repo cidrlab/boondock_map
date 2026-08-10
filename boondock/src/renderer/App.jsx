@@ -51,7 +51,7 @@ export default function App() {
   const [siteKinds, setSiteKinds] = useState(null)       // null = all site types
   const [siteMaxElev, setSiteMaxElev] = useState(null)   // null = no upper bound
   // Temperature filter over the forecast window; null limits are off
-  const [tempFilter, setTempFilter] = useState({ days: 10, maxHi: null, minLo: null, avgLo: null, avgHi: null })
+  const [tempFilter, setTempFilter] = useState({ startDay: 0, days: 10, maxHi: null, minLo: null, avgLo: null, avgHi: null })
   const [tempStatus, setTempStatus] = useState({ state: 'idle' })  // Map reports grid fetches here
   const [wpFilter, setWpFilter] = useState({ status: null, favorite: false, labels: [] })
   const [wpColors, setWpColors] = useState({})       // per-category pin color overrides

@@ -5,7 +5,7 @@ import { SITE_BADGE_KINDS, SITE_FALLBACK_KIND, drawSiteGlyph } from '../../share
 import { buildBoondockStyle, BOONDOCK_GLYPHS, buildRoadShieldLayer, OMT_SOURCE } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
 import { Protocol as PMTilesProtocol } from 'pmtiles'
-import { elevationAt } from '../../shared/elevation'
+import { elevationAt, fetchElevGrid, elevMargins } from '../../shared/elevation'
 import { pointForecast, airQuality, aqiBand, wmoInfo, fetchTempGrid, gridMargins, gridToGeoJSON, marginAt, criteriaActive } from '../../shared/weather'
 import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/waypointMeta'
 import { STATE_BOUNDS } from '../../shared/stateBounds'
@@ -324,6 +324,7 @@ const Map = forwardRef(function Map(
       addWildfireLayers()
       addZonesLayers()
       addTempLayers()
+      addElevLayers()
       addSearchPinsLayers()
       addNavLayers()
       setMapReady(true)
@@ -350,6 +351,15 @@ const Map = forwardRef(function Map(
       if (!criteriaActive(tempFilterRef.current)) return
       clearTimeout(tempDebounceRef.current)
       tempDebounceRef.current = setTimeout(() => refreshTempOverlay(), 700)
+    })
+
+    // The elevation band follows the view too. Cheaper than the forecast grid
+    // (DEM tiles, mostly already cached for the hillshade) so a shorter wait.
+    map.current.on('moveend', () => {
+      const { min, max } = elevRangeRef.current
+      if (min == null && max == null) return
+      clearTimeout(elevDebounceRef.current)
+      elevDebounceRef.current = setTimeout(() => refreshElevOverlay(), 350)
     })
 
     const emitZoom = () => onZoomChange?.(Math.round(map.current.getZoom() * 10) / 10)
@@ -532,6 +542,8 @@ const Map = forwardRef(function Map(
       addZonesLayers()
       addTempLayers()
       applyTempData()
+      addElevLayers()
+      applyElevData()
       addSearchPinsLayers()
       applySearchPins()
       addNavLayers()
@@ -1115,6 +1127,71 @@ const Map = forwardRef(function Map(
   const tempTokenRef = useRef(0)        // drops stale async grid fetches
   const tempDebounceRef = useRef(null)
 
+  // ── Elevation band overlay (VISION row 120) ───────────────────────────────
+  // The elevation sliders used to only *remove* site dots, so a filter with no
+  // sites in view looked like a broken map rather than an answer. This shades
+  // the ground that actually falls in the band, the same way the temperature
+  // filter does, using the same marching-squares contouring — the only new
+  // part is sampling the DEM the hillshade already draws.
+  const elevDataRef = useRef(null)
+  const elevTokenRef = useRef(0)
+  const elevDebounceRef = useRef(null)
+
+  function addElevLayers() {
+    const m = map.current
+    if (!m) return
+    const empty = { type: 'FeatureCollection', features: [] }
+    if (!m.getSource('elev-area')) m.addSource('elev-area', { type: 'geojson', data: empty })
+    if (!m.getSource('elev-edge')) m.addSource('elev-edge', { type: 'geojson', data: empty })
+    const before = m.getLayer('sites-clusters') ? 'sites-clusters' : undefined
+    // Violet, because every other band on this map is spoken for: sky blue is
+    // the temperature filter, mint is Boondock Zones, and the warm end (amber,
+    // orange, red) belongs to roads and wildfire, where a colour clash would
+    // matter far more than here.
+    if (!m.getLayer('elev-area-fill')) {
+      m.addLayer({
+        id: 'elev-area-fill', type: 'fill', source: 'elev-area',
+        paint: { 'fill-color': '#8b5cf6', 'fill-opacity': 0.13 },
+      }, before)
+    }
+    if (!m.getLayer('elev-area-line')) {
+      m.addLayer({
+        id: 'elev-area-line', type: 'line', source: 'elev-edge',
+        paint: { 'line-color': '#8b5cf6', 'line-opacity': 0.7, 'line-width': 1.3, 'line-dasharray': [2, 2] },
+      }, before)
+    }
+  }
+
+  function applyElevData() {
+    const m = map.current
+    if (!m) return
+    const empty = { type: 'FeatureCollection', features: [] }
+    m.getSource('elev-area')?.setData(elevDataRef.current?.area || empty)
+    m.getSource('elev-edge')?.setData(elevDataRef.current?.edge || empty)
+  }
+
+  async function refreshElevOverlay() {
+    const m = map.current
+    if (!m) return
+    const token = ++elevTokenRef.current
+    const { min, max } = elevRangeRef.current
+    if (min == null && max == null) {
+      elevDataRef.current = null
+      applyElevData()
+      return
+    }
+    let grid
+    try {
+      const b = m.getBounds()
+      grid = await fetchElevGrid({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() })
+    } catch {
+      return   // DEM tiles unavailable (offline) — leave whatever is drawn
+    }
+    if (token !== elevTokenRef.current || map.current !== m) return
+    elevDataRef.current = gridToGeoJSON(grid, elevMargins(grid, min, max))
+    applyElevData()
+  }
+
   function addTempLayers() {
     const m = map.current
     if (!m) return
@@ -1228,6 +1305,10 @@ const Map = forwardRef(function Map(
   useEffect(() => {
     if (mapReady) applySiteElevFilter()
   }, [siteMinElev, siteMaxElev, siteKinds, mapReady])
+
+  useEffect(() => {
+    if (mapReady) refreshElevOverlay()
+  }, [siteMinElev, siteMaxElev, mapReady])
 
   // ── Offline fallback: saved USGS packs appear when the network is gone ────
   function addOfflineFallbackLayer() {

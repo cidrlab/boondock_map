@@ -285,14 +285,29 @@ export function criteriaActive(c) {
   return c != null && (c.maxHi != null || c.minLo != null || c.avgLo != null || c.avgHi != null)
 }
 
+/**
+ * How far inside the user's limits each lattice node sits, in °F.
+ *
+ * `startDay` shifts the window off today (0 = today, 1 = tomorrow…): when
+ * you're planning a trip you leave on Friday, today's weather is noise, and
+ * including it can hide a spot that is fine for the days you'll actually be
+ * there. The window is clamped to the forecast horizon rather than silently
+ * running off the end of the data.
+ */
+export function windowRange(c) {
+  const start = Math.min(Math.max(c?.startDay || 0, 0), FORECAST_DAYS - 1)
+  const len = Math.min(Math.max(c?.days || 10, 1), FORECAST_DAYS - start)
+  return { start, len, end: start + len }
+}
+
 export function gridMargins(grid, c) {
-  const days = Math.min(Math.max(c.days || 10, 1), FORECAST_DAYS)
+  const { start, len: days } = windowRange(c)
   const out = new Float64Array(grid.cols * grid.rows).fill(NaN)
   for (let i = 0; i < out.length; i++) {
     const d = grid.day[i]
     if (!d) continue
     let hi = -Infinity, lo = Infinity, sum = 0, ok = true
-    for (let k = 0; k < days; k++) {
+    for (let k = start; k < start + days; k++) {
       const a = d.tmax[k], b = d.tmin[k]
       if (a == null || b == null) { ok = false; break }
       if (a > hi) hi = a

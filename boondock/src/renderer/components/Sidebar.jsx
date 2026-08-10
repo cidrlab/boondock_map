@@ -4,6 +4,7 @@ import { THEMES } from '../../shared/theme'
 import { listPacks, deletePack, storageEstimate } from '../../shared/offlineTiles'
 import { WP_STATUS_META, WP_STATUS_OPTIONS, WP_RATING_KEYS, statusBadgeColor, matchesWpFilter } from '../../shared/waypointMeta'
 import { parseCoords, formatCoords } from '../../shared/parseCoords'
+import { windowRange, FORECAST_DAYS } from '../../shared/weather'
 import { useGeocoder } from '../../shared/useGeocoder'
 import { usePoiSearch, POI_CATEGORIES } from '../../shared/usePoiSearch'
 import { communityEnabled } from '../../shared/community'
@@ -736,6 +737,12 @@ export default function Sidebar({
             </Section>
 
             <Section id="sites" title="Site Filter" first={false} collapsed={collapsed.sites} onToggle={toggleSection}>
+            <p className="dl-info">
+              Tap a type to show only that one, tap another to add it. Set an
+              elevation limit and the ground in that band shades violet, so the
+              filter shows you where the country sits instead of only removing
+              dots.
+            </p>
             <div className="site-kind-row">
               <button
                 className={`poi-chip ${siteKinds == null ? 'active' : ''}`}
@@ -800,9 +807,11 @@ export default function Sidebar({
 
             <Section id="temp" title="Temperature Filter" first={false} collapsed={collapsed.temp} onToggle={toggleSection}>
             <p className="dl-info">
-              Filter by the forecast: where the coming days fit your limits, the
-              map shades blue and sites outside it are hidden. Slide an end to
-              its edge for “Any”. Forecasts: Open-Meteo, up to 16 days out.
+              Filter by the forecast: where your chosen days fit your limits,
+              the map shades blue and sites outside it are hidden. Start the
+              window today or later — handy when you leave on Friday and
+              today's weather is beside the point. Slide a limit to its edge
+              for “Any”. Forecasts: Open-Meteo, up to 16 days out.
             </p>
             <TempFilter tempFilter={tempFilter} setTempFilter={setTempFilter} tempStatus={tempStatus} />
             </Section>
@@ -829,6 +838,16 @@ export default function Sidebar({
 // Temperature filter controls — forecast window plus three kinds of limit.
 // A limit slid to its extreme end reads as null = “Any” (off), mirroring the
 // elevation sliders; conflicting pairs clear the other side the same way.
+// "next 10 days" stops being true once the window can start later, so say
+// which days it actually covers (VISION row 119).
+const startLabel = (d) => !d ? 'Today' : d === 1 ? 'Tomorrow' : `In ${d} days`
+
+function windowLabel(f) {
+  const { start, len, end } = windowRange(f)
+  const capped = end >= FORECAST_DAYS && (f.startDay || 0) + (f.days || 0) > FORECAST_DAYS
+  return `${len} days${start ? ` (days ${start + 1}\u2013${end})` : ''}${capped ? ', to the 16-day limit' : ''}`
+}
+
 function TempFilter({ tempFilter, setTempFilter, tempStatus }) {
   const f = tempFilter
   const active = f.maxHi != null || f.minLo != null || f.avgLo != null || f.avgHi != null
@@ -836,7 +855,12 @@ function TempFilter({ tempFilter, setTempFilter, tempStatus }) {
   const fmt = (v) => v == null ? 'Any' : `${v}°F`
   return (
     <div className="elev-filter">
-      <label>Days ahead<span>next {f.days} days</span></label>
+      <label>Starting<span>{startLabel(f.startDay)}</span></label>
+      <input
+        type="range" min={0} max={9} step={1} value={f.startDay ?? 0}
+        onChange={e => set({ startDay: +e.target.value })}
+      />
+      <label style={{ marginTop: 10 }}>Window<span>{windowLabel(f)}</span></label>
       <input
         type="range" min={7} max={16} step={1} value={f.days}
         onChange={e => set({ days: +e.target.value })}
