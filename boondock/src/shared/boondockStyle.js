@@ -75,17 +75,70 @@ const DAY = {
 
 export const BOONDOCK_GLYPHS = GLYPHS
 
+// Route numbers for the roads you navigate by (VISION row 105). The map drew
+// highways but never named them, so an interstate was a slightly thicker line
+// and nothing else — no way to tell I-5 from US-97 while planning a way out.
+// `ref` is a separate field from `name` in the OpenMapTiles schema, so the
+// road-name layer below, which labels `name`, never showed a route number.
+//
+// Bold haloed text rather than a shield graphic: shields need a sprite sheet
+// and this style deliberately has none, and a legible "I-5" beats a fake
+// shield. Built here rather than inline because the same shields ride the
+// Names & Labels overlay over Satellite, and two copies of a symbol layer
+// drift apart.
+export function buildRoadShieldLayer(mode, id, visibility) {
+  const C = mode === 'day' ? DAY : NIGHT
+  return {
+    id,
+    type: 'symbol',
+    source: 'omt',
+    'source-layer': 'transportation_name',
+    minzoom: 8,
+    filter: ['all',
+      ['has', 'ref'],
+      ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false],
+    ],
+    layout: {
+      // `ref` is the bare number, so an interstate would render as a lone "5"
+      // — indistinguishable from a state route and easily mistaken for a site
+      // cluster count. `network` (confirmed present in the OpenFreeMap
+      // TileJSON) says which shield it would be, so it reads I-5 / US 97, and
+      // anything else keeps its own ref, which already carries a letter suffix
+      // like 99W.
+      'text-field': ['case',
+        ['==', ['get', 'network'], 'us-interstate'], ['concat', 'I-', ['get', 'ref']],
+        ['==', ['get', 'network'], 'us-highway'], ['concat', 'US ', ['get', 'ref']],
+        ['get', 'ref'],
+      ],
+      'text-font': ['Noto Sans Bold'],
+      'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 12, 12.5],
+      'symbol-placement': 'line',
+      'symbol-spacing': 220,
+      'text-rotation-alignment': 'viewport',   // shields read upright, not along the curve
+      'text-padding': 3,
+      ...(visibility && { visibility }),
+    },
+    paint: {
+      'text-color': C.textBright,
+      'text-halo-color': C.halo,
+      'text-halo-width': 2.2,
+    },
+  }
+}
+
+export const OMT_SOURCE = {
+  type: 'vector',
+  url: 'https://tiles.openfreemap.org/planet',
+  attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors',
+}
+
 export function buildBoondockStyle(mode = 'night') {
   const C = mode === 'day' ? DAY : NIGHT
   return {
     version: 8,
     glyphs: GLYPHS,
     sources: {
-      omt: {
-        type: 'vector',
-        url: 'https://tiles.openfreemap.org/planet',
-        attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors',
-      },
+      omt: OMT_SOURCE,
       dem: {
         type: 'raster-dem',
         tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
@@ -255,6 +308,7 @@ export function buildBoondockStyle(mode = 'night') {
         },
         paint: { 'text-color': C.textDim, 'text-halo-color': C.halo, 'text-halo-width': 1 },
       },
+      buildRoadShieldLayer(mode, 'road-shield'),
       {
         // Peaks label their elevation in feet — the map carries its own numbers
         id: 'peak', type: 'symbol', source: 'omt', 'source-layer': 'mountain_peak', minzoom: 9,

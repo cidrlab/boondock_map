@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallba
 import maplibregl from 'maplibre-gl'
 import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM, SITE_KINDS } from '../../shared/layers'
 import { SITE_BADGE_KINDS, SITE_FALLBACK_KIND, drawSiteGlyph } from '../../shared/siteIcons'
-import { buildBoondockStyle, BOONDOCK_GLYPHS } from '../../shared/boondockStyle'
+import { buildBoondockStyle, BOONDOCK_GLYPHS, buildRoadShieldLayer, OMT_SOURCE } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
 import { Protocol as PMTilesProtocol } from 'pmtiles'
 import { elevationAt } from '../../shared/elevation'
@@ -181,8 +181,20 @@ const Map = forwardRef(function Map(
           attribution: base.attribution || '',
           ...(base.sourceMaxzoom && { maxzoom: base.sourceMaxzoom }),
         },
+        // Vector source purely for route numbers (VISION row 105). ESRI's
+        // reference tiles label places and counties but carry no highway
+        // numbers at all — verified over the Willamette Valley, where Salem,
+        // Albany and Corvallis are named and I-5 running between them is not.
+        omt: OMT_SOURCE,
       },
-      layers: [{ id: 'base-layer', type: 'raster', source: 'base' }],
+      layers: [
+        { id: 'base-layer', type: 'raster', source: 'base' },
+        // Rides the Names & Labels switch, since that is where a user looks
+        // for labels over imagery. Night palette regardless of theme: this
+        // only ever draws over aerial imagery or a topo raster, both dark
+        // enough that bright text with a dark halo is the readable choice.
+        buildRoadShieldLayer('night', 'names-shield', overlaysRef.current.names ? 'visible' : 'none'),
+      ],
     }
   }
 
@@ -1598,6 +1610,11 @@ const OVERLAY_LAYER_IDS = {
   'wildfire': ['wildfire-fill', 'wildfire-line'],
   'mvum': ['mvum-layer', 'mvum-roads', 'mvum-roads-seasonal', 'mvum-trails-line', 'mvum-trails-seasonal'],
   'usfs-trails': ['usfs-trails-layer', 'usfs-trails-line'],
+  // Over a raster base the switch also drives the route numbers, which ESRI's
+  // reference tiles don't carry (VISION row 105). The id differs from the
+  // vector base's own 'road-shield' on purpose — that one belongs to the map
+  // and must not be switched off with this overlay.
+  'names': ['names-layer', 'names-shield'],
 }
 
 // The self-hosted vector layers a tap should interrogate, per overlay

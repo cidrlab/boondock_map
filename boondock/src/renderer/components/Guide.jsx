@@ -171,6 +171,11 @@ const TABS = [
           USFS trails system, self-hosted so they work <em>offline</em> too.
           Tap one for who it&apos;s managed for (hiking, stock, bike,
           motorcycle, ATV, 4WD), its class and surface.</li>
+          <li><strong>Names &amp; labels</strong> — place names over Satellite,
+          plus <strong>highway and interstate numbers</strong> (I-5, US 97, 99W)
+          that the imagery layer doesn&apos;t carry on its own. The Boondock
+          basemaps show those route numbers all the time, no overlay
+          needed.</li>
           <li><strong>Topo lines</strong> — contours only, no background.
           A light terrain texture appears from about z9, index lines from z10,
           and 50–100&nbsp;ft detail fills in as you zoom closer.</li>
