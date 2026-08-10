@@ -7,7 +7,12 @@
   <meta name="description" content="Free topo maps for boondocking, off-road exploration, and hiking. Public land, forest roads, trails, waypoints." />
   <meta name="theme-color" content="#19222C" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" href="icons/icon-192.png" />
+  <!-- 32 first: the tab draws at 16-32px, and offering that size stops the
+       browser mushing the 192 down to fit. Both are opaque squares — a
+       transparent corner gets composited onto white, not onto the tab's own
+       dark chrome (VISION row 92). -->
+  <link rel="icon" href="icons/icon-32.png" sizes="32x32" />
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
