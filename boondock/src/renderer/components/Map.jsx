@@ -4,7 +4,8 @@ import { BASE_LAYERS, OVERLAY_LAYERS, DEFAULT_CENTER, DEFAULT_ZOOM, SITE_KINDS }
 import { SITE_BADGE_KINDS, SITE_FALLBACK_KIND, drawSiteGlyph } from '../../shared/siteIcons'
 import { buildBoondockStyle, BOONDOCK_GLYPHS, buildRoadShieldLayer, OMT_SOURCE } from '../../shared/boondockStyle'
 import { installProtocol, toProtocolUrl, listPacks } from '../../shared/offlineTiles'
-import { Protocol as PMTilesProtocol } from 'pmtiles'
+import { Protocol as PMTilesProtocol, PMTiles } from 'pmtiles'
+import { CachingSource } from '../../shared/pmtilesCache'
 import { elevationAt, fetchElevGrid, elevMargins } from '../../shared/elevation'
 import { pointForecast, airQuality, aqiBand, wmoInfo, fetchTempGrid, gridMargins, gridToGeoJSON, marginAt, criteriaActive } from '../../shared/weather'
 import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/waypointMeta'
@@ -20,10 +21,27 @@ import {
 // used first and the network is the fallback (see shared/offlineTiles.js)
 installProtocol(maplibregl)
 
-// Self-hosted vector tiles (RoadCore, VISION row 98) read from a single
-// .pmtiles archive over HTTP range requests — no tile server, works offline.
-// Register the protocol once for the whole app.
-maplibregl.addProtocol('pmtiles', new PMTilesProtocol().tile)
+// Self-hosted vector tiles (RoadCore row 98, MVUM + trails row 83) read from
+// single .pmtiles archives over HTTP range requests — no tile server, and
+// only the few KB the screen needs rather than a 49 MB file.
+//
+// Each archive is registered against a CachingSource, which keeps the ranges
+// it reads in IndexedDB. Without that the layers died the moment you lost
+// signal: the browser Cache API cannot store the 206 responses a range
+// request produces, so nothing else in the stack could hold them
+// (VISION row 123).
+const pmProtocol = new PMTilesProtocol()
+maplibregl.addProtocol('pmtiles', pmProtocol.tile)
+
+const pmRegistered = new Set()
+function cachedPMTilesUrl(file) {
+  const url = new URL(import.meta.env.BASE_URL + `data/${file}`, location.href).href
+  if (!pmRegistered.has(url)) {
+    pmRegistered.add(url)
+    pmProtocol.add(new PMTiles(new CachingSource(url)))
+  }
+  return `pmtiles://${url}`
+}
 
 // SVG path data for each waypoint icon (used in DOM markers)
 const MARKER_SVG = {
@@ -638,8 +656,7 @@ const Map = forwardRef(function Map(
     const m = map.current
     if (!m) return
     if (!m.getSource('roadcore')) {
-      const url = `pmtiles://${new URL(import.meta.env.BASE_URL + 'data/roadcore.pmtiles', location.href).href}`
-      m.addSource('roadcore', { type: 'vector', url })
+      m.addSource('roadcore', { type: 'vector', url: cachedPMTilesUrl('roadcore.pmtiles') })
     }
     const vis = overlaysRef.current.roadcore ? 'visible' : 'none'
     const lvl = ['to-number', ['coalesce', ['get', 'maint'], 0]]
@@ -703,9 +720,8 @@ const Map = forwardRef(function Map(
   function addMvumVectorLayers() {
     const m = map.current
     if (!m) return
-    const pm = (file) => `pmtiles://${new URL(import.meta.env.BASE_URL + `data/${file}`, location.href).href}`
-    if (!m.getSource('mvum-vec')) m.addSource('mvum-vec', { type: 'vector', url: pm('mvum.pmtiles') })
-    if (!m.getSource('mvum-trails-vec')) m.addSource('mvum-trails-vec', { type: 'vector', url: pm('mvum-trails.pmtiles') })
+    if (!m.getSource('mvum-vec')) m.addSource('mvum-vec', { type: 'vector', url: cachedPMTilesUrl('mvum.pmtiles') })
+    if (!m.getSource('mvum-trails-vec')) m.addSource('mvum-trails-vec', { type: 'vector', url: cachedPMTilesUrl('mvum-trails.pmtiles') })
 
     const vis = overlaysRef.current.mvum ? 'visible' : 'none'
     const sym = ['to-number', ['coalesce', ['get', 'sym'], 0]]
@@ -765,10 +781,7 @@ const Map = forwardRef(function Map(
     const m = map.current
     if (!m) return
     if (!m.getSource('usfs-trails-vec')) {
-      m.addSource('usfs-trails-vec', {
-        type: 'vector',
-        url: `pmtiles://${new URL(import.meta.env.BASE_URL + 'data/trails.pmtiles', location.href).href}`,
-      })
+      m.addSource('usfs-trails-vec', { type: 'vector', url: cachedPMTilesUrl('trails.pmtiles') })
     }
     if (!m.getLayer('usfs-trails-line')) {
       m.addLayer({

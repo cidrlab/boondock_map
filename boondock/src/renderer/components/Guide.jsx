@@ -339,11 +339,13 @@ const TABS = [
           basemap and satellite are on the roadmap.</li>
           <li><strong>MVUM roads</strong>, <strong>hiking trails</strong> and
           <strong> all FS roads</strong> come from vector tilesets we host
-          ourselves, fetching only the small slice your screen covers. That
-          makes them fast and immune to the Forest Service&apos;s servers going
-          down — but they still need a connection today. Storing them for real
-          offline use is on the roadmap, alongside packs for the Boondock
-          basemap.</li>
+          ourselves, fetching only the small slice your screen covers — so
+          they&apos;re fast, and immune to the Forest Service&apos;s servers
+          going down. <strong>Anywhere you&apos;ve looked at once is kept on
+          your device</strong>, so those roads are still there if you lose
+          signal later. The basemap under them still needs either a
+          connection or a downloaded pack, so grab a USGS Topo pack for the
+          area before you head out.</li>
           <li>Downloaded areas are outlined on the map while you&apos;re in the
           Offline tab; the tab lists each pack with its size, and you can
           delete packs anytime.</li>
