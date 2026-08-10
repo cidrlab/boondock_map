@@ -10,6 +10,7 @@
  */
 
 import { BASE_LAYERS, OVERLAY_LAYERS, PACK_LAYERS } from './layers'
+import { omtTileTemplate } from './boondockStyle'
 
 const DB_NAME = 'boondock-tiles'
 const PACKS = 'packs'
@@ -75,6 +76,14 @@ for (const [id, l] of Object.entries({ ...BASE_LAYERS, ...OVERLAY_LAYERS, ...PAC
 TEMPLATES['esri-satellite'] = TEMPLATES['satellite']
 
 function remoteUrl(layerId, z, x, y) {
+  // The basemap's vector tiles have no fixed template — OpenFreeMap's URL
+  // carries a rotating dated build path, so it is learned while online and
+  // read back here (VISION rows 126/128).
+  if (layerId === 'boondock-base') {
+    const tpl = omtTileTemplate()
+    if (!tpl) throw new Error('basemap tile template not known yet')
+    return tpl.replace('{z}', z).replace('{x}', x).replace('{y}', y)
+  }
   const t = TEMPLATES[layerId]
   if (!t) throw new Error(`unknown layer ${layerId}`)
   let url = t.template.replace('{z}', z).replace('{x}', x).replace('{y}', y)
@@ -213,7 +222,14 @@ export function installProtocol(maplibregl) {
     const local = await getTile(layerId, +z, +x, +y)
     if (local) return { data: await local.arrayBuffer() }
     const res = await fetch(remoteUrl(layerId, +z, +x, +y), { signal: abortController?.signal })
-    if (res.status === 404) return { data: await transparentTile() }
+    // A missing tile means "no data here", which for a raster layer is a
+    // transparent image and for a vector layer is zero bytes — handing a PNG
+    // to a vector source would be a parse error, not a blank patch.
+    if (res.status === 404) {
+      return PACK_LAYERS[layerId]?.vectorTilePack
+        ? { data: new ArrayBuffer(0) }
+        : { data: await transparentTile() }
+    }
     if (!res.ok) throw new Error(`tile ${layerId}/${z}/${x}/${y}: HTTP ${res.status}`)
     return { data: await res.arrayBuffer() }
   })

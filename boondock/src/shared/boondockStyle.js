@@ -172,12 +172,19 @@ export async function refreshOmtTemplate() {
   } catch { /* offline, or blocked — keep the old template */ }
 }
 
+/** The learned tile URL template, for the offline tile protocol. */
+export function omtTileTemplate() {
+  return cachedOmt()?.tiles?.[0] || null
+}
+
 export function omtSource() {
   const hit = cachedOmt()
   if (hit) {
     return {
       type: 'vector',
-      tiles: hit.tiles,
+      // Through the tile protocol, so a downloaded basemap pack is used first
+      // and the network is only the fallback (VISION row 128)
+      tiles: ['boondock://tile/boondock-base/{z}/{x}/{y}'],
       minzoom: hit.minzoom,
       maxzoom: hit.maxzoom,
       attribution: OMT_ATTRIBUTION,

@@ -34,16 +34,23 @@ export const BASE_LAYERS = {
   'satellite': {
     id: 'satellite',
     label: 'Satellite',
-    description: 'ESRI World Imagery — scout the actual ground cover',
-    tileUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'ESRI, Maxar, GeoEye',
+    // USGS orthoimagery, not ESRI (Tim's call, 2026-08-10). ESRI's World
+    // Imagery cannot be cached under its terms, which made the satellite view
+    // the one base that could never work offline. USGS imagery is **public
+    // domain**, comes from the same National Map host the topo packs already
+    // use, and is therefore downloadable like everything else. The trade is
+    // honest and worth stating: USGS covers the United States, where this app
+    // works, rather than the globe.
+    description: 'USGS orthoimagery — scout the actual ground cover. Public domain, so it downloads for offline use.',
+    tileUrl: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'USGS The National Map: Orthoimagery',
     maxZoom: 19,
     minZoom: 0,
-    // ESRI serves "Map data not yet available" placeholders as real tiles
-    // past its coverage, which defeats MapLibre's overzoom fallback. Stop
-    // requesting past z18 (reliable CONUS coverage) and scale up instead —
-    // fuzzy close-up beats a blank map in the backcountry.
-    sourceMaxzoom: 18,
+    // The service advertises LOD 23, but imagery thins out well before that in
+    // the backcountry; stop requesting past 16 and let MapLibre scale up —
+    // fuzzy close-up beats a blank map on a forest road.
+    sourceMaxzoom: 16,
+    offlineOk: true,
   },
 }
 
@@ -66,6 +73,28 @@ export const PACK_LAYERS = {
     attribution: 'BLM',
     maxZoom: 15,
     offlineOk: true,
+  },
+  // The Boondock basemap's own vector tiles (VISION row 128). Served through
+  // the tile protocol like everything else, so a downloaded pack is used first
+  // and the network is the fallback — which is what finally makes the terrain
+  // map itself work with no signal, rather than only the USGS topo fallback.
+  // OpenFreeMap allows this explicitly: MIT-licensed, no API key, no rate
+  // limit, commercial use fine (checked 2026-08-10). Attribution required and
+  // carried on the source.
+  'boondock-base': {
+    id: 'boondock-base',
+    label: 'Boondock basemap (terrain + roads)',
+    vectorTilePack: true,
+    attribution: '© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors',
+    maxZoom: 14,   // OpenFreeMap's own top zoom; past this MapLibre overzooms
+    // NOT offered in the download picker yet (VISION row 128). The plumbing
+    // works — the source is routed through the tile protocol, a pack saves,
+    // and getTile answers for the right tile with real bytes — but the
+    // basemap still does not draw from that pack with the network gone, and
+    // an option that promises offline and delivers a blank map is worse than
+    // no option. Turn this on with the same test that is written down in the
+    // row, not before.
+    offlineOk: false,
   },
   // Our own tilesets, downloadable as one pack (VISION row 127). These cache
   // themselves as you browse, but browsing is not planning: you should be able
