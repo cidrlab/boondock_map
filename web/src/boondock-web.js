@@ -10,6 +10,30 @@
 const DB_NAME = 'boondock'
 const STORE = 'kv'
 
+// Ask the browser to treat this data as persistent (VISION row 114).
+//
+// Everything the user owns — waypoints, tracks, prefs — lives in IndexedDB on
+// the web build, and by default that is *evictable*: browsers are free to clear
+// it under storage pressure, and Safari's tracking prevention clears
+// script-writable storage for sites you haven't opened in a while. Someone who
+// saved a season of camping spots and then didn't open the map for a few weeks
+// could come back to nothing, with no warning and no way to recover it.
+//
+// A granted persist() exempts the origin from that. It is not a guarantee — the
+// user can still clear site data deliberately, and the grant depends on
+// engagement heuristics (installing to the home screen makes it far more
+// likely) — so it is a floor, not a backup. The real backup is GPX export.
+// Fire and forget: a refusal changes nothing about how the app behaves.
+export async function requestPersistentStorage() {
+  try {
+    if (!navigator.storage?.persist) return null
+    if (await navigator.storage.persisted?.()) return true
+    return await navigator.storage.persist()
+  } catch {
+    return null
+  }
+}
+
 function openDb() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1)
