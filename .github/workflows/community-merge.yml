@@ -1,6 +1,13 @@
 # Publishes community reports nightly: pulls the Worker's /export, rebuilds
-# community.geojson (data-pipeline/merge_community.py), and commits it —
-# which triggers the deploy-pages workflow via its web/** path filter.
+# community.geojson (data-pipeline/merge_community.py), commits it, and then
+# deploys.
+#
+# It has to call the deploy itself. GitHub deliberately does not start new
+# workflow runs from pushes made with the default GITHUB_TOKEN, so the commit
+# below never fires deploy-pages' push trigger, however well its web/** path
+# filter matches. This went unnoticed because every run until 2026-08-09
+# reported "no community changes" and never committed anything; the first real
+# spot merged fine, landed on main, and simply never reached the live site.
 #
 # Inert until the repo secrets COMMUNITY_API and COMMUNITY_ADMIN_TOKEN exist
 # (worker/README.md, step 2). Note GitHub suspends cron schedules after ~60
@@ -22,6 +29,8 @@ concurrency:
 jobs:
   merge:
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.merge.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
       - name: Rebuild community.geojson from the Worker export
@@ -40,3 +49,15 @@ jobs:
           git add web/public/data/community.geojson
           git commit -m "Community reports: nightly merge"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        id: merge
+
+  # Same run, so no second event is needed and no extra token has to exist
+  deploy:
+    needs: merge
+    if: needs.merge.outputs.changed == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy-pages.yml

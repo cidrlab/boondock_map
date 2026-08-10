@@ -9,6 +9,11 @@ on:
       - 'boondock/src/shared/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
+  # Callable so another workflow can deploy inside its own run. A push made
+  # with the default GITHUB_TOKEN deliberately does not start further
+  # workflows, so the nightly community merge's commit could never trigger the
+  # push event above — see community-merge.yml.
+  workflow_call:
 
 permissions:
   contents: read
