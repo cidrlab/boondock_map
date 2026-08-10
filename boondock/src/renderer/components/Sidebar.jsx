@@ -59,8 +59,10 @@ export default function Sidebar({
   const [collapsed, setCollapsed] = useState(() => {
     try { return JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || {} } catch { return {} }
   })
-  const toggleSection = (id) => setCollapsed(prev => {
-    const next = { ...prev, [id]: !prev[id] }
+  // defaultCollapsed lets a block start folded without that first click being
+  // a no-op — an unset key has to read as "closed" for those, not "open"
+  const toggleSection = (id, defaultCollapsed = false) => setCollapsed(prev => {
+    const next = { ...prev, [id]: !(prev[id] ?? defaultCollapsed) }
     try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next)) } catch { /* private mode */ }
     return next
   })
@@ -93,6 +95,9 @@ export default function Sidebar({
 
   const { results: geoResults, loading: geoLoading, search: geoSearch, clear: geoClear } = useGeocoder()
   const { results: poiResults, loading: poiLoading, activeCategory: poiCategory, search: poiSearch, clear: poiClear } = usePoiSearch()
+  // Starts folded — an unset key means closed for this one (VISION row 104)
+  const poiChipsCollapsed = collapsed.poi ?? true
+  const activePoi = POI_CATEGORIES.find(c => c.id === poiCategory)
 
   const coordResult = parseCoords(query)
   const isSearching = query.trim().length >= 2
@@ -380,23 +385,39 @@ export default function Sidebar({
           </div>
         )}
 
-        {/* POI quick-search chips */}
-        <div className="poi-chips">
-          {POI_CATEGORIES.map(cat => (
-            <button
-              key={cat.id}
-              className={`poi-chip ${poiCategory === cat.id ? 'active' : ''}`}
-              onClick={() => {
-                if (poiCategory === cat.id) {
-                  poiClear()
-                  lastPoiCenterRef.current = null
-                } else {
-                  lastPoiCenterRef.current = { ...mapCenter }
-                  poiSearch(cat.id, mapCenter)
-                }
-              }}
-            >{cat.label}</button>
-          ))}
+        {/* POI quick-search chips — folded away by default (VISION row 104).
+            Twelve pills wrap to four rows and this block sits above every
+            tab, so it was pushing each tab's real content below the fold. The
+            header names the active search when closed, so a filter can never
+            be on with nothing on screen to say so. */}
+        <div className="poi-chips-block">
+          <button
+            className={`section-hdr section-toggle poi-chips-hdr ${poiChipsCollapsed ? 'collapsed' : ''}`}
+            onClick={() => toggleSection('poi', true)}
+            aria-expanded={!poiChipsCollapsed}
+          >
+            <span>Find nearby{poiChipsCollapsed && activePoi ? ` · ${activePoi.label}` : ''}</span>
+            <ChevronDown size={12} className="section-caret" />
+          </button>
+          {!poiChipsCollapsed && (
+            <div className="poi-chips">
+              {POI_CATEGORIES.map(cat => (
+                <button
+                  key={cat.id}
+                  className={`poi-chip ${poiCategory === cat.id ? 'active' : ''}`}
+                  onClick={() => {
+                    if (poiCategory === cat.id) {
+                      poiClear()
+                      lastPoiCenterRef.current = null
+                    } else {
+                      lastPoiCenterRef.current = { ...mapCenter }
+                      poiSearch(cat.id, mapCenter)
+                    }
+                  }}
+                >{cat.label}</button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* POI results */}
@@ -718,10 +739,19 @@ export default function Sidebar({
                     key={k.id}
                     className={`poi-chip ${on ? 'active' : ''}`}
                     style={on ? { borderColor: k.color, color: k.color } : {}}
+                    // Isolate, then add (VISION row 109). From "everything
+                    // shown", clicking a kind narrows to just that one, which
+                    // is what a filter is for — it used to subtract, so the
+                    // first click on Trailhead hid trailheads. Clicking more
+                    // kinds adds them, and selecting them all, or clicking the
+                    // last one off, lands back on All rather than on an empty
+                    // map with no way out.
                     onClick={() => setSiteKinds(prev => {
-                      const cur = prev == null ? SITE_KINDS.map(x => x.id) : prev
-                      const next = cur.includes(k.id) ? cur.filter(x => x !== k.id) : [...cur, k.id]
-                      return next.length === SITE_KINDS.length ? null : next
+                      if (prev == null) return [k.id]
+                      const next = prev.includes(k.id)
+                        ? prev.filter(x => x !== k.id)
+                        : [...prev, k.id]
+                      return next.length === 0 || next.length === SITE_KINDS.length ? null : next
                     })}
                   >{on ? '✓ ' : ''}{k.label}</button>
                 )

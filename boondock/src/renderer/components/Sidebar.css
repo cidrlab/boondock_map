@@ -170,6 +170,18 @@
   padding: 6px 12px 4px;
 }
 
+/* The search header block has its own padding, so this reuses .section-hdr's
+   type and caret without inheriting the Layers panel's margins */
+.poi-chips-block {
+  padding: 6px 12px 2px;
+}
+.poi-chips-hdr {
+  margin-bottom: 0;
+}
+.poi-chips-block .poi-chips {
+  padding: 6px 0 2px;
+}
+
 .poi-chip {
   padding: 3px 9px;
   border-radius: 100px;

@@ -76,7 +76,7 @@ export default function Legend({ open, onClose }) {
           <div className="legend-section">Waypoint badges</div>
           <div className="legend-row"><span className="legend-dot" style={{ background: '#22c55e' }} />Been &amp; stayed</div>
           <div className="legend-row"><span className="legend-dot" style={{ background: '#fb923c' }} />Been, not camped</div>
-          <div className="legend-row"><span className="legend-dot" style={{ background: '#F9322B' }} />Want to explore</div>
+          <div className="legend-row"><span className="legend-dot" style={{ background: '#F9322B' }} />Haven&apos;t been</div>
           <div className="legend-row">
             <span style={{
               width: 14, height: 14, borderRadius: '50%', background: '#10151c',
