@@ -5,7 +5,7 @@ import Guide from './components/Guide'
 import Sidebar from './components/Sidebar'
 import Toolbar from './components/Toolbar'
 import WaypointModal from './components/WaypointModal'
-import ReportSpotModal from './components/ReportSpotModal'
+import ReportSpotModal, { siteKindForIcon } from './components/ReportSpotModal'
 import FeedbackModal from './components/FeedbackModal'
 import DownloadModal from './components/DownloadModal'
 import StatusBar from './components/StatusBar'
@@ -30,6 +30,7 @@ export default function App() {
   const [overlays, setOverlays] = useState(DEFAULT_OVERLAYS)
   const [pendingWaypoint, setPendingWaypoint] = useState(null)
   const [reportSpotAt, setReportSpotAt] = useState(null)   // lngLat for the community report dialog
+  const [reportPrefill, setReportPrefill] = useState(null)  // set when sharing a saved waypoint (row 116)
   const [selectedWaypoint, setSelectedWaypoint] = useState(null)
   const [isRecordingTrack, setIsRecordingTrack] = useState(false)
   const [currentTrackPoints, setCurrentTrackPoints] = useState([])
@@ -404,6 +405,11 @@ export default function App() {
               setDownloadMode(true)
             }}
             onShowDownloadModal={() => setShowDownloadModal(true)}
+            onShareWaypoint={(wp) => {
+              // Publishes a *copy*; the waypoint itself stays private
+              setReportPrefill({ kind: siteKindForIcon(wp.icon), name: wp.name || '', desc: wp.notes || '' })
+              setReportSpotAt({ lng: wp.lng, lat: wp.lat })
+            }}
             onFlyTo={flyToCoord}
             downloadBbox={downloadBbox}
             searchHistory={searchHistory}
@@ -528,7 +534,8 @@ export default function App() {
       {reportSpotAt && (
         <ReportSpotModal
           lngLat={reportSpotAt}
-          onClose={() => setReportSpotAt(null)}
+          prefill={reportPrefill}
+          onClose={() => { setReportSpotAt(null); setReportPrefill(null) }}
           onSubmitted={(feature) => mapRef.current?.addCommunityFeature?.(feature)}
         />
       )}

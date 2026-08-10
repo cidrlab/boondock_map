@@ -304,6 +304,14 @@ const TABS = [
         its map pin pulses and can be <strong>dragged</strong> — drop it on the
         right spot and the coordinates (and elevation) update to match. Handy
         when you saved a rough spot and want to nudge it onto the actual pullout.</p>
+        <ul>
+          <li><strong>Share a spot you saved</strong> — open a waypoint for
+          editing and tap <em>Share with the community</em>. It publishes a
+          <em>copy</em>: your waypoint stays private and unchanged, and the
+          shared version is public and anonymous, going live after the nightly
+          sync. You still pick the type and can reword the name and notes
+          before it goes.</li>
+        </ul>
       </>
     ),
   },

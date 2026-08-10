@@ -11,17 +11,35 @@ import './WaypointModal.css'
 
 const KIND_ICON = { campsite: 'camp', rv_park: 'parking', dump: 'dump', water: 'water', trailhead: 'trailhead' }
 
-export default function ReportSpotModal({ lngLat, onClose, onSubmitted }) {
-  const [kind, setKind] = useState('dump')
-  const [name, setName] = useState('')
-  const [desc, setDesc] = useState('')
+/**
+ * The site kind a saved waypoint's icon corresponds to, or null (VISION row
+ * 116). Deliberately partial: a waypoint marked hazard, viewpoint, fuel or
+ * generic has no community equivalent, and defaulting those to "campsite"
+ * would publish a guess. Returning null leaves the picker on its own default
+ * so the choice stays the user's.
+ */
+export const siteKindForIcon = (icon) =>
+  Object.keys(KIND_ICON).find(k => KIND_ICON[k] === icon) || null
+
+// `prefill` lets a saved waypoint be published through this same dialog
+// (VISION row 116) rather than a second submit path — the user still sees the
+// kind picker, the public-and-anonymous wording, and the same confirmation.
+export default function ReportSpotModal({ lngLat, onClose, onSubmitted, prefill }) {
+  const [kind, setKind] = useState(prefill?.kind || 'dump')
+  const [name, setName] = useState(prefill?.name || '')
+  const [desc, setDesc] = useState(prefill?.desc || '')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(null)   // {held} after a successful submit
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
 
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 50)
+    setTimeout(() => {
+      inputRef.current?.focus()
+      // A prefilled name is a starting point, not a decision — select it so a
+      // keystroke replaces it (same pattern as the New Waypoint dialog)
+      if (prefill?.name) inputRef.current?.select()
+    }, 50)
   }, [])
 
   const handleSubmit = async () => {
@@ -59,7 +77,7 @@ export default function ReportSpotModal({ lngLat, onClose, onSubmitted }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="wp-modal" onClick={e => e.stopPropagation()}>
         <div className="wp-modal-header">
-          <h3>Report a spot</h3>
+          <h3>{prefill ? 'Share with the community' : 'Report a spot'}</h3>
           <div className="wp-modal-coord">
             <Crosshair size={12} />
             <span>{lngLat.lat.toFixed(5)}, {lngLat.lng.toFixed(5)}</span>
@@ -80,9 +98,9 @@ export default function ReportSpotModal({ lngLat, onClose, onSubmitted }) {
         ) : (
           <>
             <p style={{ fontSize: 12, color: 'var(--text-secondary, rgba(232,238,244,.65))', lineHeight: 1.5, margin: '0 0 10px' }}>
-              Add a place other boondockers should know about — a dump, water
-              fill, campsite. Public and anonymous; it publishes after the
-              nightly sync.
+              {prefill
+                ? 'Publish this saved spot so other boondockers can find it. Your waypoint stays private and unchanged — this sends a copy. Public and anonymous; it publishes after the nightly sync.'
+                : 'Add a place other boondockers should know about — a dump, water fill, campsite. Public and anonymous; it publishes after the nightly sync.'}
             </p>
 
             <div className="wp-modal-icons">

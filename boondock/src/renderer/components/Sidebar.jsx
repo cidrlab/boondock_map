@@ -6,6 +6,7 @@ import { WP_STATUS_META, WP_STATUS_OPTIONS, WP_RATING_KEYS, statusBadgeColor, ma
 import { parseCoords, formatCoords } from '../../shared/parseCoords'
 import { useGeocoder } from '../../shared/useGeocoder'
 import { usePoiSearch, POI_CATEGORIES } from '../../shared/usePoiSearch'
+import { communityEnabled } from '../../shared/community'
 import {
   MapPin, Layers, Route, Download, Search, X, Edit3, Trash2, ChevronDown,
   Loader, Navigation, MapPinPlus, Crosshair,
@@ -48,7 +49,7 @@ export default function Sidebar({
   activeTab, setActiveTab, waypoints, tracks,
   overlays, setOverlays, baseLayer, setBaseLayer, theme, setTheme,
   onWaypointClick, onWaypointDelete, onWaypointUpdate,
-  selectedWaypoint, onShowDownloadModal, downloadBbox,
+  selectedWaypoint, onShowDownloadModal, downloadBbox, onShareWaypoint,
   onFlyTo, searchHistory, onAddSearchHistory, mapCenter,
   isMobile, onSearchPins, hoverPin, onHoverPin, onSearchArea,
   siteMinElev, setSiteMinElev, siteMaxElev, setSiteMaxElev,
@@ -601,6 +602,14 @@ export default function Sidebar({
                             </div>
                           ))}
                         </div>
+                        {communityEnabled() && (
+                          <button
+                            className="btn-secondary"
+                            style={{ width: '100%', justifyContent: 'center', padding: '5px 10px', fontSize: 11.5, marginBottom: 8 }}
+                            title="Publish a copy of this spot to the community layer"
+                            onClick={() => { setEditingId(null); onShareWaypoint?.(wp) }}
+                          >Share with the community</button>
+                        )}
                         <div className="wp-edit-actions">
                           <button className="btn-primary" style={{padding:'5px 14px',fontSize:12}} onClick={() => saveEdit(wp.id)}>Save</button>
                           <button className="btn-secondary" style={{padding:'5px 14px',fontSize:12}} onClick={() => setEditingId(null)}>Cancel</button>
