@@ -35,7 +35,7 @@ const NIGHT = {
   waterName:  '#7d9bbf',
   peakText:   '#b9c9d9',
   cityText:   '#e8eef4',
-  hsExaggeration: 0.32,
+  hsExaggeration: 0.60,
   hsShadow:    '#070b10',
   hsHighlight: '#52719b',
   hsAccent:    '#0d131b',
@@ -67,7 +67,7 @@ const DAY = {
   peakText:   '#3d5270',
   cityText:   '#26364a',
   roadSoften: true,   // dense urban grids read calmer with opacity ramps
-  hsExaggeration: 0.25,
+  hsExaggeration: 0.48,
   hsShadow:    '#93a6bc',
   hsHighlight: '#ffffff',
   hsAccent:    '#cdd8e4',
@@ -216,7 +216,15 @@ export function buildBoondockStyle(mode = 'night') {
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': C.land } },
 
-      // Terrain first: everything else reads on top of the relief
+      // Terrain first: everything else reads on top of the relief.
+      //
+      // Exaggeration is what makes a ridge read as a ridge rather than a
+      // smudge, and both palettes used to sit low enough that the Cascades
+      // looked nearly flat at z10 (Tim, 2026-08-11: "make the hills a little
+      // taller"). Roughly doubled — still short of MapLibre's 1.0, which
+      // starts competing with the road overlays for attention. Day runs lower
+      // than night because pale shadow on light ground carries further than
+      // it does over navy.
       {
         id: 'hillshade', type: 'hillshade', source: 'dem',
         paint: {
