@@ -62,7 +62,7 @@ const Map = forwardRef(function Map(
     liveReadoutOn, onToggleLiveReadout,
     pickMode, onAddWaypoint, addActive,
     editingWaypointId, onWaypointRelocate,
-    navTarget, userFix, onNavigate,
+    navTarget, userFix, onNavigate, onSunPath,
   },
   ref
 ) {
@@ -81,6 +81,7 @@ const Map = forwardRef(function Map(
   const pickModeRef = useRef(pickMode)
   const onRelocateRef = useRef(onWaypointRelocate)
   const onNavigateRef = useRef(onNavigate)
+  const onSunPathRef = useRef(onSunPath)
   const navTargetRef = useRef(navTarget)
   const userFixRef = useRef(userFix)
 
@@ -120,6 +121,7 @@ const Map = forwardRef(function Map(
   useEffect(() => { onAddWpRef.current = onAddWaypoint })
   useEffect(() => { onRelocateRef.current = onWaypointRelocate })
   useEffect(() => { onNavigateRef.current = onNavigate })
+  useEffect(() => { onSunPathRef.current = onSunPath })
   useEffect(() => { pickModeRef.current = pickMode }, [pickMode])
   useEffect(() => {
     const btn = addWpBtnRef.current
@@ -160,6 +162,21 @@ const Map = forwardRef(function Map(
     }
     document.addEventListener('click', onNavClick)
     return () => document.removeEventListener('click', onNavClick)
+  }, [])
+
+  // Delegated "Sun & shade" (VISION row 132), same shape as the Guide button:
+  // every point card carries one, and one handler serves them all.
+  useEffect(() => {
+    const onSunClick = (e) => {
+      const btn = e.target.closest?.('[data-sun-lat]')
+      if (!btn) return
+      const lat = parseFloat(btn.dataset.sunLat)
+      const lng = parseFloat(btn.dataset.sunLng)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      onSunPathRef.current?.({ lat, lng, name: btn.dataset.sunName || '' })
+    }
+    document.addEventListener('click', onSunClick)
+    return () => document.removeEventListener('click', onSunClick)
   }, [])
 
   // Keep refs in sync so callbacks always see current state
@@ -2116,6 +2133,12 @@ function directionsHtml(lat, lng, name) {
       style="margin-top:6px;width:100%;padding:5px 10px;font-size:11.5px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(52,211,153,0.12);color:#34d399;border:1px solid rgba(52,211,153,0.35);border-radius:7px;cursor:pointer">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
       Guide me here
+    </button>
+    <button data-sun-lat="${lat}" data-sun-lng="${lng}" data-sun-name="${esc(name || '')}"
+      title="Sun path and solar siting for this point"
+      style="margin-top:5px;width:100%;padding:5px 10px;font-size:11.5px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.35);border-radius:7px;cursor:pointer">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.4" y1="4.4" x2="6.2" y2="6.2"/><line x1="17.8" y1="17.8" x2="19.6" y2="19.6"/><line x1="19.6" y1="4.4" x2="17.8" y2="6.2"/><line x1="6.2" y1="17.8" x2="4.4" y2="19.6"/></svg>
+      Sun &amp; shade here
     </button>`
 }
 

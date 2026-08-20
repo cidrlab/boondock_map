@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Menu, Circle, Square, Download, FolderOpen, Share, Cloud, Compass, BookOpen, HelpCircle, MessageSquare } from './Icons'
+import { Menu, Circle, Square, Download, FolderOpen, Share, Cloud, Compass, BookOpen, HelpCircle, MessageSquare, Sun } from './Icons'
 import './Toolbar.css'
 
 export default function Toolbar({
   isRecordingTrack, onStartTrack, onStopTrack,
   onExportGPX, onImportGPX, onToggleSidebar,
   onToggleDownloadMode, downloadMode, onOpenSyncFolder,
-  helpPanel, onToggleHelp, onFeedback, feedbackEnabled,
+  helpPanel, onToggleHelp, onFeedback, feedbackEnabled, onSunPath,
 }) {
   const [trackName, setTrackName] = useState('')
   const [showStopModal, setShowStopModal] = useState(false)
@@ -47,6 +47,9 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-right">
+        <button className="tb-icon-btn" onClick={onSunPath} title="Sun path — where the sun tracks from a spot">
+          <Sun size={16} />
+        </button>
         <button className={`tb-icon-btn ${helpPanel === 'guide' ? 'active' : ''}`} onClick={() => onToggleHelp?.('guide')} title="How to use Boondock Map">
           <BookOpen size={16} />
         </button>

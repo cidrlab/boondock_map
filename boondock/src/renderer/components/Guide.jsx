@@ -363,6 +363,69 @@ const TABS = [
     ),
   },
   {
+    id: 'sun', label: 'Sun',
+    body: (
+      <>
+        <p><strong>Sun path</strong> shows where the sun tracks across the sky
+        from one spot on one day, so you can tell before you park whether the
+        panels will see anything at eight in the morning, or where the light
+        will be at six in the evening. Open it from the <strong>sun icon in
+        the toolbar</strong>, which starts at your location and the current
+        time, or from <strong>Sun &amp; shade here</strong> on any point card
+        to ask the same question about a spot on the map.</p>
+
+        <p><strong>Two views.</strong> <em>Dome</em> is the sun path drawn
+        looking straight up: zenith in the middle, horizon at the rim, north at
+        the top. It works everywhere, including on a laptop. <em>AR</em> draws
+        the same arc over the camera, so you can hold the phone up and see
+        where the sun will be against the actual ridge. AR needs a camera and a
+        compass, so it is a phone feature.</p>
+
+        <p><strong>Scrub the time</strong> with the slider under the view, step
+        the date with the arrows or pick one outright, and press <em>Now</em>
+        to jump back to the live sun. Sunrise, solar noon, sunset, day length,
+        and both golden hours are listed underneath. Golden hour here means the
+        sun between 4° below the horizon and 6° above it; different apps draw
+        that line in different places, so the numbers will not always agree to
+        the minute with another one.</p>
+
+        <p><strong>Lining up AR.</strong> The phone&apos;s compass reads
+        magnetic north and the sun is computed from true north, which differ by
+        8° to 16° across the western states, and a magnetometer sitting in a
+        truck can be further off than that. Point at the real sun and
+        <strong>drag the sky sideways</strong> until the marker sits on it. If
+        the marks sit at the right bearings but the wrong distance apart, the
+        camera is wider or narrower than assumed: open the gear and adjust
+        <em>Screen field of view</em>. Both settings are remembered.</p>
+
+        <p><strong>Solar siting</strong> is the part a flat sun calculator
+        cannot do. Press <strong>Scan ridgeline</strong> and the app reads its
+        own elevation data in a ring around the point to work out the real
+        skyline, then reports when the sun clears the ridge, when the ridge
+        takes it back, how much direct sun the spot gets, what the terrain
+        costs you against an open site, and the panel tilt and bearing that
+        collect the most from what is left. In a canyon that is a different
+        answer from sunrise and sunset, often by hours.</p>
+
+        <p>The scan needs a connection the first time, because it downloads
+        elevation tiles; after that they are cached. It says so if part of the
+        scan came back empty. The collection numbers are clear-sky geometry:
+        no cloud, no haze, and no shade from anything the elevation model
+        cannot see, which includes trees, your own rig, and anything much
+        smaller than the model&apos;s own cell (roughly 50 to 70 m across in
+        the lower 48). Use them to compare two pull-offs, not
+        to budget amp-hours.</p>
+
+        <p><strong>How accurate is the sun itself?</strong> The position is
+        computed with the NOAA solar equations and checked against MET
+        Norway&apos;s and the US Naval Observatory&apos;s published times for
+        several places on several dates; sunrise, sunset, and solar noon agree
+        to under a minute, and the sunrise bearings to a hundredth of a degree.
+        The compass in your hand is always the weaker half of the AR view.</p>
+      </>
+    ),
+  },
+  {
     id: 'phone', label: 'Phone',
     body: (
       <>

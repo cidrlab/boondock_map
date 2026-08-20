@@ -12,6 +12,7 @@ import StatusBar from './components/StatusBar'
 import LiveReadout from './components/LiveReadout'
 import AddWaypointMenu from './components/AddWaypointMenu'
 import FullScreenInstruments from './components/FullScreenInstruments'
+import SunPath from './components/SunPath'
 import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
 import { elevationAt } from '../shared/elevation'
 import { matchesWpFilter } from '../shared/waypointMeta'
@@ -58,6 +59,7 @@ export default function App() {
   const [editRequestId, setEditRequestId] = useState(null)   // popup "Edit waypoint" → sidebar
   const [showFeedback, setShowFeedback] = useState(false)
   const [showInstruments, setShowInstruments] = useState(false)   // full-screen instrument mode (VISION row 95)
+  const [sunPathAt, setSunPathAt] = useState(null)               // sun path viewer target (VISION row 132)
   const [keepAwake, setKeepAwake] = useState(false)               // hold the screen on (VISION row 100)
   const [downloadMode, setDownloadMode] = useState(false)
   const [downloadBbox, setDownloadBbox] = useState(null)
@@ -191,6 +193,17 @@ export default function App() {
   const onNavigate = useCallback((t) => { setNavTarget(t); setLiveReadoutOn(true) }, [])
   const cancelNav = useCallback(() => setNavTarget(null), [])
   const handleFix = useCallback((f) => setUserFix(f), [])
+
+  // Sun path opens on whatever point was asked for; from the toolbar that is
+  // the live fix if there is one, and the middle of the map if there is not
+  const openSunPath = useCallback((at) => {
+    if (at && Number.isFinite(at.lat) && Number.isFinite(at.lng)) { setSunPathAt(at); return }
+    setSunPathAt(userFix
+      ? { lat: userFix.lat, lng: userFix.lng, name: 'My location' }
+      // No live fix yet: open on the map so there is something to read at
+      // once, and let the viewer upgrade to a real one when the GPS answers
+      : { lat: mapCenterPt.lat, lng: mapCenterPt.lng, name: 'Map centre', locate: true })
+  }, [userFix, mapCenterPt])
   // Putting the readout away also ends navigation, so the line can't freeze
   useEffect(() => { if (!liveReadoutOn) setNavTarget(null) }, [liveReadoutOn])
 
@@ -380,6 +393,7 @@ export default function App() {
         }}
         downloadMode={downloadMode}
         onOpenSyncFolder={() => api?.openSyncFolder()}
+        onSunPath={() => openSunPath(null)}
       />
 
       <div className="app-body">
@@ -489,6 +503,7 @@ export default function App() {
           navTarget={navTarget}
           userFix={userFix}
           onNavigate={onNavigate}
+          onSunPath={openSunPath}
         />
         <Legend open={helpPanel === 'legend'} onClose={() => setHelpPanel(null)} />
         <Guide open={helpPanel === 'guide'} onClose={() => setHelpPanel(null)} />
@@ -543,6 +558,16 @@ export default function App() {
       {showInstruments && (
         <FullScreenInstruments
           onClose={() => setShowInstruments(false)}
+          keepAwake={keepAwake}
+          wakeLock={wakeLock}
+          onToggleKeepAwake={() => setKeepAwake(v => !v)}
+        />
+      )}
+
+      {sunPathAt && (
+        <SunPath
+          location={sunPathAt}
+          onClose={() => setSunPathAt(null)}
           keepAwake={keepAwake}
           wakeLock={wakeLock}
           onToggleKeepAwake={() => setKeepAwake(v => !v)}

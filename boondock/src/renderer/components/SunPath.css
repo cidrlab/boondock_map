@@ -1,0 +1,246 @@
+/* Sun path viewer (VISION row 132). Full-screen takeover like the instrument
+   mode: the stage takes whatever room is left after the controls, and on a
+   short phone in landscape the readouts below it scroll instead of squeezing
+   the sky. Follows the app theme, Night Red included. */
+
+.sp-root {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  user-select: none;
+  -webkit-user-select: none;
+
+  /* The sun marks are the one place this view does not take its colours from
+     the theme, because they mean something: amber is the sun, teal is ground.
+     Light mode darkens them rather than swapping them, so the meaning holds. */
+  --sp-sun: #fbbf24;
+  --sp-sun-face: #fde68a;
+  --sp-sun-edge: #f59e0b;
+  --sp-ridge: 52, 211, 153;
+  --sp-winter: 125, 211, 252;
+  --sp-ink: 255, 255, 255;
+}
+:root[data-theme='light'] .sp-root {
+  --sp-sun: #b45309;
+  --sp-sun-face: #f59e0b;
+  --sp-sun-edge: #92400e;
+  --sp-ridge: 13, 108, 89;
+  --sp-winter: 2, 90, 145;
+  --sp-ink: 0, 0, 0;
+}
+
+/* ── top bar ─────────────────────────────────────────────────────────────── */
+.sp-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  flex: none;
+  border-bottom: 1px solid var(--border);
+}
+.sp-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.sp-title-main {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.sp-title-sub {
+  font-size: 12px; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sp-icon-btn {
+  background: transparent; border: none; color: var(--text-secondary);
+  cursor: pointer; padding: 6px; border-radius: 8px; display: inline-flex; flex: none;
+}
+.sp-icon-btn:hover { color: var(--text-primary); background: var(--glass-hover); }
+.sp-icon-btn.active { color: var(--accent); }
+
+.sp-modes { display: flex; gap: 2px; background: var(--bg-tertiary); border-radius: 8px; padding: 2px; flex: none; }
+.sp-mode {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: transparent; border: none; border-radius: 6px;
+  color: var(--text-secondary); font-size: 11.5px; font-weight: 600;
+  padding: 5px 9px; cursor: pointer;
+}
+.sp-mode.active { background: var(--bg-elevated); color: var(--text-primary); }
+.sp-mode:disabled { opacity: 0.38; cursor: not-allowed; }
+
+/* ── stage ───────────────────────────────────────────────────────────────── */
+.sp-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 210px;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  touch-action: pan-y;
+}
+.sp-stage-ar { background: #05080c; }
+.sp-stage-dome { background: var(--bg-primary); }
+.sp-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sp-overlay { position: absolute; inset: 0; }
+.sp-dome { width: 100%; height: 100%; max-height: 100%; }
+
+.sp-blocker {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 24px; text-align: center;
+  background: rgba(5, 8, 12, 0.86);
+  color: var(--text-secondary); font-size: 13px; line-height: 1.5;
+}
+.sp-align-hint {
+  position: absolute; left: 0; right: 0; bottom: 6px;
+  text-align: center; font-size: 10.5px; color: rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); pointer-events: none;
+}
+
+/* ── AR overlay marks ────────────────────────────────────────────────────── */
+.sp-ar-horizon { fill: none; stroke: rgba(255, 255, 255, 0.42); stroke-width: 1.2; stroke-dasharray: 5 5; }
+.sp-ar-ridge { fill: none; stroke: rgba(var(--sp-ridge), 0.9); stroke-width: 2; }
+.sp-ar-card {
+  fill: rgba(255, 255, 255, 0.8); font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+  paint-order: stroke; stroke: rgba(0, 0, 0, 0.75); stroke-width: 3px;
+}
+.sp-ar-card.n { fill: #f87171; }
+.sp-ar-arc { fill: none; stroke: var(--sp-sun); stroke-width: 3; stroke-linecap: round; }
+.sp-ar-solstice { fill: none; stroke-width: 1.4; stroke-dasharray: 6 6; }
+.sp-ar-solstice.june { stroke: color-mix(in srgb, var(--sp-sun) 55%, transparent); }
+.sp-ar-solstice.december { stroke: rgba(var(--sp-winter), 0.55); }
+.sp-ar-hour { fill: var(--sp-sun); stroke: rgba(0, 0, 0, 0.6); stroke-width: 1; }
+.sp-ar-hour-label,
+.sp-ar-event-label,
+.sp-ar-sun-label {
+  fill: rgba(255, 255, 255, 0.92); font-size: 11px; font-weight: 600;
+  paint-order: stroke; stroke: rgba(0, 0, 0, 0.8); stroke-width: 3px;
+}
+.sp-ar-event { fill: none; stroke: var(--sp-sun); stroke-width: 2; }
+.sp-ar-now { fill: none; stroke: rgba(255, 255, 255, 0.8); stroke-width: 1.6; stroke-dasharray: 3 3; }
+.sp-ar-sun { fill: var(--sp-sun-face); stroke: var(--sp-sun-edge); stroke-width: 2; }
+.sp-ar-sun-glow { fill: color-mix(in srgb, var(--sp-sun) 22%, transparent); }
+
+/* ── dome ────────────────────────────────────────────────────────────────── */
+.sp-dome-face { fill: rgba(255, 255, 255, 0.03); stroke: var(--border-strong); stroke-width: 1.4; }
+.sp-dome-ring { fill: none; stroke: var(--border); stroke-width: 1; }
+.sp-dome-tick { stroke: var(--text-muted); stroke-width: 1; }
+.sp-dome-tick.maj { stroke: var(--text-secondary); stroke-width: 1.6; }
+.sp-dome-alt { fill: var(--text-muted); font-size: 8.5px; }
+.sp-dome-card { fill: var(--text-secondary); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
+.sp-dome-card.n { fill: var(--accent); }
+.sp-dome-ridge { fill: rgba(var(--sp-ridge), 0.16); stroke: rgba(var(--sp-ridge), 0.85); stroke-width: 1.4; }
+.sp-dome-arc { fill: none; stroke: var(--sp-sun); stroke-width: 2.6; stroke-linecap: round; }
+.sp-dome-solstice { fill: none; stroke-width: 1.2; stroke-dasharray: 5 5; }
+.sp-dome-solstice.june { stroke: color-mix(in srgb, var(--sp-sun) 60%, transparent); }
+.sp-dome-solstice.december { stroke: rgba(var(--sp-winter), 0.6); }
+.sp-dome-hour { fill: var(--sp-sun); }
+.sp-dome-hour-label { fill: var(--text-secondary); font-size: 8px; }
+.sp-dome-event { fill: none; stroke: var(--sp-sun); stroke-width: 1.6; }
+.sp-dome-now { fill: none; stroke: var(--text-secondary); stroke-width: 1.4; stroke-dasharray: 3 3; }
+.sp-dome-sun { fill: var(--sp-sun-face); stroke: var(--sp-sun-edge); stroke-width: 1.8; }
+.sp-dome-sun-glow { fill: color-mix(in srgb, var(--sp-sun) 20%, transparent); }
+.sp-dome-legend { fill: var(--text-muted); font-size: 8.5px; }
+
+/* ── controls below the stage ────────────────────────────────────────────── */
+.sp-bottom { flex: none; overflow-y: auto; max-height: 52vh; }
+
+.sp-readout {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; padding: 9px 14px 5px;
+}
+.sp-read-main { display: flex; align-items: baseline; gap: 8px; }
+.sp-read-time { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sp-read-day { font-size: 12px; color: var(--text-secondary); }
+.sp-read-pos { display: flex; gap: 12px; font-size: 12px; color: var(--text-secondary); }
+.sp-read-pos b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.sp-below { color: var(--text-muted); font-style: italic; }
+
+.sp-scrub { padding: 0 14px; }
+.sp-scrub input[type=range] { width: 100%; accent-color: var(--sp-sun); }
+.sp-scrub-marks { position: relative; height: 13px; }
+.sp-mark {
+  position: absolute; transform: translateX(-50%);
+  font-size: 9px; color: var(--text-muted); white-space: nowrap;
+}
+
+.sp-dates { display: flex; align-items: center; gap: 6px; padding: 6px 14px 2px; }
+.sp-date {
+  flex: 1; background: var(--bg-tertiary); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 4px 8px; font-size: 12px; font-family: inherit;
+}
+
+.sp-btn {
+  background: var(--bg-tertiary); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 6px 12px; font-size: 12px; font-weight: 600; font-family: inherit;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+}
+.sp-btn:hover:not(:disabled) { background: var(--bg-hover); }
+.sp-btn:disabled { opacity: 0.5; cursor: default; }
+.sp-btn-sm { padding: 4px 9px; font-size: 11.5px; }
+.sp-btn.active { border-color: var(--accent); color: var(--accent); }
+.sp-link {
+  background: none; border: none; padding: 0; font: inherit;
+  color: var(--accent); cursor: pointer; text-decoration: underline;
+}
+
+.sp-facts {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px; padding: 8px 14px 4px;
+}
+.sp-fact { display: flex; flex-direction: column; padding: 5px 0; min-width: 0; }
+.sp-fact.wide { grid-column: 1 / -1; }
+.sp-fact-label {
+  font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-muted);
+}
+.sp-fact-value { font-size: 13px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+.sp-solar { border-top: 1px solid var(--border); margin-top: 6px; padding-bottom: 10px; }
+.sp-solar-head {
+  display: flex; align-items: center; gap: 7px; padding: 9px 14px 0;
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted);
+}
+.sp-solar-head button { margin-left: auto; }
+.sp-facts-solar .sp-fact-value { color: var(--success); }
+.sp-note { padding: 4px 14px 0; font-size: 10.5px; line-height: 1.5; color: var(--text-muted); margin: 0; }
+.sp-err { color: var(--danger); }
+.sp-spin { animation: sp-rotate 1.1s linear infinite; }
+@keyframes sp-rotate { to { transform: rotate(360deg); } }
+
+/* ── settings sheet ──────────────────────────────────────────────────────── */
+.sp-panel {
+  position: absolute; inset: auto 0 0 0; max-height: 82%;
+  overflow-y: auto; z-index: 2;
+  background: var(--glass); backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border-strong);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 4px 16px 20px;
+  box-shadow: var(--shadow-lg);
+}
+.sp-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0 4px; font-size: 11px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.sp-field { display: block; padding: 9px 0; border-top: 1px solid var(--border); }
+.sp-field > span { display: block; font-size: 12.5px; margin-bottom: 5px; }
+.sp-field input[type=range] { width: 100%; accent-color: var(--accent); }
+.sp-field small { display: block; font-size: 10.5px; line-height: 1.5; color: var(--text-muted); margin-top: 3px; }
+.sp-check { display: flex; align-items: flex-start; gap: 8px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+.sp-check input { margin-top: 2px; accent-color: var(--accent); }
+.sp-loc-row { display: flex; gap: 6px; margin-top: 6px; }
+.sp-coord {
+  flex: 1; min-width: 0; background: var(--bg-tertiary); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 5px 8px; font-size: 12px; font-family: inherit;
+}
+
+/* Landscape on a phone: the sky keeps the left half, the numbers the right */
+@media (orientation: landscape) and (max-height: 560px) {
+  .sp-root { flex-direction: row; flex-wrap: wrap; }
+  .sp-top { width: 100%; }
+  .sp-stage { flex: 1 1 55%; min-height: 0; }
+  .sp-bottom { flex: 1 1 40%; max-height: none; height: auto; overflow-y: auto; }
+}
