@@ -377,7 +377,14 @@ export default function Sidebar({
                 <div className="geo-icon-wrap geo-num">{i + 1}</div>
                 <div className="geo-info">
                   <div className="geo-name">{r.name}</div>
-                  <div className="geo-sub">{r.displayName}</div>
+                  <div className="geo-sub">
+                    {r.distanceMi != null && (
+                      <span className="geo-dist">
+                        {r.distanceMi < 10 ? r.distanceMi.toFixed(1) : Math.round(r.distanceMi)} mi
+                      </span>
+                    )}
+                    {r.displayName}
+                  </div>
                 </div>
                 <button className="geo-pin-btn" title="Drop waypoint" onClick={e => { e.stopPropagation(); flyToGeoResult(r, true) }}>
                   <MapPinPlus size={14} />

@@ -278,6 +278,14 @@
 .geo-info { flex: 1; min-width: 0; }
 .geo-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .geo-sub { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+/* Results are ordered by distance (VISION row 136), so each row says what that
+   distance is — an ordering you can't see is one you can't trust. */
+.geo-dist {
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-right: 5px;
+}
 
 .geo-pin-btn {
   display: flex;

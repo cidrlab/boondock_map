@@ -272,8 +272,15 @@ const TABS = [
       <>
         <p>The <strong>Points tab</strong> is the search home:</p>
         <ul>
-          <li>The search box takes place names, your waypoint names, or raw
-          coordinates (like <code>48.5, -121.9</code>).</li>
+          <li>The search box takes place names, business names, your waypoint
+          names, or raw coordinates (like <code>48.5, -121.9</code>).
+          <strong>Results are ordered by how far away they are</strong>, and
+          each one shows that distance — so a shop a few miles up the road
+          comes before a mountain range that happens to share its name. It
+          searches two things at once: a place-name geocoder, and everything
+          <em>named</em> in OpenStreetMap within about 75 miles of you, which
+          is what finds a store the geocoder would rank below its more famous
+          namesakes.</li>
           <li>Under it, <strong>Find nearby</strong> folds open into chips
           (Gas, Water, Camp, Dump/RV, Rest stop, <strong>Ranger</strong>…) that
           find what&apos;s near the map center. Results are numbered in the list
