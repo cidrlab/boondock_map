@@ -2110,18 +2110,22 @@ function attachWeather(popup, lat, lng, m) {
   load()
 }
 
-// Directions handoff — standard Apple/Google Maps deep links, plus in-app
-// compass guidance (VISION row 90). The Guide button carries the target in
-// data- attributes; a delegated handler in the map reads them.
+// Getting there — in-app only (VISION row 133).
+//
+// This used to offer Apple and Google deep links. Tapping one handed that
+// destination, and the fact that someone was driving to it, to the two
+// companies the app exists to avoid — the single place the privacy promise
+// broke, on the most-used path in the app. They're gone.
+//
+// What replaces them is the same capability without the handoff: compass
+// guidance in-app, and coordinates on the clipboard. Pasting those into
+// another app is still an option, but it's now the user's deliberate act
+// rather than a button we shipped.
 function directionsHtml(lat, lng, name) {
-  const apple = `https://maps.apple.com/?daddr=${lat},${lng}`
-  const google = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
   const coords = `${lat.toFixed(5)}, ${lng.toFixed(5)}`
   return `
     <div style="font-size:11px;margin-top:7px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-      Directions:
-      <a href="${apple}" target="_blank" rel="noreferrer" style="color:#38bdf8">Apple</a> ·
-      <a href="${google}" target="_blank" rel="noreferrer" style="color:#38bdf8">Google</a>
+      <span style="color:rgba(var(--fg-rgb),.55)">${coords}</span>
       <button data-copy-coords="${coords}" title="Copy coordinates for any app"
         style="all:unset;cursor:pointer;color:#8babd0;display:inline-flex;align-items:center;gap:3px;margin-left:auto;padding:1px 4px">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>

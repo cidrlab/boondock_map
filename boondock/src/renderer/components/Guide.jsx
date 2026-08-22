@@ -23,8 +23,9 @@ const TABS = [
           waypoints for spots worth trying.</li>
           <li><strong>Pack</strong> — download offline maps for the area before
           you lose signal.</li>
-          <li><strong>Go</strong> — navigate out with the Directions links, then
-          record what you found: been there, camped, ratings, labels.</li>
+          <li><strong>Go</strong> — follow the compass out with <em>Guide me
+          here</em>, then record what you found: been there, camped, ratings,
+          labels.</li>
         </ol>
         <p>Flip through the tabs above for each part of the app. The
         <strong> ?</strong> button beside the book in the top bar is the map
@@ -276,9 +277,8 @@ const TABS = [
           it hides sites whose 7–16-day forecast breaks your heat, cold, or
           average-temperature limits, and shades the areas that qualify.</li>
           <li>Every result card names its <strong>data source</strong> with a
-          confidence hint, and has <strong>Directions</strong> links (Apple or
-          Google Maps) plus <strong>Copy coords</strong> to take the location
-          anywhere else.</li>
+          confidence hint, and carries <strong>Guide me here</strong> plus
+          <strong>Copy coords</strong> to take the location anywhere else.</li>
         </ul>
       </>
     ),
@@ -304,7 +304,7 @@ const TABS = [
         “rough road”). Once used, they become one-tap checkmarks on every
         save/edit form — and filter chips above the waypoint list.</p>
         <p><strong>On the map:</strong> click a pin for its popup — status,
-        labels, ratings, elevation, <em>Directions</em>, <em>Edit</em>, and
+        labels, ratings, elevation, <em>Guide me here</em>, <em>Edit</em>, and
         <em>Delete</em> (tap twice to confirm).</p>
         <p><strong>In the list:</strong> the pencil opens the full editor,
         which adds ★ ratings for Quiet, Cleanliness, and Accessibility, plus a
