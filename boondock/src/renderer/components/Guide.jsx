@@ -30,6 +30,12 @@ const TABS = [
         <p>Flip through the tabs above for each part of the app. The
         <strong> ?</strong> button beside the book in the top bar is the map
         legend — what every color and symbol means.</p>
+        <p><strong>No handoff to Apple or Google.</strong> Getting you
+        somewhere is done in the app — compass guidance, and real routing over
+        forest roads where we have the data — so a destination you tap is never
+        passed to either of them. <em>Copy coords</em> is there if you want to
+        paste a spot into something else; that&apos;s your call to make, not a
+        button we made for you.</p>
         <p><strong>Don&apos;t take our word for the privacy part.</strong> The
         whole app is open source under GPL-3.0, so you can read exactly what it
         does and what it never sends anywhere:
@@ -116,6 +122,20 @@ const TABS = [
           is in the full-screen gear panel. It needs iOS&nbsp;16.4 or a recent
           desktop browser; where the browser can&apos;t do it the button is
           greyed out and says so rather than pretending.</li>
+          <li><strong>Drive me there</strong> — where we have road data for the
+          area, point cards carry this above <em>Guide me here</em>. It works
+          out an actual driving route over the Forest Service road network and
+          draws it on the map, then the readout shows your next turn, the miles
+          left, and an estimate of the time. Pick your <strong>vehicle</strong>
+          in the strip and roads USFS doesn&apos;t list as open to it are
+          excluded outright — a passenger car will be told there&apos;s no legal
+          route rather than sent down one. Wander off the line and it says so
+          and recalculates. <strong>All of it runs on your phone</strong>: the
+          road data is a file we host, the routing happens on the device, and
+          nothing about where you&apos;re going is sent anywhere. Two honest
+          limits — it knows <em>forest roads only</em>, so it won&apos;t route
+          you from home, and a road being on the map is not a promise
+          it&apos;s passable today.</li>
           <li><strong>Guide me here</strong> — every point card (waypoints,
           sites, search results, map clicks) has a green <em>Guide me here</em>
           button. Tap it and the app draws a straight line to that spot, shows

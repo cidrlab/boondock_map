@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useLiveSensors } from '../../shared/useLiveSensors'
 import { bearingTo, distanceMiles, relativeTurn, formatDistance } from '../../shared/geo'
+import { distanceToRouteMi, VEHICLE_PROFILES } from '../../shared/router'
 import { Maximize, Eye } from './Icons'
 import './LiveReadout.css'
 
@@ -28,6 +29,7 @@ const CARDINALS_16 = [
 
 export default function LiveReadout({
   navTarget = null, onFix, onCancelNav,
+  navRoute = null, onCancelRoute, vehicle, onVehicleChange,
   onOpenInstruments, keepAwake, wakeLock, onToggleKeepAwake,
 }) {
   const { fix, geoState, elev, stale, heading, headingSrc, magState, magQuiet, requestCompass, mph } = useLiveSensors()
@@ -37,8 +39,8 @@ export default function LiveReadout({
   // Report the live position up so the map can draw the beeline (row 90) —
   // only while navigating, so idle use doesn't re-render App every fix
   useEffect(() => {
-    if (navTarget) onFix?.(fix ? { lat: fix.lat, lng: fix.lng } : null)
-  }, [fix, navTarget, onFix])
+    if (navTarget || navRoute) onFix?.(fix ? { lat: fix.lat, lng: fix.lng } : null)
+  }, [fix, navTarget, navRoute, onFix])
 
   // Slide the tape the short way round, staying inside its three rendered
   // turns: jumping by a whole turn is pixel-identical, so it's done with the
@@ -110,6 +112,22 @@ export default function LiveReadout({
     return `${Math.round(Math.abs(nav.turn))}° ${nav.turn < 0 ? 'left' : 'right'}`
   })()
 
+  // Where you are along a routed drive: the nearest step, and what's left of
+  // the whole thing. Recomputed per fix, which is cheap at these sizes.
+  const routeProgress = useMemo(() => {
+    if (!navRoute?.steps?.length || !fix) return null
+    const here = [fix.lng, fix.lat]
+    let bestStep = 0
+    let bestMi = Infinity
+    navRoute.steps.forEach((step, i) => {
+      const d = distanceToRouteMi(step.coordinates, here)
+      if (d < bestMi) { bestMi = d; bestStep = i }
+    })
+    const remaining = navRoute.steps.slice(bestStep).reduce((sum, s) => sum + s.miles, 0)
+    const offRoute = bestMi > 0.25
+    return { step: navRoute.steps[bestStep], next: navRoute.steps[bestStep + 1] || null, remaining, offRoute }
+  }, [navRoute, fix])
+
   const spd = Number.isFinite(fix?.speed) ? fix.speed : null
 
   return (
@@ -124,6 +142,41 @@ export default function LiveReadout({
         </div>
       ) : (
         <div className={stale ? 'lr-stale' : undefined}>
+          {navRoute && (
+            <div className={`lr-route ${routeProgress?.offRoute ? 'lr-route-off' : ''}`}>
+              <div className="lr-route-head">
+                <span className="lr-route-turn">
+                  {routeProgress?.offRoute
+                    ? 'Off route — recalculating'
+                    : routeProgress?.next
+                      ? `${routeProgress.next.turn} onto ${routeProgress.next.label}`
+                      : `continue on ${routeProgress?.step?.label || navRoute.steps[0]?.label}`}
+                </span>
+                <button className="lr-nav-close" onClick={onCancelRoute} aria-label="Stop the route" title="Stop the route">×</button>
+              </div>
+              <div className="lr-route-sub">
+                {formatDistance(routeProgress?.remaining ?? navRoute.miles)} left
+                {' · '}{Math.round(navRoute.minutes)} min
+                {navRoute.endOffRoadMi > 0.05 && ` · then ${formatDistance(navRoute.endOffRoadMi)} off-road`}
+              </div>
+              <div className="lr-route-veh">
+                {VEHICLE_PROFILES.map(v => (
+                  <button
+                    key={v.id}
+                    className={`lr-veh ${(vehicle?.id || 'any') === v.id ? 'on' : ''}`}
+                    onClick={() => onVehicleChange?.(v.id === 'any' ? null : v)}
+                    title={v.id === 'any'
+                      ? 'Route over every mapped road, whatever it is open to'
+                      : `Only roads USFS lists as open to a ${v.label.toLowerCase()}`}
+                  >{v.label}</button>
+                ))}
+              </div>
+              <div className="lr-route-note">
+                Forest roads only, from USFS data — times are estimates, and a
+                road being mapped isn&apos;t a promise it&apos;s passable.
+              </div>
+            </div>
+          )}
           {navTarget && (
             <div className="lr-nav">
               <svg className="lr-nav-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>

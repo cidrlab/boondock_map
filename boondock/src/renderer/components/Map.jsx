@@ -11,6 +11,8 @@ import { WP_STATUS_META, WP_RATING_KEYS, statusBadgeColor } from '../../shared/w
 import { STATE_BOUNDS } from '../../shared/stateBounds'
 import { WAYPOINT_COLORS } from './Icons'
 import { communityEnabled, submitCheckin, flagSpot, loadCommunityFeatures, prunePendingReports } from '../../shared/community'
+import { route as routeOverGraph, distanceToRouteMi } from '../../shared/router'
+import { loadManifest, loadGraph, routingAvailableSync, coversPointSync } from '../../shared/routeGraph'
 import {
   MVUM_ROAD_SYMBOL, MVUM_TRAIL_SYMBOL, SURFACE_CODES, MAINT_LEVELS, ROAD_CHARACTER,
   TRAIL_CLASS, vehicleList, trailUses, trailIsMotorized, formatSeason, describeCode,
@@ -62,7 +64,7 @@ const Map = forwardRef(function Map(
     liveReadoutOn, onToggleLiveReadout,
     pickMode, onAddWaypoint, addActive,
     editingWaypointId, onWaypointRelocate,
-    navTarget, userFix, onNavigate, onSunPath,
+    navTarget, userFix, onNavigate, onSunPath, onRoute, vehicle,
   },
   ref
 ) {
@@ -83,6 +85,9 @@ const Map = forwardRef(function Map(
   const onNavigateRef = useRef(onNavigate)
   const onSunPathRef = useRef(onSunPath)
   const navTargetRef = useRef(navTarget)
+  const clearRouteRef = useRef(null)
+  const onRouteRef = useRef(onRoute)
+  const vehicleBitRef = useRef(0)
   const userFixRef = useRef(userFix)
 
   // GPS feed for track recording. Everything downstream (accumulate in App,
@@ -164,6 +169,23 @@ const Map = forwardRef(function Map(
     return () => document.removeEventListener('click', onNavClick)
   }, [])
 
+  // Delegated "Drive me there" — the routed sibling of the beeline button
+  // above. Only rendered where a graph covers both ends (see routeGraph.js),
+  // so this handler never has to explain an absent one.
+  useEffect(() => {
+    const onRouteClick = (e) => {
+      const btn = e.target.closest?.('[data-route-lat]')
+      if (!btn) return
+      const lat = parseFloat(btn.dataset.routeLat)
+      const lng = parseFloat(btn.dataset.routeLng)
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+      btn.closest('.maplibregl-popup')?.querySelector('.maplibregl-popup-close-button')?.click()
+      startRouteRef.current?.({ lat, lng, name: btn.dataset.routeName || '' })
+    }
+    document.addEventListener('click', onRouteClick)
+    return () => document.removeEventListener('click', onRouteClick)
+  }, [])
+
   // Delegated "Sun & shade" (VISION row 132), same shape as the Guide button:
   // every point card carries one, and one handler serves them all.
   useEffect(() => {
@@ -185,6 +207,7 @@ const Map = forwardRef(function Map(
   useEffect(() => { downloadModeRef.current = downloadMode }, [downloadMode])
 
   useImperativeHandle(ref, () => ({
+    clearRoute: () => clearRouteRef.current?.(),
     flyTo: (opts) => map.current?.flyTo(opts),
     fitBounds: (bounds, opts) => map.current?.fitBounds(bounds, opts),
     getMap: () => map.current,
@@ -1055,6 +1078,24 @@ const Map = forwardRef(function Map(
         paint: { 'line-color': '#34d399', 'line-width': 3, 'line-opacity': 0.9, 'line-dasharray': [2, 1.5] },
       })
     }
+    // The routed line: a dark casing under a solid green line, so it reads on
+    // satellite as well as on the dark base. Drawn beneath the beeline, which
+    // stays dashed — the two are different claims and shouldn't look alike.
+    if (!m.getSource('route-line')) m.addSource('route-line', { type: 'geojson', data: empty })
+    if (!m.getLayer('route-line-casing')) {
+      m.addLayer({
+        id: 'route-line-casing', type: 'line', source: 'route-line',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#0b1a14', 'line-width': 8, 'line-opacity': 0.85 },
+      }, 'nav-line-layer')
+    }
+    if (!m.getLayer('route-line-layer')) {
+      m.addLayer({
+        id: 'route-line-layer', type: 'line', source: 'route-line',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#34d399', 'line-width': 4.5, 'line-opacity': 0.95 },
+      }, 'nav-line-layer')
+    }
     if (!m.getLayer('nav-target-ring')) {
       m.addLayer({
         id: 'nav-target-ring', type: 'circle', source: 'nav-target',
@@ -1067,6 +1108,95 @@ const Map = forwardRef(function Map(
       })
     }
   }
+
+  // ── Routed driving over the self-hosted MVUM network (VISION rows 91/133) ─
+  // Everything here runs on the device: the graph is a static file we host,
+  // the search is shared/router.js, and nothing about the destination leaves.
+  const startRouteRef = useRef(null)
+  const routeRef = useRef(null)          // the active route, for off-route checks
+  const rerouteAtRef = useRef(0)         // debounce: no more than one reroute per 15 s
+
+  const drawRoute = useCallback((coordinates) => {
+    const m = map.current
+    const src = m?.getSource('route-line')
+    if (!src) return
+    src.setData(coordinates?.length
+      ? { type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} }
+      : { type: 'FeatureCollection', features: [] })
+  }, [])
+
+  const clearRoute = useCallback(() => {
+    routeRef.current = null
+    drawRoute(null)
+    onRouteRef.current?.(null)
+  }, [drawRoute])
+
+  const computeRoute = useCallback(async (target, { silent = false } = {}) => {
+    const m = map.current
+    if (!m || !target) return null
+    // The route starts where you are, so a fix is required — but only now, at
+    // the point of asking, not as a precondition for offering
+    let fix = userFixRef.current
+    if (!fix) {
+      fix = await oneShotFix()
+      if (!fix) {
+        if (!silent) showToast(mapContainer.current, "Can't route without your location — allow location access and try again.")
+        return null
+      }
+    }
+    const from = [fix.lng, fix.lat]
+    const to = [target.lng, target.lat]
+    const avail = routingAvailableSync(from, to)
+    if (!avail) {
+      if (!silent) showToast(mapContainer.current, "No road graph covers this area yet — use Guide me here for a beeline.")
+      return null
+    }
+    try {
+      const { index } = await loadGraph(avail.key)
+      const result = routeOverGraph(index, from, to, { vehicleBit: vehicleBitRef.current })
+      if (!result.ok) {
+        if (!silent) showToast(mapContainer.current, routeFailureText(result))
+        return null
+      }
+      routeRef.current = { ...result, target }
+      drawRoute(result.coordinates)
+      onRouteRef.current?.({
+        target,
+        miles: result.miles,
+        minutes: result.minutes,
+        steps: result.steps,
+        coordinates: result.coordinates,
+        startOffRoadMi: result.startOffRoadMi,
+        endOffRoadMi: result.endOffRoadMi,
+      })
+      return result
+    } catch {
+      if (!silent) showToast(mapContainer.current, "Couldn't load the road data for this area.")
+      return null
+    }
+  }, [drawRoute])
+
+  useEffect(() => { startRouteRef.current = computeRoute }, [computeRoute])
+
+  // The manifest is tiny and decides whether the offer appears at all, so it
+  // is fetched once at startup rather than when a popup opens
+  useEffect(() => { loadManifest() }, [])
+
+  // Off-route: a routed line you have left is worse than no line, because it
+  // still looks authoritative. Recompute once you are clearly off it, with a
+  // debounce so a bad fix in a canyon doesn't thrash.
+  useEffect(() => {
+    const active = routeRef.current
+    if (!active || !userFix) return
+    const offMi = distanceToRouteMi(active.coordinates, [userFix.lng, userFix.lat])
+    if (offMi < OFF_ROUTE_MI) return
+    const now = Date.now()
+    if (now - rerouteAtRef.current < REROUTE_COOLDOWN_MS) return
+    rerouteAtRef.current = now
+    computeRoute(active.target, { silent: true })
+  }, [userFix, computeRoute])
+
+  useEffect(() => { clearRouteRef.current = clearRoute }, [clearRoute])
 
   function applyNavData() {
     const m = map.current
@@ -1083,6 +1213,8 @@ const Map = forwardRef(function Map(
   }
 
   useEffect(() => { navTargetRef.current = navTarget }, [navTarget])
+  useEffect(() => { onRouteRef.current = onRoute }, [onRoute])
+  useEffect(() => { vehicleBitRef.current = vehicle?.bit || 0 }, [vehicle])
   useEffect(() => { userFixRef.current = userFix }, [userFix])
   useEffect(() => { if (mapReady) applyNavData() }, [navTarget, userFix, mapReady])
 
@@ -1790,6 +1922,44 @@ const SITE_KIND_COLOR = ['match', ['get', 'kind'],
   ...SITE_KINDS.flatMap(k => [k.id, k.color]),
   '#e8eef4']
 
+// Off-route by more than this and the drawn line is actively misleading, so
+// it gets recomputed. A quarter mile is wide enough for GPS drift under trees
+// and narrow enough to catch a missed junction.
+const OFF_ROUTE_MI = 0.25
+const REROUTE_COOLDOWN_MS = 15000
+
+// One position, for the moment someone asks for a route without the live
+// readout already running
+function oneShotFix() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 },
+    )
+  })
+}
+
+// Every routing failure is something the driver needs told plainly, and none
+// of them is "something went wrong"
+function routeFailureText(result) {
+  switch (result.reason) {
+    case 'start-too-far':
+      return `You're more than ${result.snapMi} mi from any mapped forest road — Guide me here gives a beeline instead.`
+    case 'end-too-far':
+      return `That spot is more than ${result.snapMi} mi from any mapped forest road.`
+    case 'no-legal-route':
+      return 'No route there that\'s open to your vehicle. Try a different vehicle in the Route settings, or Guide me here.'
+    case 'not-connected':
+      return 'No forest road connects those two points in the data we hold — the trip probably needs pavement.'
+    case 'same-place':
+      return "You're already there."
+    default:
+      return "Couldn't work out a route to that spot."
+  }
+}
+
 const SITE_DISC_FILL = 'rgba(16, 21, 28, 0.92)'
 
 // Why a just-enabled overlay has nothing to draw here — or null when it should
@@ -2110,6 +2280,21 @@ function attachWeather(popup, lat, lng, m) {
   load()
 }
 
+// The routed-drive offer, rendered only where a graph actually covers both
+// where you are and where you're going (shared/routeGraph.js). Absent is the
+// right state for most of the country today: a button that can only apologise
+// is worse than no button, and the beeline below it still works everywhere.
+function routeButtonHtml(lat, lng, name) {
+  if (!coversPointSync([lng, lat])) return ''
+  return `
+    <button data-route-lat="${lat}" data-route-lng="${lng}" data-route-name="${esc(name || '')}"
+      title="Drive there along legal forest roads, worked out on this device"
+      style="margin-top:6px;width:100%;padding:5px 10px;font-size:11.5px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(52,211,153,0.16);color:#34d399;border:1px solid rgba(52,211,153,0.5);border-radius:7px;cursor:pointer;font-weight:600">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>
+      Drive me there
+    </button>`
+}
+
 // Getting there — in-app only (VISION row 133).
 //
 // This used to offer Apple and Google deep links. Tapping one handed that
@@ -2132,6 +2317,7 @@ function directionsHtml(lat, lng, name) {
         Copy coords
       </button>
     </div>
+    ${routeButtonHtml(lat, lng, name)}
     <button data-nav-lat="${lat}" data-nav-lng="${lng}" data-nav-name="${esc(name || '')}"
       title="Beeline compass guidance to this point"
       style="margin-top:6px;width:100%;padding:5px 10px;font-size:11.5px;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(52,211,153,0.12);color:#34d399;border:1px solid rgba(52,211,153,0.35);border-radius:7px;cursor:pointer">

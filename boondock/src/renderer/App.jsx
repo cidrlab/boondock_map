@@ -44,6 +44,8 @@ export default function App() {
   const [pickMode, setPickMode] = useState(false)             // next map tap drops a waypoint
   const [editingWaypointId, setEditingWaypointId] = useState(null)  // its pin is draggable (VISION row 94)
   const [navTarget, setNavTarget] = useState(null)   // beeline compass target (VISION row 90)
+  const [navRoute, setNavRoute] = useState(null)     // routed drive (VISION rows 91/133)
+  const [vehicle, setVehicle] = useState(null)       // routing profile, null = any vehicle
   const [userFix, setUserFix] = useState(null)       // live GPS position, reported up by the readout
   const [searchPins, setSearchPins] = useState([])   // numbered POI/search results shown on the map
   const [hoverPin, setHoverPin] = useState(null)     // index sync: list row ↔ map pin
@@ -191,6 +193,11 @@ export default function App() {
   // "Guide me here" on any point card sets a target and shows the readout;
   // the ribbon points the way and the map draws the straight line.
   const onNavigate = useCallback((t) => { setNavTarget(t); setLiveReadoutOn(true) }, [])
+  useEffect(() => { if (navRoute) setLiveReadoutOn(true) }, [navRoute])
+  const cancelRoute = useCallback(() => {
+    mapRef.current?.clearRoute?.()
+    setNavRoute(null)
+  }, [])
   const cancelNav = useCallback(() => setNavTarget(null), [])
   const handleFix = useCallback((f) => setUserFix(f), [])
 
@@ -502,6 +509,8 @@ export default function App() {
           onWaypointRelocate={relocateWaypoint}
           navTarget={navTarget}
           userFix={userFix}
+          onRoute={setNavRoute}
+          vehicle={vehicle}
           onNavigate={onNavigate}
           onSunPath={openSunPath}
         />
@@ -510,6 +519,10 @@ export default function App() {
         {liveReadoutOn && (
           <LiveReadout
             navTarget={navTarget}
+            navRoute={navRoute}
+            onCancelRoute={cancelRoute}
+            vehicle={vehicle}
+            onVehicleChange={setVehicle}
             onFix={handleFix}
             onCancelNav={cancelNav}
             onOpenInstruments={() => setShowInstruments(true)}

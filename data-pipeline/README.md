@@ -134,6 +134,41 @@ open network and both tools. Run it with the defaults first: you get the schema
 report and the tiled sizes as artifacts without touching the repo. Re-run with
 `commit: true` once the numbers look right.
 
+## Routing graphs (VISION rows 91/133)
+
+`build_route_graph.py` turns the MVUM shapefile into a routable graph — snap
+every vertex to ~1 m, treat any point two roads share as a junction, split the
+roads there, drop the orphans. The app loads one per region, lazily, the same
+way it loads per-state sites, and routes on the device.
+
+```
+python3 build_route_graph.py --state OR          # one state
+python3 build_route_graph.py --stats-only --state OR
+python3 build_route_graph.py --from-geojson roads.geojsons --key test
+```
+
+**Read the connectivity numbers, not just the exit code.** A graph that nodes
+badly still builds; it simply can't route anywhere, and the failure looks like
+"no route" rather than an error. `largest_share` is the one to watch — if the
+biggest connected component holds well under half the nodes, the snap tolerance
+is wrong for that data and the script says so.
+
+Build it from the **shapefile**, never the tilesets. Tile geometry is simplified
+for drawing: measured on the shipped MVUM tiles, the median gap between a dead
+end and the nearest node is 375 ft, which is a junction that no longer exists
+rather than a tolerance to tune.
+
+Writing a graph also updates `web/public/data/routegraphs.json`, the index the
+app reads to decide whether to offer routing at all. Until a region is in there,
+the app quietly doesn't offer it.
+
+The engine has its own tests, no framework required:
+
+```
+node boondock/src/shared/router.test.mjs
+node boondock/src/shared/router.test.mjs web/public/data/routegraph-or.json
+```
+
 ## App side
 
 `boondock/src/shared/stateBounds.js` (generated from the boundary polygons)

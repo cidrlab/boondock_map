@@ -28,6 +28,7 @@ below the accuracy of the source and roughly halves the file.
 import argparse
 import json
 import re
+from datetime import date
 import math
 import shutil
 import subprocess
@@ -273,17 +274,46 @@ def write_graph(key, graph, stats):
     out = OUT_DIR / f"routegraph-{key}.json"
     lons = [n[0] for n in graph["nodes"]] or [0]
     lats = [n[1] for n in graph["nodes"]] or [0]
+    bbox = [min(lons), min(lats), max(lons), max(lats)]
     doc = {
         "version": 1,
         "key": key,
-        "bbox": [min(lons), min(lats), max(lons), max(lats)],
+        "bbox": bbox,
         "stats": stats,
         "nodes": graph["nodes"],
         "edges": graph["edges"],
     }
     out.write_text(json.dumps(doc, separators=(",", ":")))
     print(f"  wrote {out} ({out.stat().st_size / 1e6:.1f} MB)")
+    update_manifest(key, bbox, stats, out.stat().st_size)
     return out
+
+
+def update_manifest(key, bbox, stats, size_bytes):
+    """Publish which areas have a graph, so the app never probes for 404s.
+
+    The app reads this one small file to decide whether routing is offered at
+    all. Until a graph exists for where you are, the feature stays out of the
+    way rather than offering a button that can only fail.
+    """
+    path = OUT_DIR / "routegraphs.json"
+    try:
+        doc = json.loads(path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        doc = {"version": 1, "graphs": []}
+    doc["graphs"] = [g for g in doc.get("graphs", []) if g.get("key") != key]
+    doc["graphs"].append({
+        "key": key,
+        "bbox": [round(v, 4) for v in bbox],
+        "bytes": size_bytes,
+        "nodes": stats["nodes"],
+        "edges": stats["edges"],
+        "miles": stats["miles"],
+        "built": date.today().isoformat(),
+    })
+    doc["graphs"].sort(key=lambda g: g["key"])
+    path.write_text(json.dumps(doc, indent=1) + "\n")
+    print(f"  listed in {path.name} ({len(doc['graphs'])} graph(s) available)")
 
 
 def main():

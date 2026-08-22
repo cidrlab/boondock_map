@@ -41,20 +41,27 @@ export const VEHICLE_PROFILES = [
   { id: 'any', label: 'Any vehicle', bit: 0 },   // 0 = don't filter
 ]
 
-// Rough travel speeds in mph by surface, used only to order alternatives and
-// give an honest time estimate. These are forest roads: the number is a
-// planning aid, not a promise, and the UI says so.
+// Rough travel speeds in mph by surface, used to order alternatives and give
+// an honest time estimate. These are forest roads: the number is a planning
+// aid, not a promise, and the readout says so.
+//
+// Keyed by the USFS SURFACETYP *code*, because that is what the pipeline
+// carries — `surf: "NAT"`, not "Native material" (see shared/usfsCodes.js, and
+// the projection in build_road_pmtiles.py). Spelling the words out here would
+// match nothing and quietly cost every road the same default, which is a
+// wrong answer that still looks like a working router.
 const SPEED_BY_SURFACE = {
-  'PAVED': 35,
-  'ASPHALT': 35,
-  'CONCRETE': 35,
-  'IMPROVED': 25,
-  'AGGREGATE': 22,
-  'GRAVEL': 22,
-  'CRUSHED': 22,
-  'DIRT': 14,
-  'NATIVE': 12,
-  'NATIVE MATERIAL': 12,
+  P: 35,        // paved
+  AC: 35,       // asphalt
+  PCC: 35,      // concrete
+  BST: 30,      // bituminous surface treatment
+  IMP: 25,      // improved native material
+  AGG: 22,      // gravel or crushed aggregate
+  PIT: 18,      // pit run / shot rock
+  CSOIL: 15,    // compacted soil
+  NAT: 12,      // native material
+  SOD: 10,      // grass
+  OTHER: 15,
 }
 const DEFAULT_SPEED = 15
 

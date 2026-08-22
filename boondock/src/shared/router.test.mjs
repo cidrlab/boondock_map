@@ -43,7 +43,7 @@ const G = (() => {
   ]
   const seg = (a, b, extra) => ({
     a, b, g: [n[a], n[b]], m: haversineMi(n[a], n[b]),
-    surf: 'GRAVEL', oml: 3, veh: 63, sym: 2, rte: null, ...extra,
+    surf: 'AGG', oml: 3, veh: 63, sym: 2, rte: null, ...extra,   // AGG = gravel, the real code
   })
   return {
     nodes: n,
@@ -51,8 +51,8 @@ const G = (() => {
       seg(0, 1, { name: 'Spine Rd' }),
       seg(1, 2, { name: 'Spine Rd' }),
       seg(2, 3, { name: 'Spine Rd' }),
-      seg(1, 4, { name: 'North Rd', surf: 'DIRT', oml: 2 }),
-      seg(2, 5, { name: 'South Rd', surf: 'NATIVE', oml: 2, veh: VEH_BITS.highClearance }),
+      seg(1, 4, { name: 'North Rd', surf: 'NAT', oml: 2 }),
+      seg(2, 5, { name: 'South Rd', surf: 'NAT', oml: 2, veh: VEH_BITS.highClearance }),
       seg(6, 7, { name: 'Parallel Rd' }),
     ],
   }
@@ -87,6 +87,18 @@ console.log('\n── geometry helpers')
   ok('turnWord: left', turnWord(-90) === 'turn left')
   ok('turnWord: wraps past 180', turnWord(350) === 'continue')
   ok('turnWord: U-turn', turnWord(180) === 'make a U-turn')
+}
+
+console.log('\n── the cost model reads USFS surface codes, not prose')
+{
+  const mph = (surf, oml) => 10 / (edgeMinutes({ m: 10, surf, oml }) / 60)
+  ok('asphalt is fast', Math.abs(mph('AC', 3) - 35) < 0.01, `${mph('AC', 3).toFixed(0)} mph`)
+  ok('gravel is slower', Math.abs(mph('AGG', 3) - 22) < 0.01, `${mph('AGG', 3).toFixed(0)} mph`)
+  ok('native material slower still', mph('NAT', 2) < 12, `${mph('NAT', 2).toFixed(1)} mph`)
+  ok('a closed-grade road is slowest', mph('NAT', 1) < mph('NAT', 2), `${mph('NAT', 1).toFixed(1)} mph`)
+  ok('an unknown code falls back, it does not crash', mph('ZZZ', 3) === 15)
+  // Prose would have been the bug: every road at the default, silently
+  ok('the spelled-out name is NOT a key', mph('GRAVEL', 3) === 15)
 }
 
 console.log('\n── routing the known network')
