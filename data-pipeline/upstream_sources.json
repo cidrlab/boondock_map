@@ -30,7 +30,7 @@
         "etag": "\"e0dbc1d-634df4c40bd5d\"",
         "content_length": 235781149
       },
-      "checked": "2026-08-10",
+      "checked": "2026-08-24",
       "built_from": "Sun, 11 May 2025 17:12:01 GMT",
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
@@ -52,7 +52,7 @@
         "etag": "\"db473fa-634df4f1e0813\"",
         "content_length": 229929978
       },
-      "checked": "2026-08-10",
+      "checked": "2026-08-24",
       "built_from": "Sun, 11 May 2025 17:12:49 GMT",
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
@@ -74,7 +74,7 @@
         "etag": "\"6ea97a8-634df4f91ffce\"",
         "content_length": 116037544
       },
-      "checked": "2026-08-10",
+      "checked": "2026-08-24",
       "built_from": "Sun, 11 May 2025 17:12:57 GMT",
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "note": "The MVUM overlay has always drawn two sublayers: Road_MVUM (roads) and this (motorized trails, 63,056 live). Self-hosting only the roads would silently drop half the overlay.",
@@ -97,7 +97,7 @@
         "etag": "\"19c029e3-634df4b1d1551\"",
         "content_length": 432024035
       },
-      "checked": "2026-08-10",
+      "checked": "2026-08-24",
       "built_from": "Sun, 11 May 2025 17:11:42 GMT",
       "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice",
       "backup": {
