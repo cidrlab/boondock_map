@@ -59,10 +59,12 @@
   display: flex; align-items: center; justify-content: center;
   background: var(--bg-secondary);
 }
+.si-stage-cam { touch-action: none; }   /* the pinch is ours, not the page's */
 .si-video {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
+  transform-origin: center;   /* zoom magnifies around the crosshair */
 }
 .si-overlay { position: absolute; inset: 0; pointer-events: none; }
 .si-cross {
@@ -70,6 +72,16 @@
   stroke-width: 2;
   fill: none;
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7));
+}
+
+.si-zoom {
+  position: absolute; bottom: 14px; left: 12px;
+  min-width: 52px;
+  background: rgba(10, 16, 28, 0.62); color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 999px;
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  padding: 7px 12px; cursor: pointer;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 
 .si-sun-align {

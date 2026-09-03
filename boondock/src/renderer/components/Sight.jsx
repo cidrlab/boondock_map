@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useDeviceAttitude } from '../../shared/useDeviceHeading'
 import { useCamera, useSize } from '../../shared/useCamera'
-import { directionAngles, sightFix } from '../../shared/sight'
+import { directionAngles, sightFix, MAX_SIGHT_M } from '../../shared/sight'
 import { declination, WMM_VALID_TO } from '../../shared/geomag'
 import { sunPosition } from '../../shared/sun'
 import { parseCoords } from '../../shared/parseCoords'
@@ -32,6 +32,7 @@ import './Sight.css'
 
 const PREF_KEY = 'boondock-sight'
 const SMOOTH_N = 10          // ~0.3 s of attitude samples at the hook's 30 Hz
+const MAX_MI = Math.round(MAX_SIGHT_M / 1609.34)   // the engine's reach, in the copy's units
 
 const fmtMi = (m) => {
   const mi = m / 1609.34
@@ -57,6 +58,7 @@ export default function Sight({ onClose, onResult, onSaveWaypoint }) {
   const [result, setResult] = useState(null)           // sightFix output + the frozen aim
   const [error, setError] = useState(null)
 
+  const [zoom, setZoom] = useState(1)                  // view magnification, 1–8× (row 140)
   const stageRef = useRef(null)
   const videoRef = useRef(null)
   const size = useSize(stageRef)
@@ -150,7 +152,7 @@ export default function Sight({ onClose, onResult, onSaveWaypoint }) {
       if (fix.noBase) setError('No elevation data covers where you are standing — this needs a connection the first time')
       else if (!fix.hit) setError(fix.coverage < 0.9
         ? 'Too much elevation data is missing along that line to call it — try again on a better connection'
-        : 'That line clears every ridge within 15 mi — nothing to land on. Aim at ground, not sky')
+        : `That line clears every ridge within ${MAX_MI} mi — nothing to land on. Aim at ground, not sky`)
       else setResult({ ...fix, azimuth, pitch, eye: { lat: loc.lat, lng: loc.lng } })
     } catch {
       setError('Reading the terrain failed — the elevation tiles need a connection the first time')
@@ -186,6 +188,37 @@ export default function Sight({ onClose, onResult, onSaveWaypoint }) {
     onClose()
   }
 
+  // Pinch to zoom the camera view (row 140). Purely an aiming aid: the
+  // crosshair is the centre of projection, so magnifying the pixels around it
+  // changes nothing about the ray — which is also why a centred CSS scale is
+  // enough and no device zoom API needs trusting.
+  const pointersRef = useRef(new Map())
+  const pinchRef = useRef(null)
+  const pinchSpan = () => { const [a, b] = [...pointersRef.current.values()]; return Math.hypot(a.x - b.x, a.y - b.y) }
+  const onStageDown = (e) => {
+    if (mode !== 'camera') return
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    // Capture only once a second finger lands: capturing on the first press
+    // would retarget its pointerup to the stage and swallow the click on any
+    // button inside it (the zoom pill, Align on the sun)
+    if (pointersRef.current.size === 2) {
+      e.currentTarget.setPointerCapture?.(e.pointerId)
+      pinchRef.current = { d0: pinchSpan(), z0: zoom }
+    }
+  }
+  const onStageMove = (e) => {
+    if (!pointersRef.current.has(e.pointerId)) return
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pinchRef.current && pointersRef.current.size === 2) {
+      setZoom(Math.min(8, Math.max(1, pinchRef.current.z0 * pinchSpan() / pinchRef.current.d0)))
+    }
+  }
+  const onStageUp = (e) => {
+    pointersRef.current.delete(e.pointerId)
+    if (pointersRef.current.size < 2) pinchRef.current = null
+  }
+  const cycleZoom = () => setZoom(z => (z >= 8 ? 1 : z >= 4 ? 8 : z >= 2 ? 4 : 2))
+
   const camReady = mode === 'camera' && basis && stream
   const needsHelp = mode === 'camera' && !camReady
 
@@ -210,8 +243,12 @@ export default function Sight({ onClose, onResult, onSaveWaypoint }) {
         </div>
       </div>
 
-      <div className="si-stage" ref={stageRef}>
-        {mode === 'camera' && <video ref={videoRef} className="si-video" autoPlay playsInline muted />}
+      <div className={`si-stage ${mode === 'camera' ? 'si-stage-cam' : ''}`} ref={stageRef}
+        onPointerDown={onStageDown} onPointerMove={onStageMove} onPointerUp={onStageUp} onPointerCancel={onStageUp}>
+        {mode === 'camera' && (
+          <video ref={videoRef} className="si-video" autoPlay playsInline muted
+            style={zoom > 1 ? { transform: `scale(${zoom})` } : undefined} />
+        )}
 
         {camReady && (
           <svg className="si-overlay" viewBox={`0 0 ${size.w} ${size.h}`} width={size.w} height={size.h}>
@@ -221,6 +258,13 @@ export default function Sight({ onClose, onResult, onSaveWaypoint }) {
             <line className="si-cross" x1={size.w / 2} y1={size.h / 2 + 10} x2={size.w / 2} y2={size.h / 2 + 34} />
             <circle className="si-cross" cx={size.w / 2} cy={size.h / 2} r="3.2" />
           </svg>
+        )}
+
+        {camReady && (
+          <button className="si-zoom" onClick={cycleZoom}
+            title="Zoom the view to aim precisely — pinch for fine control. An aiming aid only; zoom changes nothing about the estimate">
+            {Number.isInteger(zoom) ? zoom : zoom.toFixed(1)}×
+          </button>
         )}
 
         {camReady && sunUp && (
@@ -355,8 +399,8 @@ export default function Sight({ onClose, onResult, onSaveWaypoint }) {
         {!result && !error && (
           <p className="si-note">
             {mode === 'camera'
-              ? 'Put the crosshair on something on the ground — a road cut, a meadow, a saddle — and tap Sight. The estimate lands where that line first meets the terrain.'
-              : 'The estimate lands where the bearing line first meets the terrain, out to 15 mi.'}
+              ? 'Put the crosshair on something on the ground — a road cut, a meadow, a saddle — and tap Sight. Pinch to zoom in on it first. The estimate lands where that line first meets the terrain.'
+              : `The estimate lands where the bearing line first meets the terrain, out to ${MAX_MI} mi.`}
           </p>
         )}
       </div>

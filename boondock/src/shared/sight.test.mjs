@@ -134,6 +134,22 @@ const wall = async (lng, lat) => (meters(lng, lat) > 3000 ? 500 : 0)
   assert('E2 open-ended', f.openEnded)    // +1.5° outclimbs a 1% slope for good
 }
 
+// ── G. long range (row 140): a 3,000 m wall at 80 km, found through the
+//      curvature drop, inside the raised 100 km default cap ────────────────
+{
+  const { MAX_SIGHT_M } = await import('./sight.js')
+  check('G default cap is 100 km', MAX_SIGHT_M, 100000, 0)
+  const farWall = async (lng, lat) => (meters(lng, lat) > 80000 ? 3000 : 0)
+  const r = await sightRay({ ...OBS, azimuth: 0, pitch: 1.5, eyeHeight: 101.7, sample: farWall })
+  assert('G hit exists', r.hit != null)
+  // At 80 km the ray sits at 101.7 + 80000·tan1.5° ≈ 2196 m and the wall's
+  // effective height is 3000 − (1−0.13)·80000²/2R ≈ 2563 m — solidly struck.
+  // Bracket: last clear sample + the 250 m step + ~15 m bisection.
+  check('G distance', r.hit.distance, 80000, 700)
+  check('G elevation', r.hit.elevation, 3000, 1e-9)
+  check('G coverage', r.coverage, 1, 1e-9)
+}
+
 // ── F. directionAngles inverts the east/north/up frame ─────────────────────
 {
   const north = directionAngles([0, 1, 0])

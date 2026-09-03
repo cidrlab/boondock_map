@@ -24,6 +24,12 @@ const RAD = Math.PI / 180
 const R_EARTH = 6371008.8        // mean radius, metres — the value sun.js uses
 const K_REFRACTION = 0.13        // optical refraction, as in horizonProfile
 
+// How far a sighting reaches (row 140): 100 km ≈ 62 mi. Mountain sightlines
+// genuinely run this far on a clear day, and the march stops at first strike,
+// so only a sky-aim or the far uncertainty ray ever walks the whole length.
+// Exported so the view's copy is computed from the engine, not retyped.
+export const MAX_SIGHT_M = 100000
+
 /** Effective terrain height at range d: curvature sinks distant ground. */
 const dropAt = (d) => (1 - K_REFRACTION) * d * d / (2 * R_EARTH)
 
@@ -44,7 +50,9 @@ export function directionAngles(forward) {
  * it meets the terrain. Steps thicken with range like the ridgeline scan, but
  * start finer (the DEM pixel is ~40–75 m at its z11) because here the answer
  * is a position, not just an angle; the crossing is then bisected to ~15 m,
- * which is already inside one DEM pixel.
+ * which is already inside one DEM pixel. Beyond 12 km the step (150–250 m)
+ * can stride over a spine narrower than the step, so a distant thin ridge
+ * can be overshot — a limit worth stating out loud rather than hiding.
  *
  * Resolves to:
  *   { hit: {lat, lng, distance, elevation} | null, coverage, gapBeforeHit }
@@ -55,7 +63,7 @@ export function directionAngles(forward) {
  */
 export async function sightRay({
   lat, lng, azimuth, pitch,
-  eyeHeight = 1.7, maxDistance = 25000,
+  eyeHeight = 1.7, maxDistance = MAX_SIGHT_M,
   sample = (lo, la) => elevationAt(lo, la),
   onProgress,
 } = {}) {
@@ -67,7 +75,8 @@ export async function sightRay({
   const steps = []
   for (let d = 50; d <= Math.min(5000, maxDistance); d += 50) steps.push(d)
   for (let d = 5100; d <= Math.min(12000, maxDistance); d += 100) steps.push(d)
-  for (let d = 12200; d <= maxDistance; d += 200) steps.push(d)
+  for (let d = 12150; d <= Math.min(40000, maxDistance); d += 150) steps.push(d)
+  for (let d = 40250; d <= maxDistance; d += 250) steps.push(d)
 
   // Above the ray by this much; terrain crosses when it goes non-negative
   const standoff = async (d) => {
@@ -139,7 +148,7 @@ export async function sightFix({ azSigma = 3, pitchSigma = 1, ...ray } = {}) {
   // fan at least a sliver deep so it still draws
   const near = Math.min(nearR.hit?.distance ?? d0, d0 - 20)
   const openEnded = !farR.hit
-  const far = Math.max(farR.hit?.distance ?? (ray.maxDistance ?? 25000), d0 + 20)
+  const far = Math.max(farR.hit?.distance ?? (ray.maxDistance ?? MAX_SIGHT_M), d0 + 20)
 
   const { lat, lng, azimuth } = ray
   const corner = (azOff, d) => {

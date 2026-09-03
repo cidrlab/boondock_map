@@ -463,6 +463,11 @@ const TABS = [
         <em> Sight</em>. Open it from the <strong>crosshair icon in the
         toolbar</strong>.</p>
 
+        <p><strong>Pinch to zoom</strong> up to 8× to put the crosshair on a
+        distant feature precisely, or tap the zoom pill to step through 1, 2,
+        4, and 8×. Zoom is an aiming aid only — the crosshair stays the exact
+        centre of the view, so the estimate is the same at any zoom.</p>
+
         <p><strong>How it works.</strong> Your GPS position plus the direction
         the camera points defines a line of sight; the app walks that line
         outward through its own elevation data until it meets the ground.
@@ -500,12 +505,18 @@ const TABS = [
         real compass or a paper map (enter it in <em>true</em> degrees), and
         the version that works on a laptop.</p>
 
-        <p><strong>Honest limits.</strong> The elevation model&apos;s cell is
-        roughly 50 to 70 m in the lower 48, so that is the floor on precision
-        no matter how steady your hand is. The walk needs a connection the
-        first time to fetch elevation tiles, and it says so when tiles are
-        missing along the line — a missing tile could hide a nearer ridge. A
-        sighting is an estimate to navigate toward, not a survey point.</p>
+        <p><strong>Honest limits.</strong> Sightings reach out to about 62
+        miles, which covers what you can usually identify by eye on a clear
+        day. The elevation model&apos;s cell is roughly 50 to 70 m in the
+        lower 48, so that is the floor on precision no matter how steady your
+        hand is — and past about 8 miles the walk samples every 150 to 250 m,
+        so a very narrow spine that far out can be stepped over. Remember the
+        error grows with distance too: at 40 miles, one degree of compass is
+        over a thousand yards sideways, which is exactly what the strip on
+        the map will show you. The walk needs a connection the first time to
+        fetch elevation tiles, and it says so when tiles are missing along
+        the line — a missing tile could hide a nearer ridge. A sighting is an
+        estimate to navigate toward, not a survey point.</p>
       </>
     ),
   },
