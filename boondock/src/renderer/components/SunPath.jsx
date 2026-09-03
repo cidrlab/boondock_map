@@ -4,6 +4,7 @@ import {
   horizonProfile, horizonAt, skyVector,
 } from '../../shared/sun'
 import { useDeviceAttitude } from '../../shared/useDeviceHeading'
+import { useCamera, useSize } from '../../shared/useCamera'
 import { parseCoords } from '../../shared/parseCoords'
 import { X, Settings, Sun, Camera, Compass, Crosshair, Mountain, Loader } from './Icons'
 import './SunPath.css'
@@ -51,43 +52,6 @@ function solsticeAt(year, month) {
     }
   }
   return best.t
-}
-
-/** Rear camera, released the moment the view leaves AR or closes. */
-function useCamera(active) {
-  const [stream, setStream] = useState(null)
-  const [error, setError] = useState(null)
-  useEffect(() => {
-    if (!active) { setStream(null); setError(null); return }
-    if (!navigator.mediaDevices?.getUserMedia) { setError('unsupported'); return }
-    let dead = false, live = null
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } }, audio: false })
-      .then((st) => {
-        if (dead) { st.getTracks().forEach(t => t.stop()); return }
-        live = st
-        setStream(st)
-      })
-      .catch((e) => { if (!dead) setError(e?.name === 'NotAllowedError' ? 'denied' : 'failed') })
-    return () => { dead = true; live?.getTracks().forEach(t => t.stop()) }
-  }, [active])
-  return { stream, error }
-}
-
-/** Stage size in CSS pixels, tracked so the projection stays honest on rotate. */
-function useSize(ref) {
-  const [size, setSize] = useState({ w: 0, h: 0 })
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const ro = new ResizeObserver(([e]) => {
-      const r = e.contentRect
-      setSize({ w: Math.round(r.width), h: Math.round(r.height) })
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [ref])
-  return size
 }
 
 export default function SunPath({ onClose, location, keepAwake, wakeLock, onToggleKeepAwake }) {

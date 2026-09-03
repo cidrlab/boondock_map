@@ -349,3 +349,55 @@ button, .tab-btn { touch-action: manipulation; -webkit-tap-highlight-color: tran
     padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* ── Sighting result chip (VISION row 139) ─────────────────────────────────
+   Floats over the map while a sight line is drawn: what was sighted, how far,
+   save it or clear it. Purple accents to match the line it describes. */
+.sight-chip {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(92%, 480px);
+  padding: 7px 10px 7px 14px;
+  border-radius: 100px;
+  font-size: 12px;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.sight-chip > svg { color: #a78bfa; flex: none; }
+.sight-chip > span { overflow: hidden; text-overflow: ellipsis; }
+.sight-chip-btn {
+  flex: none;
+  background: rgba(167, 139, 250, 0.16);
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  color: var(--text-primary);
+  border-radius: 100px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.sight-chip-btn:hover { background: rgba(167, 139, 250, 0.28); }
+.sight-chip-x {
+  flex: none;
+  display: inline-flex;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 100px;
+}
+.sight-chip-x:hover { color: var(--text-primary); }
+@media (max-width: 768px) {
+  .sight-chip { bottom: calc(30px + env(safe-area-inset-bottom)); }
+}

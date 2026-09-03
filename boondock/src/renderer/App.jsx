@@ -13,6 +13,8 @@ import LiveReadout from './components/LiveReadout'
 import AddWaypointMenu from './components/AddWaypointMenu'
 import FullScreenInstruments from './components/FullScreenInstruments'
 import SunPath from './components/SunPath'
+import Sight from './components/Sight'
+import { Crosshair, X } from './components/Icons'
 import { BASE_LAYERS, DEFAULT_BASE, DEFAULT_CENTER, DEFAULT_ZOOM, DEFAULT_OVERLAYS } from '../shared/layers'
 import { elevationAt } from '../shared/elevation'
 import { matchesWpFilter } from '../shared/waypointMeta'
@@ -62,6 +64,8 @@ export default function App() {
   const [showFeedback, setShowFeedback] = useState(false)
   const [showInstruments, setShowInstruments] = useState(false)   // full-screen instrument mode (VISION row 95)
   const [sunPathAt, setSunPathAt] = useState(null)               // sun path viewer target (VISION row 132)
+  const [sightOpen, setSightOpen] = useState(false)              // camera sighting view (VISION row 139)
+  const [sighting, setSighting] = useState(null)                 // its last result, drawn on the map
   const [keepAwake, setKeepAwake] = useState(false)               // hold the screen on (VISION row 100)
   const [downloadMode, setDownloadMode] = useState(false)
   const [downloadBbox, setDownloadBbox] = useState(null)
@@ -213,6 +217,19 @@ export default function App() {
   }, [userFix, mapCenterPt])
   // Putting the readout away also ends navigation, so the line can't freeze
   useEffect(() => { if (!liveReadoutOn) setNavTarget(null) }, [liveReadoutOn])
+
+  // A sighting lands on the map as a line, an error fan, and a ring on the
+  // estimate; zoom out enough to show the whole of it (VISION row 139)
+  const handleSighting = useCallback((r) => {
+    setSighting(r)
+    if (!r?.hit) return
+    const pts = [[r.eye.lng, r.eye.lat], [r.hit.lng, r.hit.lat], ...(r.fan || [])]
+    const lngs = pts.map(p => p[0]), lats = pts.map(p => p[1])
+    mapRef.current?.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 70, duration: 800, maxZoom: 14 },
+    )
+  }, [])
 
   // Stable reference unless the set actually changes. Without this the .filter()
   // ran on every render (each mousemove fires setMapCursor), handing Map a fresh
@@ -401,6 +418,7 @@ export default function App() {
         downloadMode={downloadMode}
         onOpenSyncFolder={() => api?.openSyncFolder()}
         onSunPath={() => openSunPath(null)}
+        onSight={() => setSightOpen(true)}
       />
 
       <div className="app-body">
@@ -513,6 +531,7 @@ export default function App() {
           vehicle={vehicle}
           onNavigate={onNavigate}
           onSunPath={openSunPath}
+          sighting={sighting}
         />
         <Legend open={helpPanel === 'legend'} onClose={() => setHelpPanel(null)} />
         <Guide open={helpPanel === 'guide'} onClose={() => setHelpPanel(null)} />
@@ -543,6 +562,22 @@ export default function App() {
           <button className="search-area-btn" onClick={() => searchArea.run()}>
             Search this area
           </button>
+        )}
+        {sighting?.hit && !sightOpen && (
+          <div className="sight-chip">
+            <Crosshair size={13} />
+            <span>
+              Sighted point {fmtSightMi(sighting.hit.distance)} out
+              {sighting.hit.elevation != null ? ` · ${Math.round(sighting.hit.elevation * 3.28084).toLocaleString()} ft` : ''}
+              {sighting.grazing ? ' · grazing, trust the strip' : ''}
+            </span>
+            <button className="sight-chip-btn" onClick={() => setPendingWaypoint({
+              lng: sighting.hit.lng, lat: sighting.hit.lat,
+              ...(sighting.hit.elevation != null && { elev_ft: Math.round(sighting.hit.elevation * 3.28084) }),
+              prefill: { name: 'Sighted point', icon: 'viewpoint', notes: sighting.note || '' },
+            })}>Save</button>
+            <button className="sight-chip-x" onClick={() => setSighting(null)} aria-label="Clear sighting"><X size={13} /></button>
+          </div>
         )}
         </div>
       </div>
@@ -587,6 +622,14 @@ export default function App() {
         />
       )}
 
+      {sightOpen && (
+        <Sight
+          onClose={() => setSightOpen(false)}
+          onResult={handleSighting}
+          onSaveWaypoint={setPendingWaypoint}
+        />
+      )}
+
       {showDownloadModal && (
         <DownloadModal
           bbox={downloadBbox}
@@ -603,6 +646,11 @@ export default function App() {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+function fmtSightMi(m) {
+  const mi = m / 1609.34
+  return mi >= 10 ? `${Math.round(mi)} mi` : `${mi.toFixed(1)} mi`
+}
+
 function calculateDistance(points) {
   let d = 0
   for (let i = 1; i < points.length; i++) {

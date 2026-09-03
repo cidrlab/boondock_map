@@ -453,6 +453,63 @@ const TABS = [
     ),
   },
   {
+    id: 'sight', label: 'Sight',
+    body: (
+      <>
+        <p><strong>Sight a point</strong> answers &quot;what is that over
+        there, and where is it on the map?&quot; Aim the phone&apos;s camera at
+        something you can see across the country — a forest road cut into a
+        hillside, a meadow, a saddle — put the crosshair on it, and tap
+        <em> Sight</em>. Open it from the <strong>crosshair icon in the
+        toolbar</strong>.</p>
+
+        <p><strong>How it works.</strong> Your GPS position plus the direction
+        the camera points defines a line of sight; the app walks that line
+        outward through its own elevation data until it meets the ground.
+        Fire lookouts did this with an Osborne Firefinder and a second tower
+        to cross bearings with — here the terrain model plays the second
+        tower. The estimate lands on the map as a purple dashed line with a
+        ring where it struck, a floating card says how far away and how high
+        it is, and <em>Save waypoint</em> keeps the point with the full
+        sighting (where from, what bearing, what pitch) recorded in its
+        notes.</p>
+
+        <p><strong>The error is drawn, not hidden.</strong> A compass reading
+        a degree or two off moves the answer sideways; a whisker of pitch
+        moves it along the line — a long way, when the line meets a slope at
+        a shallow angle. So the map never shows just a pin: the purple strip
+        around the line is the ground your aim error actually spans, computed
+        by re-walking the line at the edges of that error. A short strip
+        means a confident fix. A strip that runs for miles — flagged
+        <em> grazing</em> on the card — means the pin is the middle of a long
+        maybe, and the strip is the honest answer.</p>
+
+        <p><strong>The compass is the weak link.</strong> The sensor reads
+        magnetic north and the map runs on true north, which differ by 8° to
+        16° across the western states. The app corrects that automatically
+        with the World Magnetic Model (the correction is printed under the
+        readout). What no model can know is your own phone&apos;s bias — a
+        truck body, a magnetic case, a winch bumper. When the sun is out, tap
+        <strong> Align on the sun</strong>, put the crosshair on the sun
+        itself, and tap again: the sun&apos;s true bearing is known exactly,
+        so one tap measures your whole compass error and trims it out. Do it
+        once per stop, away from the vehicle if you can.</p>
+
+        <p><strong>Manual mode</strong> takes a typed bearing and pitch
+        instead of the camera — the same terrain fix for a bearing read off a
+        real compass or a paper map (enter it in <em>true</em> degrees), and
+        the version that works on a laptop.</p>
+
+        <p><strong>Honest limits.</strong> The elevation model&apos;s cell is
+        roughly 50 to 70 m in the lower 48, so that is the floor on precision
+        no matter how steady your hand is. The walk needs a connection the
+        first time to fetch elevation tiles, and it says so when tiles are
+        missing along the line — a missing tile could hide a nearer ridge. A
+        sighting is an estimate to navigate toward, not a survey point.</p>
+      </>
+    ),
+  },
+  {
     id: 'phone', label: 'Phone',
     body: (
       <>
@@ -508,6 +565,9 @@ const TABS = [
           <li><strong>Overture Maps</strong> — additional places data.</li>
           <li><strong>Open-Meteo</strong> — weather forecasts on point cards
           and behind the temperature filter (CC-BY 4.0).</li>
+          <li><strong>NOAA NCEI &amp; British Geological Survey</strong> —
+          World Magnetic Model 2025 coefficients, which turn compass readings
+          into true bearings for the sighting tool (public domain).</li>
         </ul>
         <p>Feature ideas from the late, great FreeRoam app; the live
         readout&apos;s layout takes its cue from Gaia GPS. Full license detail

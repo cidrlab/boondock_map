@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Menu, Circle, Square, Download, FolderOpen, Share, Cloud, Compass, BookOpen, HelpCircle, MessageSquare, Sun } from './Icons'
+import { Menu, Circle, Square, Download, FolderOpen, Share, Cloud, Compass, BookOpen, HelpCircle, MessageSquare, Sun, Crosshair } from './Icons'
 import './Toolbar.css'
 
 export default function Toolbar({
   isRecordingTrack, onStartTrack, onStopTrack,
   onExportGPX, onImportGPX, onToggleSidebar,
   onToggleDownloadMode, downloadMode, onOpenSyncFolder,
-  helpPanel, onToggleHelp, onFeedback, feedbackEnabled, onSunPath,
+  helpPanel, onToggleHelp, onFeedback, feedbackEnabled, onSunPath, onSight,
 }) {
   const [trackName, setTrackName] = useState('')
   const [showStopModal, setShowStopModal] = useState(false)
@@ -47,6 +47,9 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-right">
+        <button className="tb-icon-btn" onClick={onSight} title="Sight a point — aim the camera at a road or feature you can see, and mark where it is">
+          <Crosshair size={16} />
+        </button>
         <button className="tb-icon-btn" onClick={onSunPath} title="Sun path — where the sun tracks from a spot">
           <Sun size={16} />
         </button>

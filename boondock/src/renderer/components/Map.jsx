@@ -65,6 +65,7 @@ const Map = forwardRef(function Map(
     pickMode, onAddWaypoint, addActive,
     editingWaypointId, onWaypointRelocate,
     navTarget, userFix, onNavigate, onSunPath, onRoute, vehicle,
+    sighting,
   },
   ref
 ) {
@@ -85,6 +86,7 @@ const Map = forwardRef(function Map(
   const onNavigateRef = useRef(onNavigate)
   const onSunPathRef = useRef(onSunPath)
   const navTargetRef = useRef(navTarget)
+  const sightingRef = useRef(sighting)
   const clearRouteRef = useRef(null)
   const onRouteRef = useRef(onRoute)
   const vehicleBitRef = useRef(0)
@@ -387,6 +389,7 @@ const Map = forwardRef(function Map(
       addElevLayers()
       addSearchPinsLayers()
       addNavLayers()
+      addSightLayers()
       setMapReady(true)
     })
 
@@ -608,6 +611,8 @@ const Map = forwardRef(function Map(
       applySearchPins()
       addNavLayers()
       applyNavData()
+      addSightLayers()
+      applySightData()
       applyOverlayVisibility()
       applyPackAreasVisibility()
       applySiteElevFilter()
@@ -1109,6 +1114,50 @@ const Map = forwardRef(function Map(
     }
   }
 
+  // ── Camera sighting (VISION row 139) ──────────────────────────────────────
+  // The sight line from where you stood to where the ray met the terrain, the
+  // fan of ground the stated aim error actually spans (re-marched through the
+  // DEM, so a grazing hit draws honestly long), and a ring on the estimate.
+  // Purple, the viewpoint colour — a sighting is a viewpoint pointed backwards.
+  function addSightLayers() {
+    const m = map.current
+    if (!m) return
+    const empty = { type: 'FeatureCollection', features: [] }
+    if (!m.getSource('sight-fan')) m.addSource('sight-fan', { type: 'geojson', data: empty })
+    if (!m.getSource('sight-line')) m.addSource('sight-line', { type: 'geojson', data: empty })
+    if (!m.getSource('sight-hit')) m.addSource('sight-hit', { type: 'geojson', data: empty })
+    if (!m.getLayer('sight-fan-fill')) {
+      m.addLayer({
+        id: 'sight-fan-fill', type: 'fill', source: 'sight-fan',
+        paint: { 'fill-color': '#a78bfa', 'fill-opacity': 0.16 },
+      })
+    }
+    if (!m.getLayer('sight-fan-edge')) {
+      m.addLayer({
+        id: 'sight-fan-edge', type: 'line', source: 'sight-fan',
+        paint: { 'line-color': '#a78bfa', 'line-width': 1.4, 'line-opacity': 0.7, 'line-dasharray': [2, 2] },
+      })
+    }
+    if (!m.getLayer('sight-line-layer')) {
+      m.addLayer({
+        id: 'sight-line-layer', type: 'line', source: 'sight-line',
+        layout: { 'line-cap': 'round' },
+        paint: { 'line-color': '#a78bfa', 'line-width': 2.5, 'line-opacity': 0.95, 'line-dasharray': [3, 2] },
+      })
+    }
+    if (!m.getLayer('sight-hit-ring')) {
+      m.addLayer({
+        id: 'sight-hit-ring', type: 'circle', source: 'sight-hit',
+        paint: {
+          'circle-radius': 8,
+          'circle-color': 'rgba(167,139,250,0.2)',
+          'circle-stroke-color': '#a78bfa',
+          'circle-stroke-width': 2.5,
+        },
+      })
+    }
+  }
+
   // ── Routed driving over the self-hosted MVUM network (VISION rows 91/133) ─
   // Everything here runs on the device: the graph is a static file we host,
   // the search is shared/router.js, and nothing about the destination leaves.
@@ -1217,6 +1266,24 @@ const Map = forwardRef(function Map(
   useEffect(() => { vehicleBitRef.current = vehicle?.bit || 0 }, [vehicle])
   useEffect(() => { userFixRef.current = userFix }, [userFix])
   useEffect(() => { if (mapReady) applyNavData() }, [navTarget, userFix, mapReady])
+
+  function applySightData() {
+    const m = map.current
+    if (!m?.getSource('sight-line')) return
+    const s = sightingRef.current
+    const empty = { type: 'FeatureCollection', features: [] }
+    m.getSource('sight-fan').setData(s?.fan
+      ? { type: 'Feature', geometry: { type: 'Polygon', coordinates: [s.fan] }, properties: {} }
+      : empty)
+    m.getSource('sight-line').setData(s?.hit
+      ? { type: 'Feature', geometry: { type: 'LineString', coordinates: [[s.eye.lng, s.eye.lat], [s.hit.lng, s.hit.lat]] }, properties: {} }
+      : empty)
+    m.getSource('sight-hit').setData(s?.hit
+      ? { type: 'Feature', geometry: { type: 'Point', coordinates: [s.hit.lng, s.hit.lat] }, properties: {} }
+      : empty)
+  }
+  useEffect(() => { sightingRef.current = sighting }, [sighting])
+  useEffect(() => { if (mapReady) applySightData() }, [sighting, mapReady])
 
   const searchPinsRef = useRef(searchPins)
   useEffect(() => {

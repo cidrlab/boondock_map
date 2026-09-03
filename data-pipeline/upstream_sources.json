@@ -108,6 +108,28 @@
         "stamp": null,
         "bytes": 432024035
       }
+    },
+    {
+      "id": "noaa-wmm2025",
+      "label": "World Magnetic Model 2025 coefficients (row 139, embedded in shared/geomag.js)",
+      "url": "https://www.ncei.noaa.gov/sites/default/files/2024-12/WMM2025COF.zip",
+      "seen": {
+        "last_modified": "Mon, 16 Dec 2024 18:38:42 GMT",
+        "etag": null,
+        "content_length": 42887
+      },
+      "checked": "2026-09-03",
+      "built_from": "Mon, 16 Dec 2024 18:38:42 GMT",
+      "risk": "US federal source \u2014 assume it can be withdrawn or stop updating without notice. Model expires 2030.0: a WMM2030 release must replace the coefficients embedded in boondock/src/shared/geomag.js (the app flags staleness in the sighting view from 2030)",
+      "backup": {
+        "held": true,
+        "location": "data-pipeline/backups/WMM2025COF.zip",
+        "sha256": "2e76569370d081f2cd7919490218bd094ca9afde347b198eff5621e0af460d03",
+        "date": "2026-09-03",
+        "stamp": "Mon, 16 Dec 2024 18:38:42 GMT",
+        "bytes": 42887
+      },
+      "built_on": "2026-09-03"
     }
   ],
   "_comment_live": [
